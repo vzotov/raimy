@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  raimy:
+    build: .
+    ports:
+      - "8000:8000"  # FastAPI server
+      - "3000:3000"  # Next.js client (if needed)
+    environment:
+      - PYTHONPATH=/app/server
+      - NODE_ENV=production
+      # Add your environment variables here
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LIVEKIT_URL=${LIVEKIT_URL}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+    volumes:
+      # Mount for development (optional)
+      - ./server:/app/server
+      - ./client:/app/client
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add a database service if needed
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: raimy
+  #     POSTGRES_USER: raimy
+  #     POSTGRES_PASSWORD: raimy_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   postgres_data: 

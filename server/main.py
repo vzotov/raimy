@@ -1,5 +1,3 @@
-import asyncio
-
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -11,6 +9,7 @@ from livekit.agents import (
 )
 from livekit.plugins import openai, silero
 from prompts import COOKING_ASSISTANT_PROMPT
+from tools import set_timer
 
 
 load_dotenv()
@@ -21,7 +20,7 @@ async def entrypoint(ctx: JobContext):
 
     agent = Agent(
         instructions=COOKING_ASSISTANT_PROMPT,
-        tools=[],
+        tools=[set_timer],
     )
     session = AgentSession(
         vad=silero.VAD.load(),

@@ -26,6 +26,7 @@ services:
     command: ["python", "server/main.py", "start"]
     environment:
       - PYTHONPATH=/app/server
+      - API_URL=http://raimy-api:8000
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - LIVEKIT_URL=${LIVEKIT_URL}

@@ -1,15 +1,15 @@
-"use client";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import AuthButton from "@/components/AuthButton";
+'use client';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import AuthButton from '@/components/AuthButton';
 
 export default function HomeContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const handleGoToKitchen = () => router.push("/kitchen");
+  const handleGoToKitchen = () => router.push('/kitchen');
 
-  if (status === "loading") {
+  if (status === 'loading') {
     return <div className="text-lg">Loading...</div>;
   }
 
@@ -25,4 +25,4 @@ export default function HomeContent() {
   }
 
   return <AuthButton />;
-} 
+}

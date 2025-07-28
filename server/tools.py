@@ -11,6 +11,8 @@ async def set_timer(
     label: str,
 ):
     """Set a timer for the specified duration (in seconds) and provide a descriptive label."""
+    print(f"🔧 TOOL CALL: set_timer(duration={duration}, label='{label}')", flush=True)
+    
     try:
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
@@ -26,16 +28,19 @@ async def set_timer(
             ) as response:
                 if response.status == 200:
                     result = await response.json()
+                    print(f"✅ TOOL RESULT: set_timer - Success: {result.get('message', f'Timer set for {duration} seconds: {label}')}", flush=True)
                     return {
                         "success": True,
                         "message": result.get("message", f"Timer set for {duration} seconds: {label}")
                     }
                 else:
+                    print(f"❌ TOOL RESULT: set_timer - Failed: HTTP {response.status}", flush=True)
                     return {
                         "success": False,
                         "message": f"Failed to set timer: HTTP {response.status}"
                     }
     except Exception as e:
+        print(f"❌ TOOL RESULT: set_timer - Error: {str(e)}", flush=True)
         return {
             "success": False,
             "message": f"Error setting timer: {str(e)}"
@@ -48,6 +53,8 @@ async def send_recipe_name(
     recipe_name: str,
 ):
     """Send the recipe name to the client via SSE broadcast."""
+    print(f"🔧 TOOL CALL: send_recipe_name(recipe_name='{recipe_name}')", flush=True)
+    
     try:
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
@@ -62,16 +69,19 @@ async def send_recipe_name(
             ) as response:
                 if response.status == 200:
                     result = await response.json()
+                    print(f"✅ TOOL RESULT: send_recipe_name - Success: {result.get('message', f'Recipe name sent: {recipe_name}')}", flush=True)
                     return {
                         "success": True,
                         "message": result.get("message", f"Recipe name sent: {recipe_name}")
                     }
                 else:
+                    print(f"❌ TOOL RESULT: send_recipe_name - Failed: HTTP {response.status}", flush=True)
                     return {
                         "success": False,
                         "message": f"Failed to send recipe name: HTTP {response.status}"
                     }
     except Exception as e:
+        print(f"❌ TOOL RESULT: send_recipe_name - Error: {str(e)}", flush=True)
         return {
             "success": False,
             "message": f"Error sending recipe name: {str(e)}"
@@ -84,18 +94,14 @@ async def save_recipe(
     recipe_data: str,
 ):
     """Save a complete recipe to the database. Use this when the recipe is fully explained and ready to be saved."""
+    print(f"🔧 TOOL CALL: save_recipe(recipe_data='{recipe_data[:100]}{'...' if len(recipe_data) > 100 else ''}')", flush=True)
+    
     try:
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
         
-        # Get user ID from LiveKit context
+        # For now, use anonymous user ID
         user_id = "anonymous"
-        if context.room and context.room.participants:
-            # Get the first non-agent participant (the user)
-            for participant in context.room.participants.values():
-                if not participant.identity.startswith(('agent', 'assistant', 'raimy')):
-                    user_id = participant.identity
-                    break
         
         # Prepare simple recipe data for testing
         recipe_data_obj = {
@@ -118,6 +124,7 @@ async def save_recipe(
             ) as response:
                 if response.status == 200:
                     result = await response.json()
+                    print(f"✅ TOOL RESULT: save_recipe - Success: Recipe ID {result.get('recipe_id')}", flush=True)
                     return {
                         "success": True,
                         "message": f"Recipe saved successfully! Recipe ID: {result.get('recipe_id')}",
@@ -125,11 +132,13 @@ async def save_recipe(
                     }
                 else:
                     error_data = await response.json()
+                    print(f"❌ TOOL RESULT: save_recipe - Failed: {error_data.get('detail', 'Unknown error')}", flush=True)
                     return {
                         "success": False,
                         "message": f"Failed to save recipe: {error_data.get('detail', 'Unknown error')}"
                     }
     except Exception as e:
+        print(f"❌ TOOL RESULT: save_recipe - Error: {str(e)}", flush=True)
         return {
             "success": False,
             "message": f"Error saving recipe: {str(e)}"

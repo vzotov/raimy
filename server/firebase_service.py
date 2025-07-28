@@ -100,5 +100,26 @@ class FirebaseService:
             print(f"Error getting recipes: {e}")
             return []
 
+    async def get_recipes_by_user(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get recipes for a specific user from Firestore"""
+        if not self.db:
+            raise Exception("Firebase not initialized")
+        
+        try:
+            # Query recipes by user_id
+            recipes_ref = self.db.collection('recipes')
+            docs = recipes_ref.where('user_id', '==', user_id).stream()
+            
+            recipes = []
+            for doc in docs:
+                recipe_data = doc.to_dict()
+                recipe_data['id'] = doc.id
+                recipes.append(recipe_data)
+            
+            return recipes
+        except Exception as e:
+            print(f"Error getting recipes for user {user_id}: {e}")
+            return []
+
 # Global instance
 firebase_service = FirebaseService() 

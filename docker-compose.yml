@@ -59,10 +59,12 @@ services:
     environment:
       - FIRESTORE_EMULATOR_HOST=0.0.0.0:8080
       - AUTH_EMULATOR_HOST=0.0.0.0:9099
-      - FUNCTIONS_EMULATOR_HOST=0.0.0.0:5001
+      - FUNCTIONS_EMULATOR_HOST=0.0.0:5001
     volumes:
       - ./firebase:/app
       - firebase-data:/root/.config/firebase
+      - firestore-data:/root/.config/firebase/firestore-data
+      - ./firebase-data:/root/.config/firebase/data
     working_dir: /app
     command: >
       sh -c "
@@ -79,4 +81,5 @@ services:
       start_period: 40s
 
 volumes:
-  firebase-data: 
+  firebase-data:
+  firestore-data: 

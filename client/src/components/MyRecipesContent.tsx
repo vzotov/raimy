@@ -1,0 +1,194 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import CreateFakeRecipeButton from './CreateFakeRecipeButton';
+
+interface Recipe {
+  id: string;
+  name: string;
+  description: string;
+  ingredients: string[];
+  steps: Array<{ instruction: string; duration_minutes: number }>;
+  total_time_minutes: number;
+  difficulty: string;
+  servings: number;
+  tags: string[];
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface MyRecipesContentProps {
+  userId?: string;
+}
+
+export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchRecipes = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/recipes${userId ? `?user_id=${userId}` : ''}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch recipes: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setRecipes(data.recipes || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch recipes');
+      console.error('Error fetching recipes:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecipes();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-lg">Loading recipes...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-lg text-red-600">Error: {error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">My Recipes</h1>
+              <p className="mt-2 text-gray-600">
+                {recipes.length === 0 
+                  ? "You haven't created any recipes yet. Start cooking with Raimy to see your recipes here!"
+                  : `You have ${recipes.length} recipe${recipes.length === 1 ? '' : 's'}`
+                }
+              </p>
+            </div>
+            <CreateFakeRecipeButton userId={userId} onRecipeCreated={fetchRecipes} />
+          </div>
+        </div>
+
+        {recipes.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">👨‍🍳</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No recipes yet</h3>
+            <p className="text-gray-600 mb-6">
+              Start cooking with Raimy to create your first recipe!
+            </p>
+            <a
+              href="/kitchen"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Kitchen
+            </a>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recipes.map((recipe) => (
+              <div
+                key={recipe.id}
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-gray-900 line-clamp-2">
+                      {recipe.name}
+                    </h3>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      recipe.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                      recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {recipe.difficulty}
+                    </span>
+                  </div>
+                  
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                    {recipe.description}
+                  </p>
+                  
+                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                    <span>⏱️ {recipe.total_time_minutes} min</span>
+                    <span>👥 {recipe.servings} servings</span>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Ingredients:</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      {recipe.ingredients.slice(0, 3).map((ingredient, index) => (
+                        <li key={index} className="flex items-center">
+                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                          {ingredient}
+                        </li>
+                      ))}
+                      {recipe.ingredients.length > 3 && (
+                        <li className="text-gray-500 italic">
+                          +{recipe.ingredients.length - 3} more ingredients
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Steps:</h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      {recipe.steps.slice(0, 2).map((step, index) => (
+                        <div key={index} className="flex items-start">
+                          <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full mr-2 mt-0.5">
+                            {index + 1}
+                          </span>
+                          <span className="line-clamp-2">{step.instruction}</span>
+                        </div>
+                      ))}
+                      {recipe.steps.length > 2 && (
+                        <div className="text-gray-500 italic">
+                          +{recipe.steps.length - 2} more steps
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    {recipe.tags.slice(0, 3).map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {recipe.tags.length > 3 && (
+                      <span className="text-gray-500 text-xs">
+                        +{recipe.tags.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="text-xs text-gray-400">
+                    Created: {new Date(recipe.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+} 

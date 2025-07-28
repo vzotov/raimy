@@ -122,10 +122,14 @@ async def send_recipe_name(recipe: RecipeNameRequest):
 
 # Recipe API endpoints
 @app.get("/api/recipes")
-async def get_recipes():
-    """Get all recipes from the database"""
+async def get_recipes(user_id: Optional[str] = None):
+    """Get recipes from the database, optionally filtered by user_id"""
     try:
-        recipes = await firebase_service.get_recipes()
+        if user_id:
+            recipes = await firebase_service.get_recipes_by_user(user_id)
+        else:
+            recipes = await firebase_service.get_recipes()
+        
         return {
             "recipes": recipes,
             "count": len(recipes)

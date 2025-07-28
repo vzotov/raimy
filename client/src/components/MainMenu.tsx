@@ -41,6 +41,9 @@ export default function MainMenu() {
         <Link href="/kitchen" className="text-lg text-blue-600 hover:underline mb-4">
           Kitchen
         </Link>
+        <Link href="/myrecipes" className="text-lg text-blue-600 hover:underline mb-4">
+          My Recipes
+        </Link>
         <div className="mt-auto">
           <AuthButton />
         </div>

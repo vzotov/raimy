@@ -41,38 +41,38 @@ LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
 ```
 
-### 2. Run with Docker
+### 2. Run Services with Docker
 
 ```bash
-# Build and start the application
+# Build and start API and bot
 docker-compose up --build
 
 # Or run in detached mode
 docker-compose up -d --build
 ```
 
-The application will be available at:
+The services will be available at:
 - **API**: http://localhost:8000
-- **Client**: http://localhost:3000 (if needed)
 - **API Docs**: http://localhost:8000/docs
+- **Bot**: Running in container
 
 ### 3. Development Mode
 
-For development, you can run the services separately:
-
-#### Backend (FastAPI)
+#### Start Services (Docker)
 ```bash
-cd server
-pip install -r requirements.txt
-python api.py
+# Start API and bot in Docker
+docker-compose up -d
 ```
 
-#### Frontend (Next.js)
+#### Start Client (Next.js)
 ```bash
 cd client
 npm install
 npm run dev
 ```
+
+The client will be available at:
+- **Client**: http://localhost:3000
 
 ## API Endpoints
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface SSEEvent {
   type: string;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 interface UseSSEOptions {
@@ -107,7 +107,7 @@ export const useSSE = (options: UseSSEOptions = {}) => {
     };
   }, [connect, disconnect]);
 
-  const sendEvent = useCallback(async (eventType: string, data: any) => {
+  const sendEvent = useCallback(async (eventType: string, data: Record<string, unknown>) => {
     try {
       const response = await fetch(`/api/${eventType}`, {
         method: 'POST',

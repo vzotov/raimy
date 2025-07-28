@@ -8,7 +8,6 @@ from livekit.agents import (
     JobContext,
     WorkerOptions,
     cli,
-    llm,
 )
 from livekit.plugins import openai, silero
 from prompts import COOKING_ASSISTANT_PROMPT
@@ -22,54 +21,7 @@ async def entrypoint(ctx: JobContext):
 
     agent = Agent(
         instructions=COOKING_ASSISTANT_PROMPT,
-        tools=[
-            llm.FunctionTool(
-                name="set_timer",
-                description="Set a timer for the user",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "duration": {
-                            "type": "number",
-                            "description": "The number of seconds for the timer.",
-                        },
-                        "label": {
-                            "type": "string",
-                            "description": "A short label describing what the timer is for.",
-                        },
-                    },
-                    "required": ["duration", "label"],
-                },
-            ),
-            llm.FunctionTool(
-                name="send_recipe_name",
-                description="Send the selected recipe name to the client",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "The name of the selected recipe.",
-                        },
-                    },
-                    "required": ["name"],
-                },
-            ),
-            llm.FunctionTool(
-                name="save_recipe",
-                description="Save the completed recipe session",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "recipe": {
-                            "type": "object",
-                            "description": "The recipe data to save.",
-                        },
-                    },
-                    "required": ["recipe"],
-                },
-            ),
-        ],
+        tools=[],
     )
     session = AgentSession(
         vad=silero.VAD.load(),

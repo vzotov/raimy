@@ -88,7 +88,7 @@ export default function Kitchen() {
         <h2 className="font-semibold text-lg sm:text-xl">{agentMessage}</h2>
       </div>
       <div className="flex flex-col items-center">
-        {userMessage && <div className="italic mb-4 text-xl">"{userMessage}"</div>}
+        {userMessage && <div className="italic mb-4 text-xl">&ldquo;{userMessage}&rdquo;</div>}
         <MicButton
           disabled={connectionState !== 'connected'}
         />

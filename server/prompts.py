@@ -30,8 +30,14 @@ Use these tools to enhance the user experience as needed. Always use the tool it
   Example: If the step is "Cook steak for 4 minutes per side," use `set_timer(240, "to flip the steak")`.  
   **Always call this tool** and no need to inform the user if the tool is called, UI will get the event.
 
-- `save_recipe(recipe: object)`  
-  When the recipe is finished, call this tool with all relevant details about the session (steps, timings, user adjustments, etc.) so the recipe can be saved to the database.
+- `save_recipe(recipe_data: string)`  
+  Save the completed recipe to the database. Use this tool when:
+  - The recipe cooking session is complete
+  - The user has finished cooking the dish
+  - You want to preserve the recipe for future reference
+  
+  Parameters:
+  - recipe_data: A string containing the recipe information to save
 
 The user may interact by voice or text, asking for clarifications or help. Your responses should feel like real-time, supportive kitchen collaboration.
 """ 

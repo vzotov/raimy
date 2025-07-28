@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "demo-project",
+  "private_key_id": "fake",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC1tLgu8eCd3i50\nLyHa+tvIta6O6Z7F5GlFebRvqPyVQbSRRWua5K3ozQgj3OIz6KbpGw5tTeOpS9Wz\nD7adidVWCZdxcAAOo/oa6CsbI5lTThKn/xPrNHrlMusuJoaLYMesiS1r/1+RPYD8\nHYkaBvgH/FIFPzGMcIlGbMtpr1t3MWjulMzBVANBNg63AaweulmsDR4Rqg6juI7L\nJBImDLhv4J/MFSc+11fhsDxzHn/5Erz3ZqJsVPJf3NCu4ki1KeU144wSdplSiIXy\nN+pkhAZ6BAEFPHS6Qjtx+1S3CgackXO56uKXB4tBr9SV4m1GtcYgswJ1jc1c/TVb\n0yJ1et05AgMBAAECggEABFSYJrALCZgihNdyRhwVhYNeD/fdmdQ1oEl5eNWO8+11\ngTTQOZZ3K3eDA5ittaLFP5KD1dbSX50UgiwUQKLo265mna8lwTORsAVdIoU4yMqx\nNSHCkzYbiCMP+AZhBkWPo8lbX28zaKVGtVfsonB+heMWVHED42XzpOojhZNjFFKl\n2NV9pPVSzIuZfWvNTvMtxBMpoosr3KeuqoKbnfv8zWi2mcaIBQE+GEKfbciWx0n8\nhJF+l7yIfLi/gzvH2kHlfGSJ/zi7aZ5QPKlQ3jl/JqaZRfW7YoLHX5ZEJU3OUAYt\np6gKc3mOKntSvOx3RltYQGIdKaH/d+Ylx9ZbVLc+UQKBgQDfJl2r1AK7r3EVt5Cj\nOO1yJ6f35bIlJHebpzssNFBbHon0JuFB5B3NF9vw9LrvvcpLW0VMpThr33m/C4k3\n5eNglAwtfZGVQR8hWKioxIgFVRsTysjg1Hqm7Y30zCs3Kw/O2NLuKosV7GeCGBwf\nhEgK/cvtqHRUIfSkIRvtJ+9JPQKBgQDQdH78ZNO7fUVNxO8/s1RDTF6tS4rnbmRD\nleyFCNaWdIxNTVjA1+eQjUki+q4Q3JW/Q562qXE+0MCjUL8umPkpN6VCnIiBpvSS\nPf4F/AnpQ0qW7FdZEiJm6QOgo5R6mvdvN/noApEPUvZaNX70Z/rAsvNuJvcqIu3+\nl6Bz3a/LrQKBgQCJbG8zapVkUF8sKKgCXQSd0J44pFRZW2Ptj8d5KZ5y/xOmMGt4\n0Kspqw/gDFczXYY/ci3zTay5gh7P8KLIseKdj48QVMxbRoeNWbREewPphMfwIGol\nS7VdJ97MaxASIYrSr+T2l2ygS75S99YZ8rULT9FOwvcg+OhYS6uPGZDbYQKBgAT1\ncHvijiLcpQRnleVnB68eJvZqYKCGwL3W2CyF/EzR8vB30Y+s0yZeJgo9+lwOU0Wc\nfy8LMtVys9Juvk2GeA7h8v11qc2jwhekf+F2kGnLHwAeGSnWQ5k9G8f7fDG6c/5i\nT4CUZwz9RTz6Hs4DlzR0TVQmeyS2dgDjbH61HFR1AoGAI1NoOpH1fre1EarspbCK\nPqBFbKU+UqfxWuILxPqvTa8i+DcTNZRx3jKCt+q60QyGcrdulHcRhzU4TjhO0kV1\n42zXMasECx8FSr1f3q7XqMqcT/L8NjCs99aRNqDFvEtXGp5wd43rQ70ghciQBJKo\nMtDmS2kGUSqRF1E+eH/3vDU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "fake@demo-project.iam.gserviceaccount.com",
+  "client_id": "fake",
+  "auth_uri": "fake",
+  "token_uri": "fake",
+  "auth_provider_x509_cert_url": "fake",
+  "client_x509_cert_url": "fake"
+}

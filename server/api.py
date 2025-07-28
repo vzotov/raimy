@@ -1,14 +1,15 @@
 import asyncio
 import json
-from typing import List
+from typing import List, Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 import uvicorn
 
+from firebase_service import firebase_service, Recipe, RecipeStep
 
 # Data models
 class TimerRequest(BaseModel):
@@ -18,6 +19,18 @@ class TimerRequest(BaseModel):
 
 class RecipeNameRequest(BaseModel):
     recipe_name: str
+
+
+class SaveRecipeRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    ingredients: List[str]
+    steps: List[dict]  # Will be converted to RecipeStep objects
+    total_time_minutes: Optional[int] = None
+    difficulty: Optional[str] = None
+    servings: Optional[int] = None
+    tags: Optional[List[str]] = None
+    user_id: Optional[str] = None
 
 
 # Global state for SSE connections
@@ -105,6 +118,60 @@ async def send_recipe_name(recipe: RecipeNameRequest):
     await broadcast_event("recipe_name", recipe_data)
     
     return {"message": f"Recipe name sent: {recipe.recipe_name}"}
+
+
+# Recipe API endpoints
+@app.get("/api/recipes")
+async def get_recipes():
+    """Get all recipes from the database"""
+    try:
+        recipes = await firebase_service.get_recipes()
+        return {
+            "recipes": recipes,
+            "count": len(recipes)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get recipes: {str(e)}")
+
+
+@app.post("/api/recipes")
+async def save_recipe(recipe_request: SaveRecipeRequest):
+    """Save a new recipe"""
+    try:
+        # Convert steps to RecipeStep objects
+        steps = []
+        for i, step_data in enumerate(recipe_request.steps):
+            step = RecipeStep(
+                step_number=i + 1,
+                instruction=step_data.get("instruction", ""),
+                duration_minutes=step_data.get("duration_minutes"),
+                ingredients=step_data.get("ingredients")
+            )
+            steps.append(step)
+        
+        # Create Recipe object
+        recipe = Recipe(
+            name=recipe_request.name,
+            description=recipe_request.description,
+            ingredients=recipe_request.ingredients,
+            steps=steps,
+            total_time_minutes=recipe_request.total_time_minutes,
+            difficulty=recipe_request.difficulty,
+            servings=recipe_request.servings,
+            tags=recipe_request.tags,
+            user_id=recipe_request.user_id
+        )
+        
+        # Save to Firebase
+        recipe_id = await firebase_service.save_recipe(recipe)
+        
+        return {
+            "message": "Recipe saved successfully",
+            "recipe_id": recipe_id,
+            "recipe": recipe.dict()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save recipe: {str(e)}")
 
 
 @app.get("/api/events")

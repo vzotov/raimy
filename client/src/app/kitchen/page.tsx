@@ -13,4 +13,4 @@ export default async function KitchenPage() {
       <KitchenLiveKitWrapper serverUrl={serverUrl} token={token} />
     </AuthPageGuard>
   );
-} 
+}

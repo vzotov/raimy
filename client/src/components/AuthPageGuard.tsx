@@ -1,7 +1,7 @@
-"use client";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+'use client';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface AuthPageGuardProps {
   children: React.ReactNode;
@@ -12,14 +12,14 @@ export default function AuthPageGuard({ children }: AuthPageGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "loading") return;
-    
+    if (status === 'loading') return;
+
     if (!session) {
-      router.push("/");
+      router.push('/');
     }
   }, [session, status, router]);
 
-  if (status === "loading") {
+  if (status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-lg">Loading...</div>
@@ -32,4 +32,4 @@ export default function AuthPageGuard({ children }: AuthPageGuardProps) {
   }
 
   return <>{children}</>;
-} 
+}

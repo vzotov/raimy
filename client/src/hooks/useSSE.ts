@@ -17,7 +17,7 @@ interface UseSSEOptions {
 
 export const useSSE = (options: UseSSEOptions = {}) => {
   const {
-    url = '/api/events',
+    url = `${process.env.NEXT_PUBLIC_API_URL!}/api/events`,
     onMessage,
     onError,
     onOpen,
@@ -32,6 +32,29 @@ export const useSSE = (options: UseSSEOptions = {}) => {
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Store callbacks in refs to avoid recreating connection
+  const onMessageRef = useRef(onMessage);
+  const onErrorRef = useRef(onError);
+  const onOpenRef = useRef(onOpen);
+  const onCloseRef = useRef(onClose);
+  
+  // Update refs when callbacks change
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+  
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+  
+  useEffect(() => {
+    onOpenRef.current = onOpen;
+  }, [onOpen]);
+  
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -46,14 +69,14 @@ export const useSSE = (options: UseSSEOptions = {}) => {
         setIsConnected(true);
         setError(null);
         retryCountRef.current = 0;
-        onOpen?.();
+        onOpenRef.current?.();
       };
 
       eventSource.onmessage = (event) => {
         try {
           const parsedEvent: SSEEvent = JSON.parse(event.data);
           setLastEvent(parsedEvent);
-          onMessage?.(parsedEvent);
+          onMessageRef.current?.(parsedEvent);
         } catch (err) {
           console.error('Failed to parse SSE event:', err);
         }
@@ -62,7 +85,7 @@ export const useSSE = (options: UseSSEOptions = {}) => {
       eventSource.onerror = (event) => {
         setIsConnected(false);
         setError('SSE connection error');
-        onError?.(event);
+        onErrorRef.current?.(event);
 
         // Retry logic
         if (retryCountRef.current < maxRetries) {
@@ -77,12 +100,11 @@ export const useSSE = (options: UseSSEOptions = {}) => {
         // Handle keepalive pings
         console.log('SSE ping received');
       });
-
     } catch (err) {
       setError('Failed to create SSE connection');
       console.error('SSE connection error:', err);
     }
-  }, [url, onMessage, onError, onOpen, retryInterval, maxRetries]);
+  }, [url, retryInterval, maxRetries]);
 
   const disconnect = useCallback(() => {
     if (retryTimeoutRef.current) {
@@ -96,8 +118,8 @@ export const useSSE = (options: UseSSEOptions = {}) => {
     }
 
     setIsConnected(false);
-    onClose?.();
-  }, [onClose]);
+    onCloseRef.current?.();
+  }, []);
 
   useEffect(() => {
     connect();
@@ -107,33 +129,11 @@ export const useSSE = (options: UseSSEOptions = {}) => {
     };
   }, [connect, disconnect]);
 
-  const sendEvent = useCallback(async (eventType: string, data: Record<string, unknown>) => {
-    try {
-      const response = await fetch(`/api/${eventType}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (err) {
-      console.error(`Failed to send ${eventType} event:`, err);
-      throw err;
-    }
-  }, []);
-
   return {
     isConnected,
     lastEvent,
     error,
     connect,
     disconnect,
-    sendEvent,
   };
-}; 
+};

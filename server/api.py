@@ -1,49 +1,29 @@
 import asyncio
 import json
-from typing import Dict, List, Optional
+from typing import List
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 import uvicorn
 
-from main import entrypoint
-from livekit.agents import JobContext
-
 
 # Data models
-class RecipeRequest(BaseModel):
-    name: str
-    ingredients: Optional[List[str]] = None
-    instructions: Optional[List[str]] = None
-
-
 class TimerRequest(BaseModel):
     duration: int
     label: str
 
 
-class RecipeSession(BaseModel):
-    recipe_name: str
-    steps: List[str]
-    current_step: int
-    timers: List[Dict]
-    completed: bool = False
-
-
-# Global state for SSE connections and active sessions
+# Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
-active_sessions: Dict[str, RecipeSession] = {}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     print("Starting FastAPI server...")
     yield
-    # Shutdown
     print("Shutting down FastAPI server...")
 
 
@@ -57,7 +37,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,29 +74,6 @@ async def health_check():
     return {"status": "healthy", "connections": len(sse_connections)}
 
 
-@app.post("/api/recipes/start")
-async def start_recipe(recipe: RecipeRequest, background_tasks: BackgroundTasks):
-    """Start a new cooking session"""
-    session_id = f"session_{len(active_sessions) + 1}"
-    
-    session = RecipeSession(
-        recipe_name=recipe.name,
-        steps=recipe.instructions or [],
-        current_step=0,
-        timers=[]
-    )
-    
-    active_sessions[session_id] = session
-    
-    # Broadcast session start
-    await broadcast_event("session_started", {
-        "session_id": session_id,
-        "recipe_name": recipe.name
-    })
-    
-    return {"session_id": session_id, "recipe_name": recipe.name}
-
-
 @app.post("/api/timers/set")
 async def set_timer(timer: TimerRequest):
     """Set a timer for the current cooking step"""
@@ -130,31 +87,6 @@ async def set_timer(timer: TimerRequest):
     await broadcast_event("timer_set", timer_data)
     
     return {"message": f"Timer set for {timer.duration} seconds: {timer.label}"}
-
-
-@app.post("/api/recipes/save")
-async def save_recipe(recipe_data: dict):
-    """Save completed recipe session"""
-    # Broadcast recipe completion
-    await broadcast_event("recipe_completed", recipe_data)
-    
-    return {"message": "Recipe saved successfully"}
-
-
-@app.get("/api/sessions")
-async def get_sessions():
-    """Get all active sessions"""
-    return {
-        "sessions": [
-            {
-                "session_id": session_id,
-                "recipe_name": session.recipe_name,
-                "current_step": session.current_step,
-                "completed": session.completed
-            }
-            for session_id, session in active_sessions.items()
-        ]
-    }
 
 
 @app.get("/api/events")
@@ -185,28 +117,6 @@ async def events():
                 sse_connections.remove(queue)
     
     return EventSourceResponse(event_generator())
-
-
-# LiveKit agent integration
-class MockJobContext:
-    """Mock JobContext for testing without LiveKit"""
-    def __init__(self):
-        self.room = None
-    
-    async def connect(self, auto_subscribe=None):
-        pass
-
-
-@app.post("/api/agent/start")
-async def start_agent():
-    """Start the LiveKit agent"""
-    try:
-        # Create mock context for now
-        ctx = MockJobContext()
-        await entrypoint(ctx)
-        return {"message": "Agent started successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start agent: {str(e)}")
 
 
 if __name__ == "__main__":

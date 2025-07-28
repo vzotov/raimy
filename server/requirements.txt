@@ -1,0 +1,8 @@
+livekit-plugins-openai
+livekit-plugins-silero
+livekit-agents
+python-dotenv
+fastapi
+uvicorn[standard]
+sse-starlette
+pydantic

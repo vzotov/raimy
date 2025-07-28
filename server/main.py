@@ -9,7 +9,7 @@ from livekit.agents import (
 )
 from livekit.plugins import openai, silero
 from prompts import COOKING_ASSISTANT_PROMPT
-from tools import set_timer
+from tools import set_timer, send_recipe_name
 
 
 load_dotenv()
@@ -20,7 +20,7 @@ async def entrypoint(ctx: JobContext):
 
     agent = Agent(
         instructions=COOKING_ASSISTANT_PROMPT,
-        tools=[set_timer],
+        tools=[set_timer, send_recipe_name],
     )
     session = AgentSession(
         vad=silero.VAD.load(),

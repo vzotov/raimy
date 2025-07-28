@@ -16,6 +16,10 @@ class TimerRequest(BaseModel):
     label: str
 
 
+class RecipeNameRequest(BaseModel):
+    recipe_name: str
+
+
 # Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
 
@@ -87,6 +91,20 @@ async def set_timer(timer: TimerRequest):
     await broadcast_event("timer_set", timer_data)
     
     return {"message": f"Timer set for {timer.duration} seconds: {timer.label}"}
+
+
+@app.post("/api/recipes/name")
+async def send_recipe_name(recipe: RecipeNameRequest):
+    """Send recipe name to the client via SSE"""
+    recipe_data = {
+        "recipe_name": recipe.recipe_name,
+        "timestamp": asyncio.get_event_loop().time()
+    }
+    
+    # Broadcast recipe name event
+    await broadcast_event("recipe_name", recipe_data)
+    
+    return {"message": f"Recipe name sent: {recipe.recipe_name}"}
 
 
 @app.get("/api/events")

@@ -22,6 +22,7 @@ export default function Kitchen() {
   const transcriptions = useTranscriptions();
   const { localParticipant } = useLocalParticipant();
   const [timers, setTimers] = useState<Array<{ duration: number; label: string; started_at: number }>>([]);
+  const [currentRecipe, setCurrentRecipe] = useState<string>('');
 
   // Handle SSE events
   const handleSSEMessage = useCallback((event: { type: string; data: Record<string, unknown> }) => {
@@ -29,6 +30,10 @@ export default function Kitchen() {
       const timerData = event.data as unknown as { duration: number; label: string; started_at: number };
       setTimers(prev => [...prev, timerData]);
       console.log('Timer set via SSE:', timerData);
+    } else if (event.type === 'recipe_name') {
+      const recipeData = event.data as unknown as { recipe_name: string; timestamp: number };
+      setCurrentRecipe(recipeData.recipe_name);
+      console.log('Recipe name received via SSE:', recipeData);
     }
   }, []);
 
@@ -87,22 +92,15 @@ export default function Kitchen() {
   }, [voiceAssistant]);
 
   return (
-    <div className="flex flex-col justify-between items-center min-h-screen py-8 bg-white">
+    <div className="relative flex flex-col justify-between items-center min-h-screen py-8 bg-white">
       {/* Room Audio Renderer - renders audio from all participants */}
       <RoomAudioRenderer />
 
-      {/* Debug indicators */}
-      <div className="w-full flex justify-between px-4 mb-2 text-xs text-gray-500">
-        <div>
-          Connection:{' '}
-          <span className={connectionState === 'connected' ? 'text-green-600' : 'text-red-600'}>
-            {connectionState}
-          </span>
-        </div>
-        <div>
-          Assistant: <span className="text-blue-600">{assistantState}</span>
-        </div>
+      {/* Recipe Name Display */}
+      <div className="w-full max-w-md mx-auto mb-4">
+        <h2 className="text-xl font-semibold text-center">{currentRecipe || ''}</h2>
       </div>
+
       <div className="text-center">
         <h2 className="font-semibold text-lg sm:text-xl">{agentMessage}</h2>
       </div>
@@ -131,6 +129,12 @@ export default function Kitchen() {
       <div className="flex flex-col items-center">
         {userMessage && <div className="italic mb-4 text-xl">&ldquo;{userMessage}&rdquo;</div>}
         <MicButton disabled={connectionState !== 'connected'} />
+      </div>
+
+      {/* Debug indicators */}
+      <div className="absolute bottom-4 left-4 flex space-x-2">
+        <div className={`w-3 h-3 rounded-full ${connectionState === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
       </div>
     </div>
   );

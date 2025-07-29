@@ -26,9 +26,12 @@ async def entrypoint(ctx: JobContext):
         vad=silero.VAD.load(),
         tts=openai.TTS(
             voice="fable",
+            model="gpt-4o-mini-tts"
         ),
         stt=openai.STT(),
-        llm=openai.LLM(),
+        llm=openai.LLM(
+            model="gpt-4.1-nano"
+        ),
     )
 
     await session.start(agent=agent, room=ctx.room)

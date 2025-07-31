@@ -38,9 +38,9 @@ export default function MicButton({ disabled = false }: MicButtonProps) {
       className={classNames(
         'w-28 h-28 rounded-full flex items-center justify-center shadow-md transition-all',
         {
-          'bg-gray-100 cursor-not-allowed opacity-50': disabled,
+          'bg-surface/50 cursor-not-allowed opacity-50': disabled,
           'bg-red-500 hover:bg-red-600': isMicrophoneEnabled && !disabled,
-          'bg-gray-200 hover:bg-gray-300': !isMicrophoneEnabled && !disabled,
+          'bg-surface hover:bg-surface/80': !isMicrophoneEnabled && !disabled,
         },
       )}
       onClick={handleClick}

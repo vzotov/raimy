@@ -67,13 +67,13 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Recipes</h1>
-              <p className="mt-2 text-gray-600">
+              <h1 className="text-3xl font-bold text-text">My Recipes</h1>
+              <p className="mt-2 text-text/70">
                 {recipes.length === 0 
                   ? "You haven't created any recipes yet. Start cooking with Raimy to see your recipes here!"
                   : `You have ${recipes.length} recipe${recipes.length === 1 ? '' : 's'}`
@@ -85,15 +85,15 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
         </div>
 
         {recipes.length === 0 ? (
-          <div className="text-center py-12">
+                      <div className="text-center py-12">
             <div className="text-6xl mb-4">👨‍🍳</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No recipes yet</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className="text-xl font-semibold text-text mb-2">No recipes yet</h3>
+            <p className="text-text/70 mb-6">
               Start cooking with Raimy to create your first recipe!
             </p>
             <a
               href="/kitchen"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
             >
               Go to Kitchen
             </a>
@@ -103,11 +103,11 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
             {recipes.map((recipe) => (
               <div
                 key={recipe.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                className="bg-surface rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-gray-900 line-clamp-2">
+                    <h3 className="text-xl font-semibold text-text line-clamp-2">
                       {recipe.name}
                     </h3>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -119,26 +119,26 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
                     </span>
                   </div>
                   
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  <p className="text-text/70 text-sm mb-4 line-clamp-3">
                     {recipe.description}
                   </p>
                   
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <div className="flex items-center justify-between text-sm text-text/60 mb-4">
                     <span>⏱️ {recipe.total_time_minutes} min</span>
                     <span>👥 {recipe.servings} servings</span>
                   </div>
                   
                   <div className="mb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Ingredients:</h4>
-                    <ul className="text-sm text-gray-600 space-y-1">
+                    <h4 className="font-medium text-text mb-2">Ingredients:</h4>
+                    <ul className="text-sm text-text/70 space-y-1">
                       {recipe.ingredients.slice(0, 3).map((ingredient, index) => (
                         <li key={index} className="flex items-center">
-                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                          <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
                           {ingredient}
                         </li>
                       ))}
                       {recipe.ingredients.length > 3 && (
-                        <li className="text-gray-500 italic">
+                        <li className="text-text/60 italic">
                           +{recipe.ingredients.length - 3} more ingredients
                         </li>
                       )}
@@ -146,18 +146,18 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
                   </div>
                   
                   <div className="mb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Steps:</h4>
-                    <div className="text-sm text-gray-600 space-y-1">
+                    <h4 className="font-medium text-text mb-2">Steps:</h4>
+                    <div className="text-sm text-text/70 space-y-1">
                       {recipe.steps.slice(0, 2).map((step, index) => (
                         <div key={index} className="flex items-start">
-                          <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full mr-2 mt-0.5">
+                          <span className="bg-primary/20 text-primary text-xs font-medium px-2 py-1 rounded-full mr-2 mt-0.5">
                             {index + 1}
                           </span>
                           <span className="line-clamp-2">{step.instruction}</span>
                         </div>
                       ))}
                       {recipe.steps.length > 2 && (
-                        <div className="text-gray-500 italic">
+                        <div className="text-text/60 italic">
                           +{recipe.steps.length - 2} more steps
                         </div>
                       )}
@@ -168,19 +168,19 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
                     {recipe.tags.slice(0, 3).map((tag, index) => (
                       <span
                         key={index}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                        className="px-2 py-1 bg-surface/50 text-text/80 text-xs rounded-full"
                       >
                         {tag}
                       </span>
                     ))}
                     {recipe.tags.length > 3 && (
-                      <span className="text-gray-500 text-xs">
+                      <span className="text-text/60 text-xs">
                         +{recipe.tags.length - 3} more
                       </span>
                     )}
                   </div>
                   
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-text/50">
                     Created: {new Date(recipe.created_at).toLocaleDateString()}
                   </div>
                 </div>

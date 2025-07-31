@@ -92,7 +92,7 @@ export default function Kitchen() {
   }, [voiceAssistant]);
 
   return (
-    <div className="relative flex flex-col justify-between items-center min-h-screen py-8 bg-white">
+    <div className="relative flex flex-col justify-between items-center min-h-screen py-8 bg-background">
       {/* Room Audio Renderer - renders audio from all participants */}
       <RoomAudioRenderer />
 
@@ -111,14 +111,14 @@ export default function Kitchen() {
           <h3 className="text-lg font-semibold mb-2">Active Timers</h3>
           <div className="space-y-2">
             {timers.map((timer, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div key={index} className="flex items-center justify-between p-3 bg-timer-bg rounded-lg">
                 <div>
                   <p className="font-medium">{timer.label}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-text/70">
                     {Math.floor(timer.duration / 60)}:{(timer.duration % 60).toString().padStart(2, '0')}
                   </p>
                 </div>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-primary">
                   {Math.floor(timer.duration / 60)}:{(timer.duration % 60).toString().padStart(2, '0')}
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function Kitchen() {
       {/* Debug indicators */}
       <div className="absolute bottom-4 left-4 flex space-x-2">
         <div className={`w-3 h-3 rounded-full ${connectionState === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+        <div className="w-3 h-3 rounded-full bg-primary"></div>
       </div>
     </div>
   );

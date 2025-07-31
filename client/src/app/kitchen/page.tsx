@@ -1,6 +1,6 @@
 import { createToken } from '@/lib/livekit';
-import KitchenLiveKitWrapper from '@/components/KitchenLiveKitWrapper';
-import AuthPageGuard from '@/components/AuthPageGuard';
+import KitchenLiveKitWrapper from '@/components/pages/kitchen/KitchenLiveKitWrapper';
+import AuthPageGuard from '@/components/shared/AuthPageGuard';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 

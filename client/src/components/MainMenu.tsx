@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import classNames from 'classnames';
-import AuthButton from './AuthButton';
+import AuthButton from '@/components/shared/AuthButton';
 
 export default function MainMenu() {
   const { data: session, status } = useSession();

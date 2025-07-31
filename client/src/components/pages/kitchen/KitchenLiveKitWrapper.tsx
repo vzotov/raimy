@@ -1,7 +1,7 @@
 'use client';
 
 import { LiveKitRoom } from '@livekit/components-react';
-import Kitchen from '@/components/Kitchen';
+import Kitchen from '@/components/pages/kitchen/Kitchen';
 
 export default function KitchenLiveKitWrapper({
   serverUrl,

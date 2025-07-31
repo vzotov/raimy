@@ -118,7 +118,7 @@ The application uses Server-Sent Events (SSE) for real-time communication:
 
 Use the `useSSE` hook in your React components:
 
-```typescript
+```tsx
 import { useSSE } from '@/hooks/useSSE';
 
 const MyComponent = () => {

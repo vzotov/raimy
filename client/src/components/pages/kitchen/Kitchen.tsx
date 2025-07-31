@@ -9,7 +9,7 @@ import {
   RoomAudioRenderer,
 } from '@livekit/components-react';
 import { LocalParticipant, RemoteParticipant } from 'livekit-client';
-import MicButton from '@/components/MicButton';
+import MicButton from '@/components/shared/MicButton';
 import { useSSE } from '@/hooks/useSSE';
 
 export default function Kitchen() {

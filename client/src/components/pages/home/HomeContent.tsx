@@ -1,7 +1,7 @@
 'use client';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AuthButton from '@/components/AuthButton';
+import AuthButton from '@/components/shared/AuthButton';
 
 export default function HomeContent() {
   const { data: session, status } = useSession();

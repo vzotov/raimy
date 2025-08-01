@@ -2,6 +2,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AuthButton from '@/components/shared/AuthButton';
+import Logo from '@/components/shared/Logo';
 
 export default function HomeContent() {
   const { data: session, status } = useSession();
@@ -13,16 +14,34 @@ export default function HomeContent() {
     return <div className="text-lg">Loading...</div>;
   }
 
-  if (session) {
-    return (
-      <button
-        onClick={handleGoToKitchen}
-        className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors text-lg font-medium"
-      >
-        Go to Kitchen
-      </button>
-    );
-  }
+  return (
+    <div className="text-center max-w-2xl mx-auto px-6">
+      {/* Logo */}
+      <div className="mb-8 flex justify-center">
+        <Logo size="lg" showLink={false} />
+      </div>
 
-  return <AuthButton />;
+      {/* Hero Headline */}
+      <h1 className="text-4xl md:text-5xl font-heading font-bold text-text mb-6">
+        Let's cook something delicious
+      </h1>
+
+      {/* Sub-headline */}
+      <p className="text-xl text-text/80 mb-8 leading-relaxed">
+        Vibe cooking—made for home chefs, right in your kitchen
+      </p>
+
+      {/* Primary CTA Button */}
+      {session ? (
+        <button
+          onClick={handleGoToKitchen}
+          className="px-8 py-4 bg-primary text-white rounded-full hover:bg-primary-hover transition-colors text-lg font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+        >
+          Go to the Kitchen
+        </button>
+      ) : (
+        <AuthButton />
+      )}
+    </div>
+  );
 }

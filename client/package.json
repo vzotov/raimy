@@ -10,7 +10,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\""
   },
   "dependencies": {
+    "@types/d3": "^7.4.3",
     "classnames": "^2.5.1",
+    "d3": "^7.9.0",
     "next": "15.4.4",
     "react": "19.1.0",
     "react-dom": "19.1.0"

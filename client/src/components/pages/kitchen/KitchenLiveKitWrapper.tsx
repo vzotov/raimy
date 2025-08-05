@@ -11,7 +11,7 @@ export default function KitchenLiveKitWrapper({
   token: string;
 }) {
   return (
-    <LiveKitRoom serverUrl={serverUrl} token={token} connect={true}>
+    <LiveKitRoom className='flex-1 flex flex-col' serverUrl={serverUrl} token={token} connect={true}>
       <Kitchen />
     </LiveKitRoom>
   );

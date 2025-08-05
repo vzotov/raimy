@@ -92,7 +92,7 @@ export default function Kitchen() {
   }, [voiceAssistant]);
 
   return (
-    <div className="relative flex flex-col justify-between items-center min-h-screen py-8 bg-background">
+    <div className="relative flex-1 flex flex-col items-center justify-between pb-8 px-4">
       {/* Room Audio Renderer - renders audio from all participants */}
       <RoomAudioRenderer />
 

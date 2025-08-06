@@ -1,46 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import classNames from 'classnames';
+import { useTheme } from 'next-themes';
 import { MoonIcon, SunIcon, CogIcon } from '@/components/icons';
 
 export default function ThemeSelector() {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-
-  const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
-    if (newTheme === 'system') {
-      // Remove manual theme and use system preference
-      localStorage.removeItem('theme');
-      const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (systemIsDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    } else {
-      // Set manual theme
-      localStorage.theme = newTheme;
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  };
 
   useEffect(() => {
     setMounted(true);
-
-    // Determine current theme state
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme === 'dark' || storedTheme === 'light') {
-      setTheme(storedTheme as 'light' | 'dark');
-      applyTheme(storedTheme as 'light' | 'dark');
-    } else {
-      // No stored theme = system preference
-      setTheme('system');
-      applyTheme('system');
-    }
   }, []);
 
   const handleThemeToggle = () => {
@@ -56,13 +25,14 @@ export default function ThemeSelector() {
     }
 
     setTheme(nextTheme);
-    applyTheme(nextTheme);
   };
 
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
     return <div className="h-10 w-10 animate-pulse rounded-lg bg-surface/50" />;
   }
+
+  const displayTheme = theme === 'system' ? 'system' : resolvedTheme || 'light';
 
   return (
     <button
@@ -75,9 +45,9 @@ export default function ThemeSelector() {
       aria-label={`Current theme: ${theme}`}
     >
       <div className="mr-3 flex h-5 w-5 items-center justify-center">
-        {theme === 'dark' ? (
+        {displayTheme === 'dark' ? (
           <MoonIcon className="h-5 w-5 text-text" />
-        ) : theme === 'light' ? (
+        ) : displayTheme === 'light' ? (
           <SunIcon className="h-5 w-5 text-text" />
         ) : (
           <CogIcon className="h-5 w-5 text-text" />

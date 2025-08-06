@@ -1,21 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import classNames from 'classnames';
 import MainMenu from '@/components/MainMenu';
 import Logo from '@/components/shared/Logo';
 import { MenuIcon } from '@/components/icons';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LayoutContentProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export default function LayoutContent({ children }: LayoutContentProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { user } = useAuth();
   const isHomePage = pathname === '/';
 
   const handleToggleMenu = () => setIsMenuOpen(prev => !prev);
@@ -24,7 +24,7 @@ export default function LayoutContent({ children }: LayoutContentProps) {
   return (
     <div className="flex min-h-screen flex-col sm:flex-row">
       {/* Header for mobile - only show if authenticated */}
-      {session && (
+      {user && (
         <header className={classNames(
           'sm:hidden sticky top-0 z-40 h-16 px-2 py-4',
           {
@@ -47,7 +47,7 @@ export default function LayoutContent({ children }: LayoutContentProps) {
       )}
 
       {/* MainMenu component - only show if authenticated */}
-      {session && (
+      {user && (
         <MainMenu isOpen={isMenuOpen} onClose={handleCloseMenu} />
       )}
       

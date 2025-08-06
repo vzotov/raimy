@@ -7,3 +7,6 @@ uvicorn[standard]
 sse-starlette
 pydantic
 firebase-admin
+authlib
+itsdangerous
+PyJWT

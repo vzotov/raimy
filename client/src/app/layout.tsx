@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import Providers from '@/components/Providers';
+import Providers from '@/providers/Providers';
 import LayoutContent from '@/components/LayoutContent';
 
 const inter = Inter({
@@ -30,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -41,9 +41,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} antialiased`}>
         <Providers>
-          <LayoutContent>
-            {children}
-          </LayoutContent>
+          <LayoutContent>{children}</LayoutContent>
         </Providers>
       </body>
     </html>

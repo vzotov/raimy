@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import classNames from 'classnames';
 import AuthButton from '@/components/shared/AuthButton';
 import ThemeSelector from '@/components/shared/ThemeSelector';
 import Logo from '@/components/shared/Logo';
 import { XIcon } from '@/components/icons';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MainMenuProps {
   isOpen: boolean;
@@ -14,8 +14,8 @@ interface MainMenuProps {
 }
 
 export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
-  const { data: session, status } = useSession();
-  if (!session) return null;
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated || !user) return null;
 
   const handleCloseMenu = () => onClose();
 

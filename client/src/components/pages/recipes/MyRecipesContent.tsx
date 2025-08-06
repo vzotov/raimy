@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { get } from '@/lib/api';
 import CreateFakeRecipeButton from './CreateFakeRecipeButton';
 
 interface Recipe {
@@ -18,11 +19,7 @@ interface Recipe {
   updated_at: string;
 }
 
-interface MyRecipesContentProps {
-  userId?: string;
-}
-
-export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
+export default function MyRecipesContent() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,14 +27,13 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
   const fetchRecipes = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/recipes${userId ? `?user_id=${userId}` : ''}`);
+      const result = await get<{ recipes: Recipe[] }>('/api/recipes');
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch recipes: ${response.status}`);
+      if (result.error) {
+        throw new Error(result.error);
       }
       
-      const data = await response.json();
-      setRecipes(data.recipes || []);
+      setRecipes(result.data?.recipes || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch recipes');
       console.error('Error fetching recipes:', err);
@@ -48,7 +44,7 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
 
   useEffect(() => {
     fetchRecipes();
-  }, [userId]);
+  }, []);
 
   if (loading) {
     return (
@@ -80,7 +76,7 @@ export default function MyRecipesContent({ userId }: MyRecipesContentProps) {
                 }
               </p>
             </div>
-            <CreateFakeRecipeButton userId={userId} onRecipeCreated={fetchRecipes} />
+            <CreateFakeRecipeButton onRecipeCreated={fetchRecipes} />
           </div>
         </div>
 

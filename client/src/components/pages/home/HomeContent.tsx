@@ -1,17 +1,17 @@
 'use client';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AuthButton from '@/components/shared/AuthButton';
 import Logo from '@/components/shared/Logo';
 import LoadingScreen from '@/components/shared/LoadingScreen';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function HomeContent() {
-  const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   const handleGoToKitchen = () => router.push('/kitchen');
 
-  if (status === 'loading') {
+  if (loading) {
     return <LoadingScreen />;
   }
 
@@ -42,7 +42,7 @@ export default function HomeContent() {
 
       {/* Button at bottom */}
       <div className="flex flex-col justify-end items-center pb-8">
-        {session ? (
+        {user ? (
           <button
             onClick={handleGoToKitchen}
             className="px-8 py-4 bg-primary text-white rounded-full hover:bg-primary-hover transition-colors text-lg font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"

@@ -28,22 +28,13 @@ async def set_timer(
                 if response.status == 200:
                     result = await response.json()
                     print(f"✅ TOOL RESULT: set_timer - Success: {result.get('message', f'Timer set for {duration} seconds: {label}')}", flush=True)
-                    return {
-                        "success": True,
-                        "message": result.get("message", f"Timer set for {duration} seconds: {label}")
-                    }
+                    return None
                 else:
                     print(f"❌ TOOL RESULT: set_timer - Failed: HTTP {response.status}", flush=True)
-                    return {
-                        "success": False,
-                        "message": f"Failed to set timer: HTTP {response.status}"
-                    }
+                    return None
     except Exception as e:
         print(f"❌ TOOL RESULT: set_timer - Error: {str(e)}", flush=True)
-        return {
-            "success": False,
-            "message": f"Error setting timer: {str(e)}"
-        }
+        return None
 
 
 @function_tool
@@ -124,21 +115,11 @@ async def save_recipe(
                 if response.status == 200:
                     result = await response.json()
                     print(f"✅ TOOL RESULT: save_recipe - Success: Recipe ID {result.get('recipe_id')}", flush=True)
-                    return {
-                        "success": True,
-                        "message": f"Recipe saved successfully! Recipe ID: {result.get('recipe_id')}",
-                        "recipe_id": result.get("recipe_id")
-                    }
+                    return None
                 else:
                     error_data = await response.json()
                     print(f"❌ TOOL RESULT: save_recipe - Failed: {error_data.get('detail', 'Unknown error')}", flush=True)
-                    return {
-                        "success": False,
-                        "message": f"Failed to save recipe: {error_data.get('detail', 'Unknown error')}"
-                    }
+                    return None
     except Exception as e:
         print(f"❌ TOOL RESULT: save_recipe - Error: {str(e)}", flush=True)
-        return {
-            "success": False,
-            "message": f"Error saving recipe: {str(e)}"
-        } 
+        return None 

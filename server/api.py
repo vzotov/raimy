@@ -1,37 +1,19 @@
 import asyncio
 import json
-from typing import List, Optional
 from contextlib import asynccontextmanager
+from typing import List
+import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from sse_starlette.sse import EventSourceResponse
-from pydantic import BaseModel
 import uvicorn
 
-from firebase_service import firebase_service, Recipe, RecipeStep
-
-# Data models
-class TimerRequest(BaseModel):
-    duration: int
-    label: str
-
-
-class RecipeNameRequest(BaseModel):
-    recipe_name: str
-
-
-class SaveRecipeRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-    ingredients: List[str]
-    steps: List[dict]  # Will be converted to RecipeStep objects
-    total_time_minutes: Optional[int] = None
-    difficulty: Optional[str] = None
-    servings: Optional[int] = None
-    tags: Optional[List[str]] = None
-    user_id: Optional[str] = None
-
+# Import routers
+from routes.timers import create_timers_router
+from routes.recipes import create_recipes_router
+from routes.auth import create_auth_router, oauth
 
 # Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
@@ -46,9 +28,47 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Raimy Cooking Assistant API",
-    description="API for the Raimy cooking assistant with real-time SSE communication",
+    description="""
+    ## 🍳 Raimy Cooking Assistant API
+    
+    A comprehensive API for managing cooking recipes, timers, and real-time cooking assistance.
+    
+    ### Features:
+    * 🔐 **Authentication** - Google OAuth with JWT support
+    * 📝 **Recipe Management** - Create, read, and manage cooking recipes
+    * ⏰ **Timer System** - Set and manage cooking timers
+    * 📡 **Real-time Events** - SSE for live updates
+    * 👤 **User Management** - User-specific recipe storage
+    
+    ### Quick Start:
+    1. **Authenticate** via `/auth/login`
+    2. **Create recipes** with `/api/recipes`
+    3. **Set timers** with `/api/timers/set`
+    4. **Listen for events** at `/api/events`
+    
+    ### Authentication:
+    - **Web Apps**: Use session-based auth (cookies)
+    - **Mobile/API**: Use JWT tokens with `Authorization: Bearer <token>`
+    """,
     version="1.0.0",
-    lifespan=lifespan
+    contact={
+        "name": "Raimy Team",
+        "email": "support@raimy.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
+
+# Add SessionMiddleware for OAuth support
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SIGNER_SECRET", "supersecret")
 )
 
 # Add CORS middleware
@@ -60,14 +80,59 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register Google OAuth client with latest API
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Environment variable to control debug logging
+if os.getenv("AUTH_DEBUG", "false").lower() == "true":
+    logger.setLevel(logging.DEBUG)
+
+logger.debug("Checking environment variables...")
+logger.debug(f"All env vars: {[k for k in os.environ.keys() if 'GOOGLE' in k or 'OAUTH' in k or 'CLIENT' in k]}")
+
+google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+
+logger.debug(f"GOOGLE_CLIENT_ID = {'SET' if google_client_id else 'NOT SET'}")
+logger.debug(f"GOOGLE_CLIENT_SECRET = {'SET' if google_client_secret else 'NOT SET'}")
+
+if not google_client_id or not google_client_secret:
+    logger.warning("Google OAuth credentials not found!")
+    logger.warning("Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables")
+    logger.warning("You can get these from: https://console.cloud.google.com/apis/credentials")
+    logger.warning("For now, OAuth authentication will be disabled")
+else:
+    try:
+        logger.debug(f"Attempting to register OAuth client with ID: {google_client_id[:10]}...")
+        # Use manual OAuth configuration (no OpenID Connect discovery)
+        oauth.register(
+            name="google",
+            client_id=google_client_id,
+            client_secret=google_client_secret,
+            access_token_url="https://accounts.google.com/o/oauth2/token",
+            access_token_params=None,
+            authorize_url="https://accounts.google.com/o/oauth2/auth",
+            authorize_params=None,
+            api_base_url="https://www.googleapis.com/oauth2/v1/",
+            jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
+            client_kwargs={
+                "scope": "openid email profile",
+                "token_endpoint_auth_method": "client_secret_post"
+            },
+        )
+        logger.info("Google OAuth client registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register Google OAuth client: {e}")
+        logger.error("OAuth authentication will be disabled")
+
 
 async def broadcast_event(event_type: str, data: dict):
     """Broadcast event to all connected SSE clients"""
-    event_data = {
-        "type": event_type,
-        "data": data
-    }
-    
+    event_data = {"type": event_type, "data": data}
+
     # Remove disconnected clients
     disconnected = []
     for i, queue in enumerate(sse_connections):
@@ -75,144 +140,101 @@ async def broadcast_event(event_type: str, data: dict):
             await queue.put(json.dumps(event_data))
         except Exception:
             disconnected.append(i)
-    
+
     # Remove disconnected clients
     for i in reversed(disconnected):
         sse_connections.pop(i)
 
 
-@app.get("/")
+@app.get("/", tags=["Root"])
 async def root():
-    return {"message": "Raimy Cooking Assistant API"}
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "connections": len(sse_connections)}
-
-
-@app.post("/api/timers/set")
-async def set_timer(timer: TimerRequest):
-    """Set a timer for the current cooking step"""
-    timer_data = {
-        "duration": timer.duration,
-        "label": timer.label,
-        "started_at": asyncio.get_event_loop().time()
+    """
+    ## API Root
+    
+    Welcome to the Raimy Cooking Assistant API!
+    
+    Returns basic API information and available endpoints.
+    """
+    return {
+        "message": "Raimy Cooking Assistant API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "redoc": "/redoc",
+        "endpoints": {
+            "auth": "/auth/*",
+            "recipes": "/api/recipes/*",
+            "timers": "/api/timers/*",
+            "events": "/api/events",
+            "health": "/health"
+        }
     }
-    
-    # Broadcast timer set event
-    await broadcast_event("timer_set", timer_data)
-    
-    return {"message": f"Timer set for {timer.duration} seconds: {timer.label}"}
 
 
-@app.post("/api/recipes/name")
-async def send_recipe_name(recipe: RecipeNameRequest):
-    """Send recipe name to the client via SSE"""
-    recipe_data = {
-        "recipe_name": recipe.recipe_name,
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """
+    ## Health Check
+    
+    Check the health status of the API and get current SSE connection count.
+    
+    Returns:
+    - `status`: API health status
+    - `connections`: Number of active SSE connections
+    """
+    return {
+        "status": "healthy", 
+        "connections": len(sse_connections),
         "timestamp": asyncio.get_event_loop().time()
     }
-    
-    # Broadcast recipe name event
-    await broadcast_event("recipe_name", recipe_data)
-    
-    return {"message": f"Recipe name sent: {recipe.recipe_name}"}
 
 
-# Recipe API endpoints
-@app.get("/api/recipes")
-async def get_recipes(user_id: Optional[str] = None):
-    """Get recipes from the database, optionally filtered by user_id"""
-    try:
-        if user_id:
-            recipes = await firebase_service.get_recipes_by_user(user_id)
-        else:
-            recipes = await firebase_service.get_recipes()
-        
-        return {
-            "recipes": recipes,
-            "count": len(recipes)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get recipes: {str(e)}")
-
-
-@app.post("/api/recipes")
-async def save_recipe(recipe_request: SaveRecipeRequest):
-    """Save a new recipe"""
-    try:
-        # Convert steps to RecipeStep objects
-        steps = []
-        for i, step_data in enumerate(recipe_request.steps):
-            step = RecipeStep(
-                step_number=i + 1,
-                instruction=step_data.get("instruction", ""),
-                duration_minutes=step_data.get("duration_minutes"),
-                ingredients=step_data.get("ingredients")
-            )
-            steps.append(step)
-        
-        # Create Recipe object
-        recipe = Recipe(
-            name=recipe_request.name,
-            description=recipe_request.description,
-            ingredients=recipe_request.ingredients,
-            steps=steps,
-            total_time_minutes=recipe_request.total_time_minutes,
-            difficulty=recipe_request.difficulty,
-            servings=recipe_request.servings,
-            tags=recipe_request.tags,
-            user_id=recipe_request.user_id
-        )
-        
-        # Save to Firebase
-        recipe_id = await firebase_service.save_recipe(recipe)
-        
-        return {
-            "message": "Recipe saved successfully",
-            "recipe_id": recipe_id,
-            "recipe": recipe.dict()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save recipe: {str(e)}")
-
-
-@app.get("/api/events")
+@app.get("/api/events", tags=["Events"])
 async def events():
-    """SSE endpoint for real-time events"""
+    """
+    ## Server-Sent Events (SSE)
+    
+    Real-time event stream for cooking updates, timer notifications, and user events.
+    
+    ### Event Types:
+    - `timer_set`: When a timer is started
+    - `recipe_name`: When a recipe name is sent
+    - `user_logout`: When a user logs out
+    
+    ### Usage:
+    ```javascript
+    const eventSource = new EventSource('/api/events');
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log(data.type, data.data);
+    };
+    ```
+    """
     queue = asyncio.Queue()
     sse_connections.append(queue)
-    
+
     async def event_generator():
         try:
             while True:
                 try:
                     data = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield {
-                        "event": "message",
-                        "data": data
-                    }
+                    yield {"event": "message", "data": data}
                 except asyncio.TimeoutError:
                     # Send keepalive
-                    yield {
-                        "event": "ping",
-                        "data": "keepalive"
-                    }
+                    yield {"event": "ping", "data": "keepalive"}
         except Exception as e:
             print(f"SSE connection error: {e}")
         finally:
             if queue in sse_connections:
                 sse_connections.remove(queue)
-    
+
     return EventSourceResponse(event_generator())
 
 
+# Include routers with injected broadcast function
+app.include_router(create_timers_router(broadcast_event))
+app.include_router(create_recipes_router(broadcast_event))
+app.include_router(create_auth_router(broadcast_event))
+
+
 if __name__ == "__main__":
-    uvicorn.run(
-        "api:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    ) 
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

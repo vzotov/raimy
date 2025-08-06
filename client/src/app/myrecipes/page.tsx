@@ -1,10 +1,10 @@
-import MyRecipesContent from '@/components/MyRecipesContent';
-import AuthPageGuard from '@/components/AuthPageGuard';
+import MyRecipesContent from '@/components/pages/recipes/MyRecipesContent';
+import ServerAuthGuard from '@/components/shared/ServerAuthGuard';
 
 export default async function MyRecipesPage() {
   return (
-    <AuthPageGuard>
+    <ServerAuthGuard>
       <MyRecipesContent />
-    </AuthPageGuard>
+    </ServerAuthGuard>
   );
 } 

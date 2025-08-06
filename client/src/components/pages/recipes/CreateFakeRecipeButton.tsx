@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { post } from '@/lib/api';
 
 interface CreateFakeRecipeButtonProps {
-  userId?: string;
   onRecipeCreated: () => void;
 }
 
-export default function CreateFakeRecipeButton({ userId = "anonymous", onRecipeCreated }: CreateFakeRecipeButtonProps) {
+export default function CreateFakeRecipeButton({ onRecipeCreated }: CreateFakeRecipeButtonProps) {
   const [creatingFakeRecipe, setCreatingFakeRecipe] = useState(false);
 
   const createFakeRecipe = async () => {
@@ -57,24 +57,16 @@ export default function CreateFakeRecipeButton({ userId = "anonymous", onRecipeC
         total_time_minutes: 41,
         difficulty: "medium",
         servings: 2,
-        tags: ["grilled", "healthy", "chicken", "vegetables", "quick-meal"],
-        user_id: userId
+        tags: ["grilled", "healthy", "chicken", "vegetables", "quick-meal"]
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/recipes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(fakeRecipe),
-      });
+      const result = await post('/api/recipes', fakeRecipe);
 
-      if (!response.ok) {
-        throw new Error(`Failed to create fake recipe: ${response.status}`);
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      const result = await response.json();
-      console.log('Fake recipe created:', result);
+      console.log('Fake recipe created:', result.data);
       
       // Notify parent component to refresh recipes
       onRecipeCreated();
@@ -90,7 +82,7 @@ export default function CreateFakeRecipeButton({ userId = "anonymous", onRecipeC
     <button
       onClick={createFakeRecipe}
       disabled={creatingFakeRecipe}
-      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+      className="px-4 py-2 bg-accent2 text-text rounded-lg hover:bg-accent2/80 disabled:bg-surface/50 disabled:cursor-not-allowed transition-colors"
     >
       {creatingFakeRecipe ? 'Creating...' : 'Create Fake Recipe'}
     </button>

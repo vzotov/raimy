@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
-import MainMenu from '@/components/MainMenu';
-import Providers from '@/components/Providers';
+import Providers from '@/providers/Providers';
+import LayoutContent from '@/components/LayoutContent';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const inter = Inter({
   subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+  variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
@@ -35,13 +30,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className={`${inter.variable} antialiased`}>
         <Providers>
-          <div className="flex min-h-screen">
-            <MainMenu />
-            <div className="flex-1">{children}</div>
-          </div>
+          <LayoutContent>{children}</LayoutContent>
         </Providers>
       </body>
     </html>

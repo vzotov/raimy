@@ -10,6 +10,10 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SESSION_SIGNER_SECRET=${SESSION_SIGNER_SECRET:-supersecret}
+      - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
       - FIREBASE_EMULATOR_HOST=firebase-emulator
       - FIREBASE_EMULATOR_PORT=8080
       - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
@@ -59,7 +63,7 @@ services:
     environment:
       - FIRESTORE_EMULATOR_HOST=0.0.0.0:8080
       - AUTH_EMULATOR_HOST=0.0.0.0:9099
-      - FUNCTIONS_EMULATOR_HOST=0.0.0:5001
+      - FUNCTIONS_EMULATOR_HOST=0.0.0.0:5001
     volumes:
       - ./firebase:/app
       - firebase-data:/root/.config/firebase

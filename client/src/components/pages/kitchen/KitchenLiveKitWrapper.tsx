@@ -1,7 +1,7 @@
 'use client';
 
 import { LiveKitRoom } from '@livekit/components-react';
-import Kitchen from '@/components/Kitchen';
+import Kitchen from '@/components/pages/kitchen/Kitchen';
 
 export default function KitchenLiveKitWrapper({
   serverUrl,
@@ -11,7 +11,7 @@ export default function KitchenLiveKitWrapper({
   token: string;
 }) {
   return (
-    <LiveKitRoom serverUrl={serverUrl} token={token} connect={true}>
+    <LiveKitRoom className='flex-1 flex flex-col' serverUrl={serverUrl} token={token} connect={true}>
       <Kitchen />
     </LiveKitRoom>
   );

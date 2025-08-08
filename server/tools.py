@@ -1,6 +1,95 @@
 import aiohttp
 import os
 from livekit.agents import function_tool, RunContext
+from typing import List, Optional
+from dataclasses import dataclass, asdict
+
+@dataclass
+class Ingredient:
+    name: str
+    amount: Optional[str] = None
+    unit: Optional[str] = None
+    highlighted: Optional[bool] = None
+    used: Optional[bool] = None
+
+@function_tool
+async def set_ingredients(
+    context: RunContext,
+    ingredients: List[Ingredient],
+):
+    """Set the complete ingredients list for the current recipe. Use this for the initial list of all ingredients."""
+    print(f"🔧 TOOL CALL: set_ingredients(ingredients={len(ingredients)} items)", flush=True)
+
+    try:
+        # Get API URL from environment variable
+        api_url = os.getenv("API_URL", "http://localhost:8000")
+
+        # Convert dataclass objects to dictionaries, filtering out None values
+        ingredients_dict = []
+        for ingredient in ingredients:
+            # Use dataclasses.asdict() and filter out None values
+            ingredient_dict = {k: v for k, v in asdict(ingredient).items() if v is not None}
+            ingredients_dict.append(ingredient_dict)
+
+        # Call our API to broadcast the ingredients event
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{api_url}/api/recipes/ingredients",
+                json={
+                    "ingredients": ingredients_dict,
+                    "action": "set"
+                }
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    print(f"✅ TOOL RESULT: set_ingredients - Success: {result.get('message', f'Ingredients set: {len(ingredients)} items')}", flush=True)
+                    return None
+                else:
+                    print(f"❌ TOOL RESULT: set_ingredients - Failed: HTTP {response.status}", flush=True)
+                    return None
+    except Exception as e:
+        print(f"❌ TOOL RESULT: set_ingredients - Error: {str(e)}", flush=True)
+        return None
+
+
+@function_tool
+async def update_ingredients(
+    context: RunContext,
+    ingredients: List[Ingredient],
+):
+    """Update specific ingredients in the current recipe. Use this for highlighting, marking as used, or updating specific ingredients."""
+    print(f"🔧 TOOL CALL: update_ingredients(ingredients={len(ingredients)} items)", flush=True)
+
+    try:
+        # Get API URL from environment variable
+        api_url = os.getenv("API_URL", "http://localhost:8000")
+
+        # Convert dataclass objects to dictionaries, filtering out None values
+        ingredients_dict = []
+        for ingredient in ingredients:
+            # Use dataclasses.asdict() and filter out None values
+            ingredient_dict = {k: v for k, v in asdict(ingredient).items() if v is not None}
+            ingredients_dict.append(ingredient_dict)
+
+        # Call our API to broadcast the ingredients update event
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{api_url}/api/recipes/ingredients",
+                json={
+                    "ingredients": ingredients_dict,
+                    "action": "update"
+                }
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    print(f"✅ TOOL RESULT: update_ingredients - Success: {result.get('message', f'Ingredients updated: {len(ingredients)} items')}", flush=True)
+                    return None
+                else:
+                    print(f"❌ TOOL RESULT: update_ingredients - Failed: HTTP {response.status}", flush=True)
+                    return None
+    except Exception as e:
+        print(f"❌ TOOL RESULT: update_ingredients - Error: {str(e)}", flush=True)
+        return None
 
 
 @function_tool
@@ -11,11 +100,11 @@ async def set_timer(
 ):
     """Set a timer for the specified duration (in seconds) and provide a descriptive label."""
     print(f"🔧 TOOL CALL: set_timer(duration={duration}, label='{label}')", flush=True)
-    
+
     try:
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
-        
+
         # Call our API to broadcast the timer event
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -44,11 +133,11 @@ async def send_recipe_name(
 ):
     """Send the recipe name to the client via SSE broadcast."""
     print(f"🔧 TOOL CALL: send_recipe_name(recipe_name='{recipe_name}')", flush=True)
-    
+
     try:
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
-        
+
         # Call our API to broadcast the recipe name event
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -85,14 +174,14 @@ async def save_recipe(
 ):
     """Save a complete recipe to the database. Use this when the recipe is fully explained and ready to be saved."""
     print(f"🔧 TOOL CALL: save_recipe(recipe_data='{recipe_data[:100]}{'...' if len(recipe_data) > 100 else ''}')", flush=True)
-    
+
     try:
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
-        
+
         # For now, use anonymous user ID
         user_id = "anonymous"
-        
+
         # Prepare simple recipe data for testing
         recipe_data_obj = {
             "name": "Test Recipe",
@@ -105,7 +194,7 @@ async def save_recipe(
             "tags": ["raimy-generated"],
             "user_id": user_id
         }
-        
+
         # Call our API to save the recipe
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -122,4 +211,4 @@ async def save_recipe(
                     return None
     except Exception as e:
         print(f"❌ TOOL RESULT: save_recipe - Error: {str(e)}", flush=True)
-        return None 
+        return None

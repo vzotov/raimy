@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import ScrollableArea from '@/components/shared/ScrollableArea';
 
-interface Timer {
+export interface Timer {
   duration: number;
   label: string;
-  started_at: number;
+  startedAt: number;
 }
 
 interface TimerListProps {
@@ -27,10 +28,10 @@ export default function TimerList({ timers }: TimerListProps) {
   if (timers.length === 0) return null;
 
   return (
-    <div className="space-y-2">
+    <ScrollableArea className="flex flex-1 flex-row gap-6 start-0" direction="horizontal">
       {timers.map((timer, index) => {
         // Calculate remaining time using currentTime state
-        const elapsed = Math.floor((currentTime - timer.started_at) / 1000);
+        const elapsed = Math.floor((currentTime - timer.startedAt) / 1000);
         const remaining = Math.max(0, timer.duration - elapsed);
         const minutes = Math.floor(remaining / 60);
         const seconds = remaining % 60;
@@ -38,17 +39,17 @@ export default function TimerList({ timers }: TimerListProps) {
         return (
           <div
             key={index}
-            className="flex flex-col"
+            className="flex flex-col items-center w-20 shrink-0"
           >
             <div className="text-2xl font-bold text-primary text-center">
               {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
             </div>
             <div className="text-center">
-              <p className="font-medium">{timer.label}</p>
+              <p className="font-medium text-sm line-clamp-2">{timer.label}</p>
             </div>
           </div>
         );
       })}
-    </div>
+    </ScrollableArea>
   );
 } 

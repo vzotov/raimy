@@ -13,7 +13,7 @@ import { LocalParticipant, RemoteParticipant } from 'livekit-client';
 import MicButton from '@/components/shared/MicButton';
 import AgentTranscription from '@/components/shared/AgentTranscription';
 import IngredientList, { Ingredient } from '@/components/shared/IngredientList';
-import TimerList from '@/components/shared/TimerList';
+import TimerList, { Timer } from '@/components/shared/TimerList';
 import KitchenDebugPanel from './KitchenDebugPanel';
 import { useSSE } from '@/hooks/useSSE';
 
@@ -27,11 +27,7 @@ export default function Kitchen() {
   const transcriptions = useTranscriptions();
   const { localParticipant } = useLocalParticipant();
   const [timers, setTimers] = useState<
-    Array<{
-      duration: number;
-      label: string;
-      started_at: number;
-    }>
+    Array<Timer>
   >([]);
   const [recipeName, setRecipeName] = useState<string>('');
 
@@ -45,12 +41,66 @@ export default function Kitchen() {
         label: string;
         started_at: number;
       };
-      setTimers((prev) => [...prev, timerData]);
+      setTimers((prev) => [...prev, {
+        duration: timerData.duration,
+        label: timerData.label,
+        startedAt: Date.now(),
+      }]);
       console.log('Timer set via SSE:', timerData);
     } else if (event.type === 'recipe_name') {
       const recipeData = event.data as unknown as { recipe_name: string; timestamp: number };
       setRecipeName(recipeData.recipe_name);
       console.log('Recipe name received via SSE:', recipeData);
+    } else if (event.type === 'ingredients') {
+      const ingredientsData = event.data as unknown as { ingredients: Array<Ingredient>; action?: string; timestamp: number };
+      console.log('Ingredients data received via SSE:', ingredientsData);
+      
+      const action = ingredientsData.action || 'set'; // Default to 'set' for backward compatibility
+      
+      if (action === 'set') {
+        // Set complete ingredients list (replace all)
+        const formattedIngredients: Ingredient[] = ingredientsData.ingredients.map((ingredient, index) => ({
+          name: ingredient.name,
+          amount: ingredient.amount,
+          unit: ingredient.unit,
+          highlighted: ingredient.highlighted || false,
+          used: ingredient.used || false,
+        }));
+        setIngredients(formattedIngredients);
+        console.log('Ingredients set via SSE:', formattedIngredients);
+      } else if (action === 'update') {
+        // Update existing ingredients by matching name, or add new ones
+        setIngredients((prevIngredients) => {
+          const updatedIngredients = [...prevIngredients];
+          
+          ingredientsData.ingredients.forEach((newIngredient) => {
+            const existingIndex = updatedIngredients.findIndex(
+              (existing) => existing.name === newIngredient.name
+            );
+            
+            if (existingIndex >= 0) {
+              // Update existing ingredient with new data
+              updatedIngredients[existingIndex] = {
+                ...updatedIngredients[existingIndex],
+                ...newIngredient,
+              };
+            } else {
+              // Add new ingredient
+              updatedIngredients.push({
+                name: newIngredient.name,
+                amount: newIngredient.amount,
+                unit: newIngredient.unit,
+                highlighted: newIngredient.highlighted || false,
+                used: newIngredient.used || false,
+              });
+            }
+          });
+          
+          return updatedIngredients;
+        });
+        
+        console.log('Ingredients updated via SSE:', ingredientsData.ingredients);
+      }
     }
   }, []);
 
@@ -109,59 +159,72 @@ export default function Kitchen() {
   }, [voiceAssistant]);
 
   return (
-    <div className={classNames('flex flex-col flex-1')}>
+    <div className={classNames('flex flex-1 flex-col w-full max-w-4xl mx-auto')}>
       <RoomAudioRenderer />
 
       {/* Header - Recipe Name */}
-      <div className={classNames('transition-[height,opacity] duration-300 ease-in-out overflow-hidden', {
-        'h-0 opacity-0': !recipeName,
-        'h-auto opacity-100': recipeName,
-      })}>
+      <div
+        className={classNames('overflow-hidden transition-all duration-300 ease-in-out', {
+          'h-0 opacity-0': !recipeName,
+          'h-auto opacity-100': recipeName,
+        })}
+      >
         <div className={classNames('p-4')}>
-          <h2 className={classNames('text-center text-xl font-semibold')}>
-            {recipeName}
-          </h2>
+          <h2 className={classNames('text-center text-xl font-semibold line-clamp-2')}>{recipeName}</h2>
         </div>
       </div>
 
       {/* Main Console - Takes all available space */}
-      <div className={classNames('flex-1 flex flex-col pt-4')}>
-        <div className={classNames('flex flex-row gap-4 transition-[height,opacity] duration-300 ease-in-out overflow-hidden max-h-[40vh] px-4', {
-          'h-0 opacity-0': ingredients.length === 0 && timers.length === 0,
-          'h-auto opacity-100': ingredients.length > 0 || timers.length > 0,
-        })}>
-          <div className={classNames('transition-[height,opacity,margin] duration-300 ease-in-out', {
-            'h-0 opacity-0 mb-0': ingredients.length === 0,
-            'h-auto opacity-100 mb-4 flex-1': ingredients.length > 0,
-          })}>
-            {ingredients.length > 0 && <IngredientList ingredients={ingredients} />}
-          </div>
-
-          <div className={classNames('transition-[height,opacity,margin] duration-300 ease-in-out overflow-y-auto', {
-            'h-0 opacity-0 mb-0': timers.length === 0,
-            'h-auto opacity-100 mb-4 flex-1': timers.length > 0,
-          })}>
+      <div className={classNames('flex flex-1 flex-col')}>
+        <div
+          className={classNames(
+            'flex flex-col gap-4 overflow-hidden px-4 transition-[height,opacity] duration-300 ease-in-out',
+            {
+              'h-0 opacity-0': ingredients.length === 0 && timers.length === 0,
+              'h-auto opacity-100': ingredients.length > 0 || timers.length > 0,
+            },
+          )}
+        >
+          <div
+            className={classNames('transition-all duration-300 ease-in-out', {
+              'h-0 opacity-0': timers.length === 0,
+              'h-auto opacity-100': timers.length > 0,
+            })}
+          >
             {timers.length > 0 && <TimerList timers={timers} />}
+          </div>
+          <div
+            className={classNames('flex-1 transition-all duration-300 ease-in-out', {
+              'h-0 opacity-0': ingredients.length === 0,
+              'h-auto opacity-100': ingredients.length > 0,
+            })}
+          >
+            {ingredients.length > 0 && <IngredientList ingredients={ingredients} />}
           </div>
         </div>
 
-        <div className={classNames('flex flex-1 items-center justify-center px-4')}>
-          <AgentTranscription
-            message={agentMessage}
-            audioTrack={voiceAssistant?.audioTrack}
-          />
+        <div className={classNames('flex flex-1 items-center justify-center px-4 min-w-0')}>
+          <div className={classNames('w-full max-w-2xl')}>
+            <AgentTranscription message={agentMessage} audioTrack={voiceAssistant?.audioTrack} />
+          </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className={classNames('bg-surface rounded-t-2xl p-4 mx-4 transition-[height,padding] duration-300 ease-in-out overflow-hidden')}>
-        <div className={classNames('transition-[height,opacity,margin] duration-300 ease-in-out', {
-          'h-0 opacity-0 mb-0': !userMessage,
-          'h-auto opacity-100 mb-4': userMessage,
-        })}>
+      <div
+        className={classNames(
+          'mx-4 overflow-hidden rounded-t-2xl bg-surface p-4 transition-[height,padding] duration-300 ease-in-out',
+        )}
+      >
+        <div
+          className={classNames('transition-all duration-300 ease-in-out', {
+            'mb-0 h-0 opacity-0': !userMessage,
+            'mb-4 h-auto opacity-100': userMessage,
+          })}
+        >
           {userMessage && (
             <div className={classNames('text-center')}>
-              <p className={classNames('text-base italic text-text/80')}>
+              <p className={classNames('text-base text-text/80 italic')}>
                 &ldquo;{userMessage}&rdquo;
               </p>
             </div>

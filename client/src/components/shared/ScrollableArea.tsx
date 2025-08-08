@@ -1,30 +1,41 @@
 import React, { useEffect, useRef, useState } from 'react';
+import classNames from 'classnames';
 
 interface ScrollableAreaProps {
   children: React.ReactNode;
   className?: string;
-  maxHeight?: string;
+  direction?: 'vertical' | 'horizontal';
 }
 
 export default function ScrollableArea({ 
   children, 
-  className = "", 
-  maxHeight = "max-h-[40vh]" 
+  className = "",
+  direction = "vertical"
 }: ScrollableAreaProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
 
-  // Check scroll position for both top and bottom indicators
+  // Check scroll position for both top/bottom or left/right indicators
   const checkScrollPosition = () => {
     if (scrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      const isAtTop = scrollTop <= 1; // 1px tolerance
-      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1; // 1px tolerance
-      const hasOverflow = scrollHeight > clientHeight;
+      if (direction === 'vertical') {
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+        const isAtTop = scrollTop <= 1; // 1px tolerance
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1; // 1px tolerance
+        const hasOverflow = scrollHeight > clientHeight;
 
-      setShowTopFade(!isAtTop && hasOverflow);
-      setShowBottomFade(!isAtBottom && hasOverflow);
+        setShowTopFade(!isAtTop && hasOverflow);
+        setShowBottomFade(!isAtBottom && hasOverflow);
+      } else {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+        const isAtLeft = scrollLeft <= 1; // 1px tolerance
+        const isAtRight = scrollLeft + clientWidth >= scrollWidth - 1; // 1px tolerance
+        const hasOverflow = scrollWidth > clientWidth;
+
+        setShowTopFade(!isAtLeft && hasOverflow);
+        setShowBottomFade(!isAtRight && hasOverflow);
+      }
     }
   };
 
@@ -43,22 +54,37 @@ export default function ScrollableArea({
   }, [children]);
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={classNames('relative', className)}>
       <div 
         ref={scrollContainerRef} 
-        className={`overflow-y-auto ${maxHeight}`}
+        className={classNames(
+          direction === 'vertical' ? 'overflow-y-auto' : 'overflow-x-auto',
+          'flex gap-4'
+        )}
       >
         {children}
       </div>
       
-      {/* Top fade indicator */}
+      {/* Top/Left fade indicator */}
       {showTopFade && (
-        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
+        <div className={classNames(
+          'absolute pointer-events-none z-10',
+          direction === 'vertical' 
+            ? 'top-0 left-0 right-0 h-8 bg-gradient-to-b' 
+            : 'left-0 top-0 bottom-0 w-8 bg-gradient-to-r',
+          'from-background to-transparent'
+        )} />
       )}
       
-      {/* Bottom fade indicator */}
+      {/* Bottom/Right fade indicator */}
       {showBottomFade && (
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
+        <div className={classNames(
+          'absolute pointer-events-none z-10',
+          direction === 'vertical' 
+            ? 'bottom-0 left-0 right-0 h-8 bg-gradient-to-t' 
+            : 'right-0 top-0 bottom-0 w-8 bg-gradient-to-l',
+          'from-background to-transparent'
+        )} />
       )}
     </div>
   );

@@ -1,11 +1,12 @@
 import { ChefHatIcon } from '@/components/icons';
 import React, { useState } from 'react';
+import { Timer } from '@/components/shared/TimerList';
 
 interface KitchenDebugPanelProps {
   connectionState: string;
   assistantState: string;
   onSetIngredients: (ingredients: any[]) => void;
-  onSetTimers: (timers: any[]) => void;
+  onSetTimers: (timers: Timer[]) => void;
   onSetUserMessage: (message: string) => void;
   onSetRecipeName: (name: string) => void;
 }
@@ -72,12 +73,12 @@ export default function KitchenDebugPanel({
       {
         duration: 600, // 10 minutes
         label: 'for pasta to cook',
-        started_at: Date.now() - 120000 // started 2 minutes ago
+        startedAt: Date.now() - 120000 // started 2 minutes ago
       },
       {
         duration: 300, // 5 minutes
         label: 'for sauce to simmer',
-        started_at: Date.now() - 60000 // started 1 minute ago
+        startedAt: Date.now() - 60000 // started 1 minute ago
       }
     ];
     onSetTimers(mockTimerData);
@@ -103,7 +104,7 @@ export default function KitchenDebugPanel({
       {!isVisible && (
         <button
           onClick={toggleVisibility}
-          className="absolute bottom-4 left-4 w-8 h-8 bg-surface border border-accent2/20 rounded-lg shadow-lg flex items-center justify-center text-xs font-semibold text-text/70 hover:bg-accent2/10 transition-colors"
+          className="absolute bottom-4 left-4 w-8 h-8 bg-surface border border-accent2/20 rounded-lg shadow-lg flex items-center justify-center text-xs font-semibold text-text/70 hover:bg-accent2/10 transition-colors z-50"
           title="Show Debug Panel"
         >
           <ChefHatIcon className="w-4 h-4" />
@@ -112,7 +113,7 @@ export default function KitchenDebugPanel({
 
       {/* Debug Panel when visible */}
       {isVisible && (
-        <div className="absolute bottom-4 left-4 bg-surface border border-accent2/20 rounded-lg p-3 shadow-lg">
+        <div className="absolute bottom-4 left-4 bg-surface border border-accent2/20 rounded-lg p-3 shadow-lg z-50">
           {/* Header with title, toggle button, and indicators */}
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-semibold text-text/70">Debug Panel</div>

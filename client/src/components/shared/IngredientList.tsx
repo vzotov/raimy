@@ -2,7 +2,6 @@ import React from 'react';
 import ScrollableArea from './ScrollableArea';
 
 export interface Ingredient {
-  id: string;
   name: string;
   amount?: string;
   unit?: string;
@@ -31,11 +30,11 @@ export default function IngredientList({ ingredients }: IngredientListProps) {
   });
 
   return (
-    <ScrollableArea className="flex-1">
+    <ScrollableArea className="flex flex-1 max-h-[32vh] items-stretch flex-col">
       <ul className="space-y-2 list-disc pl-4">
         {sortedIngredients.map((ingredient) => (
           <li 
-            key={ingredient.id} 
+            key={ingredient.name} 
             className={`text-lg leading-relaxed mb-0 ${
               ingredient.highlighted 
                 ? 'text-primary font-semibold [li::marker]:text-primary' 

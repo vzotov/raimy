@@ -27,6 +27,24 @@ async def send_recipe_name(recipe: RecipeNameRequest):
     return {"message": f"Recipe name sent: {recipe.recipe_name}"}
 
 
+@router.post("/ingredients")
+async def set_ingredients(ingredients_request: dict):
+    """Send ingredients list to the client via SSE"""
+    action = ingredients_request.get("action", "set")  # Default to "set" for backward compatibility
+    ingredients_data = {
+        "ingredients": ingredients_request.get("ingredients", []),
+        "action": action,
+        "timestamp": asyncio.get_event_loop().time()
+    }
+    
+    # Broadcast ingredients event
+    if broadcast_event:
+        await broadcast_event("ingredients", ingredients_data)
+    
+    action_text = "set" if action == "set" else "updated"
+    return {"message": f"Ingredients {action_text}: {len(ingredients_data['ingredients'])} items"}
+
+
 @router.get("/")
 async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user_flexible)):
     """Get recipes from the database, filtered by current user"""

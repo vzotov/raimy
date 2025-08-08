@@ -1,7 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { useVoiceAssistant, useLocalParticipant } from '@livekit/components-react';
 import classNames from 'classnames';
+import { MicrophoneIcon } from '@/components/icons';
 
 interface MicButtonProps {
   disabled?: boolean;
@@ -36,44 +37,19 @@ export default function MicButton({ disabled = false }: MicButtonProps) {
   return (
     <button
       className={classNames(
-        'w-28 h-28 rounded-full flex items-center justify-center shadow-md transition-all',
+        'w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all',
         {
-          'bg-surface/50 cursor-not-allowed opacity-50': disabled,
-          'bg-red-500 hover:bg-red-600': isMicrophoneEnabled && !disabled,
-          'bg-surface hover:bg-surface/80': !isMicrophoneEnabled && !disabled,
+          'opacity-30': disabled,
+          'bg-red-500 hover:bg-red-600 hover:scale-105': isMicrophoneEnabled && !disabled,
+          'bg-primary hover:bg-primary-hover hover:scale-105': !isMicrophoneEnabled && !disabled,
         },
+        // Base background color when disabled
+        disabled ? (isMicrophoneEnabled ? 'bg-red-500' : 'bg-primary') : '',
       )}
       onClick={handleClick}
       disabled={disabled}
     >
-      <svg
-        width="48"
-        height="48"
-        viewBox="0 0 48 48"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <rect
-          x="18"
-          y="10"
-          width="12"
-          height="20"
-          rx="6"
-          stroke={isMicrophoneEnabled ? '#fff' : '#888'}
-          strokeWidth="2"
-        />
-        <path
-          d="M24 38V42"
-          stroke={isMicrophoneEnabled ? '#fff' : '#888'}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M16 34C16 37.3137 19.134 40 24 40C28.866 40 32 37.3137 32 34"
-          stroke={isMicrophoneEnabled ? '#fff' : '#888'}
-          strokeWidth="2"
-        />
-      </svg>
+      <MicrophoneIcon className="w-6 h-6 text-white" />
     </button>
   );
 }

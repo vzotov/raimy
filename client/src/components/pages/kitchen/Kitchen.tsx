@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import classNames from 'classnames';
 import {
   useConnectionState,
   useParticipants,
@@ -10,7 +11,10 @@ import {
 } from '@livekit/components-react';
 import { LocalParticipant, RemoteParticipant } from 'livekit-client';
 import MicButton from '@/components/shared/MicButton';
-import VoiceVisualization from '@/components/shared/VoiceVisualization';
+import AgentTranscription from '@/components/shared/AgentTranscription';
+import IngredientList, { Ingredient } from '@/components/shared/IngredientList';
+import TimerList from '@/components/shared/TimerList';
+import KitchenDebugPanel from './KitchenDebugPanel';
 import { useSSE } from '@/hooks/useSSE';
 
 export default function Kitchen() {
@@ -29,7 +33,9 @@ export default function Kitchen() {
       started_at: number;
     }>
   >([]);
-  const [currentRecipe, setCurrentRecipe] = useState<string>('');
+  const [recipeName, setRecipeName] = useState<string>('');
+
+  const [ingredients, setIngredients] = useState<Array<Ingredient>>([]);
 
   // Handle SSE events
   const handleSSEMessage = useCallback((event: { type: string; data: Record<string, unknown> }) => {
@@ -43,7 +49,7 @@ export default function Kitchen() {
       console.log('Timer set via SSE:', timerData);
     } else if (event.type === 'recipe_name') {
       const recipeData = event.data as unknown as { recipe_name: string; timestamp: number };
-      setCurrentRecipe(recipeData.recipe_name);
+      setRecipeName(recipeData.recipe_name);
       console.log('Recipe name received via SSE:', recipeData);
     }
   }, []);
@@ -103,63 +109,81 @@ export default function Kitchen() {
   }, [voiceAssistant]);
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-between px-4 pb-8">
-      {/* Room Audio Renderer - renders audio from all participants */}
+    <div className={classNames('flex flex-col flex-1')}>
       <RoomAudioRenderer />
 
-      {/* Recipe Name Display */}
-      <div className="mx-auto mb-4 w-full max-w-md">
-        <h2 className="text-center text-xl font-semibold">{currentRecipe || ''}</h2>
-      </div>
-
-      <div className="relative text-center">
-        {/* Voice Visualization - positioned behind text */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <VoiceVisualization audioTrack={voiceAssistant?.audioTrack} width={200} height={200} />
+      {/* Header - Recipe Name */}
+      <div className={classNames('transition-[height,opacity] duration-300 ease-in-out overflow-hidden', {
+        'h-0 opacity-0': !recipeName,
+        'h-auto opacity-100': recipeName,
+      })}>
+        <div className={classNames('p-4')}>
+          <h2 className={classNames('text-center text-xl font-semibold')}>
+            {recipeName}
+          </h2>
         </div>
-
-        <h2 className="relative z-10 text-lg font-semibold sm:text-xl">{agentMessage}</h2>
       </div>
 
-      {/* Timer Display */}
-      {timers.length > 0 && (
-        <div className="mx-auto mb-4 w-full max-w-md">
-          <h3 className="mb-2 text-lg font-semibold">Active Timers</h3>
-          <div className="space-y-2">
-            {timers.map((timer, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between rounded-lg bg-timer-bg p-3"
-              >
-                <div>
-                  <p className="font-medium">{timer.label}</p>
-                  <p className="text-sm text-text/70">
-                    {Math.floor(timer.duration / 60)}:
-                    {(timer.duration % 60).toString().padStart(2, '0')}
-                  </p>
-                </div>
-                <div className="text-2xl font-bold text-primary">
-                  {Math.floor(timer.duration / 60)}:
-                  {(timer.duration % 60).toString().padStart(2, '0')}
-                </div>
-              </div>
-            ))}
+      {/* Main Console - Takes all available space */}
+      <div className={classNames('flex-1 flex flex-col pt-4')}>
+        <div className={classNames('flex flex-row gap-4 transition-[height,opacity] duration-300 ease-in-out overflow-hidden max-h-[40vh] px-4', {
+          'h-0 opacity-0': ingredients.length === 0 && timers.length === 0,
+          'h-auto opacity-100': ingredients.length > 0 || timers.length > 0,
+        })}>
+          <div className={classNames('transition-[height,opacity,margin] duration-300 ease-in-out', {
+            'h-0 opacity-0 mb-0': ingredients.length === 0,
+            'h-auto opacity-100 mb-4 flex-1': ingredients.length > 0,
+          })}>
+            {ingredients.length > 0 && <IngredientList ingredients={ingredients} />}
+          </div>
+
+          <div className={classNames('transition-[height,opacity,margin] duration-300 ease-in-out overflow-y-auto', {
+            'h-0 opacity-0 mb-0': timers.length === 0,
+            'h-auto opacity-100 mb-4 flex-1': timers.length > 0,
+          })}>
+            {timers.length > 0 && <TimerList timers={timers} />}
           </div>
         </div>
-      )}
-      <div className="flex flex-col items-center">
-        {userMessage && <div className="mb-4 text-xl italic">&ldquo;{userMessage}&rdquo;</div>}
-        <MicButton disabled={connectionState !== 'connected'} />
+
+        <div className={classNames('flex flex-1 items-center justify-center px-4')}>
+          <AgentTranscription
+            message={agentMessage}
+            audioTrack={voiceAssistant?.audioTrack}
+          />
+        </div>
       </div>
 
-      {/* Debug indicators */}
-      <div className="absolute bottom-4 left-4 flex space-x-2">
-        <div
-          className={`h-3 w-3 rounded-full ${connectionState === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
-          title={connectionState}
-        ></div>
-        <div className="h-3 w-3 rounded-full bg-primary" title={assistantState}></div>
+      {/* Footer */}
+      <div className={classNames('bg-surface rounded-t-2xl p-4 mx-4 transition-[height,padding] duration-300 ease-in-out overflow-hidden')}>
+        <div className={classNames('transition-[height,opacity,margin] duration-300 ease-in-out', {
+          'h-0 opacity-0 mb-0': !userMessage,
+          'h-auto opacity-100 mb-4': userMessage,
+        })}>
+          {userMessage && (
+            <div className={classNames('text-center')}>
+              <p className={classNames('text-base italic text-text/80')}>
+                &ldquo;{userMessage}&rdquo;
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className={classNames('flex justify-center')}>
+          <MicButton disabled={connectionState !== 'connected'} />
+        </div>
       </div>
+
+      {/* Debug Panel - Only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <KitchenDebugPanel
+          connectionState={connectionState}
+          assistantState={assistantState}
+          onSetIngredients={setIngredients}
+          onSetTimers={setTimers}
+          onSetUserMessage={setUserMessage}
+          onSetRecipeName={setRecipeName}
+        />
+      )}
     </div>
   );
 }

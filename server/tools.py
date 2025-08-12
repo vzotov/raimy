@@ -43,7 +43,10 @@ async def set_ingredients(
                 if response.status == 200:
                     result = await response.json()
                     print(f"✅ TOOL RESULT: set_ingredients - Success: {result.get('message', f'Ingredients set: {len(ingredients)} items')}", flush=True)
-                    return None
+                    return {
+                        "success": True,
+                        "message": result.get("message", f"Ingredients set: {len(ingredients)} items")
+                    }
                 else:
                     print(f"❌ TOOL RESULT: set_ingredients - Failed: HTTP {response.status}", flush=True)
                     return None
@@ -83,7 +86,10 @@ async def update_ingredients(
                 if response.status == 200:
                     result = await response.json()
                     print(f"✅ TOOL RESULT: update_ingredients - Success: {result.get('message', f'Ingredients updated: {len(ingredients)} items')}", flush=True)
-                    return None
+                    return {
+                        "success": True,
+                        "message": result.get("message", f"Ingredients updated: {len(ingredients)} items")
+                    }
                 else:
                     print(f"❌ TOOL RESULT: update_ingredients - Failed: HTTP {response.status}", flush=True)
                     return None

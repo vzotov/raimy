@@ -4,7 +4,7 @@ import asyncio
 
 from firebase_service import firebase_service, Recipe, RecipeStep
 from .models import RecipeNameRequest, SaveRecipeRequest
-from routes.auth import get_current_user_flexible
+from auth_client import get_current_user
 
 # Import broadcast_event from main API
 broadcast_event = None
@@ -46,7 +46,7 @@ async def set_ingredients(ingredients_request: dict):
 
 
 @router.get("/")
-async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user_flexible)):
+async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """Get recipes from the database, filtered by current user"""
     try:
         # Always filter by current user for security
@@ -61,7 +61,7 @@ async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depend
 
 
 @router.post("/")
-async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user_flexible)):
+async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user)):
     """Save a new recipe for the current user"""
     try:
         # Convert steps to RecipeStep objects

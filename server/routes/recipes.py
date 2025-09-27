@@ -47,14 +47,16 @@ async def set_ingredients(ingredients_request: dict):
 
 @router.get("/")
 async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    """Get recipes from the database, filtered by current user"""
+    """Get recipes from the database - temporarily showing all recipes"""
     try:
-        # Always filter by current user for security
-        recipes = await firebase_service.get_recipes_by_user(current_user["email"])
-        
+        # TODO: After PostgreSQL migration, properly associate agent recipes with users
+        # For now, show all recipes so agent-created recipes are visible
+        recipes = await firebase_service.get_recipes()
+
         return {
             "recipes": recipes,
-            "count": len(recipes)
+            "count": len(recipes),
+            "note": "Currently showing all recipes. User filtering will be restored after DB migration."
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recipes: {str(e)}")

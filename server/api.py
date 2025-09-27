@@ -12,6 +12,7 @@ import uvicorn
 # Import routers
 from routes.timers import create_timers_router
 from routes.recipes import create_recipes_router
+from routes.debug import create_debug_router
 from auth_client import auth_client
 from auth_proxy import router as auth_proxy_router
 
@@ -117,6 +118,7 @@ async def root():
             "recipes": "/api/recipes/*",
             "timers": "/api/timers/*",
             "events": "/api/events",
+            "debug": "/debug/*",
             "health": "/health"
         }
     }
@@ -185,6 +187,7 @@ async def events():
 # Include routers with injected broadcast function
 app.include_router(create_timers_router(broadcast_event))
 app.include_router(create_recipes_router(broadcast_event))
+app.include_router(create_debug_router())
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)
 

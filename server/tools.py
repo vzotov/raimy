@@ -4,6 +4,74 @@ from livekit.agents import function_tool, RunContext
 from typing import List, Optional
 from dataclasses import dataclass, asdict
 
+# Cache for service token to avoid repeated requests
+_service_token_cache = None
+_token_fetch_lock = None
+
+async def get_service_token() -> Optional[str]:
+    """Get JWT token for service authentication using API key"""
+    global _service_token_cache, _token_fetch_lock
+
+    # Import asyncio inside function to avoid circular imports
+    import asyncio
+
+    # Initialize lock if not exists
+    if _token_fetch_lock is None:
+        _token_fetch_lock = asyncio.Lock()
+
+    # Use lock to prevent multiple simultaneous token requests
+    async with _token_fetch_lock:
+        # Check cache again inside lock (another request might have fetched it)
+        if _service_token_cache:
+            return _service_token_cache
+
+        # Try multiple times with exponential backoff
+        for attempt in range(3):
+            try:
+                # Use auth service directly for service authentication
+                auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8001")
+                service_api_key = os.getenv("SERVICE_API_KEY")
+
+                if not service_api_key:
+                    print("⚠️  SERVICE_API_KEY not set - service authentication unavailable", flush=True)
+                    return None
+
+                print(f"🔄 Attempting service authentication (attempt {attempt + 1}/3) to {auth_service_url}", flush=True)
+
+                # Add timeout and retry logic
+                timeout = aiohttp.ClientTimeout(total=10)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.post(
+                        f"{auth_service_url}/auth/service-auth",
+                        headers={"x-api-key": service_api_key}
+                    ) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            token = result.get("token")
+                            if token:
+                                _service_token_cache = token
+                                print("✅ Service authentication successful", flush=True)
+                                return token
+                        else:
+                            error_text = await response.text()
+                            print(f"❌ Service authentication failed: {response.status} - {error_text}", flush=True)
+
+                            # Don't retry on 401/403 - these are auth failures
+                            if response.status in [401, 403]:
+                                return None
+
+            except Exception as e:
+                print(f"❌ Error getting service token (attempt {attempt + 1}): {e}", flush=True)
+
+                # Wait before retrying (exponential backoff)
+                if attempt < 2:
+                    wait_time = (2 ** attempt)
+                    print(f"⏳ Waiting {wait_time}s before retry...", flush=True)
+                    await asyncio.sleep(wait_time)
+
+        print("❌ Failed to get service token after 3 attempts", flush=True)
+        return None
+
 @dataclass
 class Ingredient:
     name: str
@@ -185,8 +253,8 @@ async def save_recipe(
         # Get API URL from environment variable
         api_url = os.getenv("API_URL", "http://localhost:8000")
 
-        # For now, use anonymous user ID
-        user_id = "anonymous"
+        # Use service account identifier - will be refactored with PostgreSQL
+        user_id = "service@raimy.internal"
 
         # Prepare simple recipe data for testing
         recipe_data_obj = {
@@ -201,16 +269,30 @@ async def save_recipe(
             "user_id": user_id
         }
 
+        # Get service authentication
+        auth_token = await get_service_token()
+        headers = {}
+
+        if auth_token:
+            headers["Authorization"] = f"Bearer {auth_token}"
+        else:
+            print("⚠️  WARNING: Could not get service token - recipe save may fail", flush=True)
+
         # Call our API to save the recipe
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{api_url}/api/recipes",
-                json=recipe_data_obj
+                json=recipe_data_obj,
+                headers=headers
             ) as response:
                 if response.status == 200:
                     result = await response.json()
                     print(f"✅ TOOL RESULT: save_recipe - Success: Recipe ID {result.get('recipe_id')}", flush=True)
-                    return None
+                    return {
+                        "success": True,
+                        "recipe_id": result.get("recipe_id"),
+                        "message": result.get("message", "Recipe saved successfully")
+                    }
                 else:
                     error_data = await response.json()
                     print(f"❌ TOOL RESULT: save_recipe - Failed: {error_data.get('detail', 'Unknown error')}", flush=True)

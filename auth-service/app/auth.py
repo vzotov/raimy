@@ -79,21 +79,27 @@ def verify_jwt_token(token: str) -> Optional[dict]:
 async def login(request: Request):
     """Initiate Google OAuth login"""
     try:
-        logger.info(f"OAuth login initiated - Referer: {request.headers.get('referer')}")
+        logger.info("OAuth login initiated")
 
         if not hasattr(oauth, 'google'):
             error_msg = (
                 "Google OAuth is not configured. "
                 "Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables."
             )
-            logger.error(f"OAuth not configured: {error_msg}")
+            logger.error("OAuth not configured")
             raise HTTPException(status_code=500, detail=error_msg)
 
-        # Use auth service callback URL, not frontend URL
-        redirect_uri = "http://localhost:8000/auth/callback"
-        logger.debug(f"Redirect URI: {redirect_uri}")
+        # OAuth callback always goes through the main API (which proxies to auth service)
+        api_url = os.getenv("API_URL", "http://localhost:8000")
+        redirect_uri = f"{api_url}/auth/callback"
 
-        # Manual OAuth redirect without state parameter to avoid session issues
+        # Generate secure state parameter for CSRF protection
+        import secrets
+        state = secrets.token_urlsafe(32)
+
+        # Store state in session for validation (using secure session middleware)
+        request.session["oauth_state"] = state
+
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
         auth_url = (
             f"https://accounts.google.com/o/oauth2/auth"
@@ -102,9 +108,10 @@ async def login(request: Request):
             f"&scope=openid email profile"
             f"&response_type=code"
             f"&access_type=offline"
+            f"&state={state}"
         )
 
-        logger.debug(f"Redirecting to: {auth_url}")
+        logger.info("OAuth redirect generated")
         return RedirectResponse(auth_url)
 
     except HTTPException:
@@ -117,20 +124,37 @@ async def login(request: Request):
 @router.get("/callback", name="auth_callback")
 async def auth_callback(request: Request):
     """Handle OAuth callback and return JWT token"""
-    logger.info(f"OAuth callback received - Referer: {request.headers.get('referer')}")
+    logger.info("OAuth callback received")
 
     try:
         code = request.query_params.get('code')
+        state = request.query_params.get('state')
+
         if not code:
             logger.error("No authorization code found in callback")
             raise HTTPException(status_code=400, detail="No authorization code received")
 
-        logger.debug(f"Authorization code received: {code[:10]}...")
+        # Validate state parameter for CSRF protection
+        if not state:
+            logger.error("No state parameter in OAuth callback")
+            raise HTTPException(status_code=400, detail="Missing state parameter")
 
-        # Manual token exchange to avoid session issues
+        session_state = request.session.get("oauth_state")
+        if not session_state or session_state != state:
+            logger.error("Invalid state parameter in OAuth callback")
+            raise HTTPException(status_code=400, detail="Invalid state parameter")
+
+        # Clear the used state
+        request.session.pop("oauth_state", None)
+
+        logger.info("OAuth state validation successful")
+
+        # OAuth callback always goes through the main API (same as in login)
+        api_url = os.getenv("API_URL", "http://localhost:8000")
+        redirect_uri = f"{api_url}/auth/callback"
+
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
         google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        redirect_uri = "http://localhost:8000/auth/callback"
 
         async with httpx.AsyncClient() as client:
             # Exchange code for access token
@@ -155,7 +179,7 @@ async def auth_callback(request: Request):
                 logger.error("No access token in response")
                 raise HTTPException(status_code=400, detail="No access token received")
 
-            logger.debug("Successfully exchanged code for access token")
+            logger.info("Successfully exchanged code for access token")
 
             # Get user info using the access token
             headers = {"Authorization": f"Bearer {access_token}"}
@@ -166,7 +190,8 @@ async def auth_callback(request: Request):
             user_response.raise_for_status()
             user_info = user_response.json()
 
-        logger.info(f"OAuth successful for user: {user_info.get('email')}")
+        user_email = user_info.get('email')
+        logger.info(f"OAuth successful for user: {user_email[:3]}***@{user_email.split('@')[1] if '@' in user_email else 'unknown'}")
 
         user_data = {
             "email": user_info["email"],
@@ -176,7 +201,7 @@ async def auth_callback(request: Request):
 
         # Create JWT token
         jwt_token = create_jwt_token(user_data)
-        logger.info(f"JWT token generated for user: {user_data['email']}")
+        logger.info("JWT token generated successfully")
 
         # Set JWT token as cookie and redirect to frontend
         frontend_url = get_frontend_url(request)
@@ -189,7 +214,9 @@ async def auth_callback(request: Request):
             httponly=True,
             secure=os.getenv("ENVIRONMENT") == "production",
             samesite="lax",
-            max_age=24 * 3600  # 24 hours
+            max_age=24 * 3600,  # 24 hours
+            path="/",  # Ensure cookie is available for all paths
+            domain=None  # Let browser handle domain automatically
         )
 
         return response
@@ -276,16 +303,41 @@ async def refresh_token(request: Request):
         raise HTTPException(status_code=500, detail=f"Token refresh failed: {str(e)}")
 
 
-@router.post("/logout")
-async def logout(request: Request):
-    """Logout (stateless - just return success)"""
+async def perform_logout(request: Request):
+    """Common logout logic"""
     logger.info("Logout request received")
 
-    # In a stateless system, logout is just a client-side action
-    # The client should discard the JWT token
+    # Get frontend URL for redirect
+    frontend_url = get_frontend_url(request)
 
-    logger.info("Logout completed")
-    return {"status": "logged_out", "message": "Token should be discarded by client"}
+    # Create response that redirects to frontend
+    response = RedirectResponse(frontend_url, status_code=302)
+
+    # Clear the JWT cookie by setting it to expire immediately
+    response.set_cookie(
+        "access_token",
+        "",
+        httponly=True,
+        secure=os.getenv("ENVIRONMENT") == "production",
+        samesite="lax",
+        max_age=0,  # Expire immediately
+        path="/",
+        domain=None,
+        expires="Thu, 01 Jan 1970 00:00:00 GMT"  # Set to past date
+    )
+
+    logger.info("Logout completed - cookie cleared")
+    return response
+
+@router.post("/logout")
+async def logout_post(request: Request):
+    """Logout and clear JWT cookie (POST)"""
+    return await perform_logout(request)
+
+@router.get("/logout")
+async def logout_get(request: Request):
+    """Logout and clear JWT cookie (GET)"""
+    return await perform_logout(request)
 
 
 @router.get("/me")
@@ -315,3 +367,47 @@ async def get_me(request: Request):
     except Exception as e:
         logger.error(f"Error in /me endpoint: {str(e)}")
         return {"authenticated": False, "error": str(e)}
+
+
+@router.post("/service-auth")
+async def service_auth(request: Request):
+    """Authenticate a service using API key and return JWT token"""
+    try:
+        # Get API key from header
+        api_key = request.headers.get("x-api-key")
+        if not api_key:
+            raise HTTPException(status_code=401, detail="API key required")
+
+        # Validate API key against environment variable
+        valid_service_key = os.getenv("SERVICE_API_KEY")
+        if not valid_service_key:
+            logger.error("SERVICE_API_KEY not configured")
+            raise HTTPException(status_code=500, detail="Service authentication not configured")
+
+        if api_key != valid_service_key:
+            logger.warning("Invalid service API key attempted")
+            raise HTTPException(status_code=401, detail="Invalid API key")
+
+        # Create service account user data
+        service_user_data = {
+            "email": "service@raimy.internal",
+            "name": "Raimy Service Account",
+            "picture": None,
+            "service": True  # Mark as service account
+        }
+
+        # Create JWT token for service
+        service_token = create_jwt_token(service_user_data)
+        logger.info("Service token created for internal service")
+
+        return {
+            "token": service_token,
+            "user": service_user_data,
+            "type": "service_account"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in service authentication: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Service authentication failed: {str(e)}")

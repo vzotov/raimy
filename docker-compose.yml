@@ -8,7 +8,12 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
-      - AUTH_DEBUG=${AUTH_DEBUG:-true}
+      - AUTH_DEBUG=${AUTH_DEBUG:-false}
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - API_URL=${API_URL:-http://localhost:8000}
+    volumes:
+      # Mount for development auto-reload
+      - ./auth-service:/app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -29,6 +34,7 @@ services:
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
       - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
       - FIREBASE_EMULATOR_HOST=firebase-emulator
       - FIREBASE_EMULATOR_PORT=8080
       - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
@@ -54,6 +60,8 @@ services:
     environment:
       - PYTHONPATH=/app/server
       - API_URL=http://raimy-api:8000
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - LIVEKIT_URL=${LIVEKIT_URL}

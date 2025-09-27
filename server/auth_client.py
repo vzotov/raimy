@@ -15,23 +15,30 @@ class AuthClient:
     async def verify_auth(self, request: Request) -> Dict[str, Any]:
         """Verify authentication via auth microservice"""
         try:
+            # Prepare headers and cookies for auth service
+            headers = {"content-type": "application/json"}
+
             # Get JWT token from Authorization header
             authorization = request.headers.get("authorization")
-
             if authorization and authorization.startswith("Bearer "):
-                # Forward to auth service for verification
-                headers = {"authorization": authorization}
-                response = await self.client.post(
-                    f"{self.auth_service_url}/auth/verify",
-                    headers=headers
-                )
-            else:
-                # Try to find token in request (for flexibility)
-                response = await self.client.post(
-                    f"{self.auth_service_url}/auth/verify",
-                    headers={"content-type": "application/json"},
-                    json={}
-                )
+                headers["authorization"] = authorization
+
+            # Extract and forward cookies
+            cookies = {}
+            if request.headers.get("cookie"):
+                cookie_header = request.headers.get("cookie")
+                for cookie in cookie_header.split(";"):
+                    if "=" in cookie:
+                        name, value = cookie.strip().split("=", 1)
+                        cookies[name] = value
+
+            # Forward to auth service for verification
+            response = await self.client.post(
+                f"{self.auth_service_url}/auth/verify",
+                headers=headers,
+                cookies=cookies,
+                json={}
+            )
 
             if response.status_code == 200:
                 auth_data = response.json()

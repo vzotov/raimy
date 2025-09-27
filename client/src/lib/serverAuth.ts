@@ -5,7 +5,7 @@ export async function getServerAuth(): Promise<AuthResponse> {
   try {
     const cookieStore = await cookies();
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    
+
     const response = await fetch(`${apiUrl}/auth/me`, {
       headers: {
         Cookie: cookieStore.toString(),
@@ -20,4 +20,4 @@ export async function getServerAuth(): Promise<AuthResponse> {
   }
 
   return { authenticated: false };
-} 
+}

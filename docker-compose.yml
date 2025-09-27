@@ -1,4 +1,22 @@
 services:
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8001:8001"  # Auth microservice
+    environment:
+      - PYTHONPATH=/app
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
+      - AUTH_DEBUG=${AUTH_DEBUG:-true}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
   raimy-api:
     build: .
     ports:
@@ -10,10 +28,7 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - SESSION_SIGNER_SECRET=${SESSION_SIGNER_SECRET:-supersecret}
-      - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
+      - AUTH_SERVICE_URL=http://auth-service:8001
       - FIREBASE_EMULATOR_HOST=firebase-emulator
       - FIREBASE_EMULATOR_PORT=8080
       - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
@@ -28,6 +43,8 @@ services:
       retries: 3
       start_period: 40s
     depends_on:
+      auth-service:
+        condition: service_healthy
       firebase-emulator:
         condition: service_healthy
 

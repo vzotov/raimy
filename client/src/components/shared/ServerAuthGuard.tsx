@@ -8,7 +8,7 @@ interface ServerAuthGuardProps {
 
 export default async function ServerAuthGuard({ 
   children, 
-  redirectTo = '/auth/signin' 
+  redirectTo = '/'
 }: ServerAuthGuardProps) {
   const auth = await getServerAuth();
 

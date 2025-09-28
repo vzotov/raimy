@@ -3,6 +3,8 @@ import json
 from contextlib import asynccontextmanager
 from typing import List
 import os
+import subprocess
+import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,11 +22,57 @@ from auth_proxy import router as auth_proxy_router
 sse_connections: List[asyncio.Queue] = []
 
 
+async def run_database_migrations():
+    """Run database migrations on startup if enabled"""
+    auto_migrate = os.getenv("AUTO_MIGRATE", "true").lower() == "true"
+
+    if not auto_migrate:
+        print("⚠️  AUTO_MIGRATE=false, skipping database migrations")
+        print("💡 Run 'alembic upgrade head' manually if needed")
+        return
+
+    try:
+        print("🔄 Running database migrations...")
+
+        # Run alembic upgrade head
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        print("✅ Database migrations completed successfully")
+        if result.stdout:
+            print(f"Migration output: {result.stdout}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Database migration failed: {e}")
+        print(f"Migration error: {e.stderr}")
+
+        # In production, you might want to fail fast
+        # For development, we'll continue and let the developer handle it
+        if os.getenv("FAIL_ON_MIGRATION_ERROR", "false").lower() == "true":
+            raise RuntimeError("Database migration failed") from e
+        else:
+            print("⚠️  Continuing startup despite migration failure")
+    except Exception as e:
+        print(f"❌ Unexpected error during migration: {e}")
+        if os.getenv("FAIL_ON_MIGRATION_ERROR", "false").lower() == "true":
+            raise
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting FastAPI server...")
+    print("🚀 Starting FastAPI server...")
+
+    # Run database migrations on startup
+    await run_database_migrations()
+
+    print("✅ FastAPI server ready!")
     yield
-    print("Shutting down FastAPI server...")
+    print("🛑 Shutting down FastAPI server...")
 
 
 app = FastAPI(

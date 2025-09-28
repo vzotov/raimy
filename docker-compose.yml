@@ -22,6 +22,24 @@ services:
       retries: 3
       start_period: 5s
 
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-raimy}
+      - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raimy_user} -d ${POSTGRES_DB:-raimy}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   raimy-api:
     build: .
     ports:
@@ -35,9 +53,16 @@ services:
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - FIREBASE_EMULATOR_HOST=firebase-emulator
-      - FIREBASE_EMULATOR_PORT=8080
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
+      # PostgreSQL Configuration
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-raimy}
+      - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
+      # Migration Configuration
+      - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
+      - FAIL_ON_MIGRATION_ERROR=${FAIL_ON_MIGRATION_ERROR:-false}
     volumes:
       # Mount for development (optional)
       - ./server:/app/server
@@ -51,7 +76,7 @@ services:
     depends_on:
       auth-service:
         condition: service_healthy
-      firebase-emulator:
+      postgres:
         condition: service_healthy
 
   raimy-bot:
@@ -67,9 +92,15 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - FIREBASE_EMULATOR_HOST=firebase-emulator
-      - FIREBASE_EMULATOR_PORT=8080
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
+      # PostgreSQL Configuration
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-raimy}
+      - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
+      # Migration Configuration (disabled for bot, only API runs migrations)
+      - AUTO_MIGRATE=false
     volumes:
       # Mount for development (optional)
       - ./server:/app/server
@@ -78,37 +109,5 @@ services:
       raimy-api:
         condition: service_healthy
 
-  firebase-emulator:
-    image: node:22-alpine
-    ports:
-      - "4000:4000"  # Emulator UI
-      - "8080:8080"  # Firestore
-      - "9099:9099"  # Auth
-      - "5001:5001"  # Functions
-    environment:
-      - FIRESTORE_EMULATOR_HOST=0.0.0.0:8080
-      - AUTH_EMULATOR_HOST=0.0.0.0:9099
-      - FUNCTIONS_EMULATOR_HOST=0.0.0.0:5001
-    volumes:
-      - ./firebase:/app
-      - firebase-data:/root/.config/firebase
-      - firestore-data:/root/.config/firebase/firestore-data
-      - ./firebase-data:/root/.config/firebase/data
-    working_dir: /app
-    command: >
-      sh -c "
-        apk add --no-cache openjdk11-jre wget &&
-        npm install -g firebase-tools &&
-        firebase emulators:start --project demo-project --only firestore,auth,ui
-      "
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
 volumes:
-  firebase-data:
-  firestore-data: 
+  postgres_data:

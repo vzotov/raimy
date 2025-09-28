@@ -6,7 +6,9 @@ fastapi
 uvicorn[standard]
 sse-starlette
 pydantic
-firebase-admin
-authlib
-itsdangerous
-PyJWT
+httpx
+# PostgreSQL and SQLAlchemy dependencies
+sqlalchemy[asyncio]>=2.0.0
+asyncpg
+alembic
+psycopg2-binary

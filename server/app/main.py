@@ -3,27 +3,76 @@ import json
 from contextlib import asynccontextmanager
 from typing import List
 import os
+import subprocess
+import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from sse_starlette.sse import EventSourceResponse
 import uvicorn
 
 # Import routers
-from routes.timers import create_timers_router
-from routes.recipes import create_recipes_router
-from routes.auth import create_auth_router, oauth
+from .routes.timers import create_timers_router
+from .routes.recipes import create_recipes_router
+from .routes.debug import create_debug_router
+from ..core.auth_client import auth_client
+from ..agents.auth_proxy import router as auth_proxy_router
 
 # Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
 
 
+async def run_database_migrations():
+    """Run database migrations on startup if enabled"""
+    auto_migrate = os.getenv("AUTO_MIGRATE", "true").lower() == "true"
+
+    if not auto_migrate:
+        print("⚠️  AUTO_MIGRATE=false, skipping database migrations")
+        print("💡 Run 'alembic upgrade head' manually if needed")
+        return
+
+    try:
+        print("🔄 Running database migrations...")
+
+        # Run alembic upgrade head
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        print("✅ Database migrations completed successfully")
+        if result.stdout:
+            print(f"Migration output: {result.stdout}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Database migration failed: {e}")
+        print(f"Migration error: {e.stderr}")
+
+        # In production, you might want to fail fast
+        # For development, we'll continue and let the developer handle it
+        if os.getenv("FAIL_ON_MIGRATION_ERROR", "false").lower() == "true":
+            raise RuntimeError("Database migration failed") from e
+        else:
+            print("⚠️  Continuing startup despite migration failure")
+    except Exception as e:
+        print(f"❌ Unexpected error during migration: {e}")
+        if os.getenv("FAIL_ON_MIGRATION_ERROR", "false").lower() == "true":
+            raise
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting FastAPI server...")
+    print("🚀 Starting FastAPI server...")
+
+    # Run database migrations on startup
+    await run_database_migrations()
+
+    print("✅ FastAPI server ready!")
     yield
-    print("Shutting down FastAPI server...")
+    print("🛑 Shutting down FastAPI server...")
 
 
 app = FastAPI(
@@ -34,20 +83,19 @@ app = FastAPI(
     A comprehensive API for managing cooking recipes, timers, and real-time cooking assistance.
     
     ### Features:
-    * 🔐 **Authentication** - Google OAuth with JWT support
     * 📝 **Recipe Management** - Create, read, and manage cooking recipes
     * ⏰ **Timer System** - Set and manage cooking timers
     * 📡 **Real-time Events** - SSE for live updates
     * 👤 **User Management** - User-specific recipe storage
-    
+
     ### Quick Start:
-    1. **Authenticate** via `/auth/login`
+    1. **Authenticate** via Auth Service (port 8001)
     2. **Create recipes** with `/api/recipes`
     3. **Set timers** with `/api/timers/set`
     4. **Listen for events** at `/api/events`
-    
+
     ### Authentication:
-    - **Web Apps**: Use session-based auth (cookies)
+    - **Auth Service**: Handled by dedicated microservice on port 8001
     - **Mobile/API**: Use JWT tokens with `Authorization: Bearer <token>`
     """,
     version="1.0.0",
@@ -65,11 +113,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# Add SessionMiddleware for OAuth support
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SIGNER_SECRET", "supersecret")
-)
+# Session middleware not needed - auth handled by microservice
 
 # Add CORS middleware
 app.add_middleware(
@@ -80,53 +124,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Google OAuth client with latest API
+# OAuth handled by auth microservice
 import logging
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-# Environment variable to control debug logging
-if os.getenv("AUTH_DEBUG", "false").lower() == "true":
-    logger.setLevel(logging.DEBUG)
-
-logger.debug("Checking environment variables...")
-logger.debug(f"All env vars: {[k for k in os.environ.keys() if 'GOOGLE' in k or 'OAUTH' in k or 'CLIENT' in k]}")
-
-google_client_id = os.getenv("GOOGLE_CLIENT_ID")
-google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-
-logger.debug(f"GOOGLE_CLIENT_ID = {'SET' if google_client_id else 'NOT SET'}")
-logger.debug(f"GOOGLE_CLIENT_SECRET = {'SET' if google_client_secret else 'NOT SET'}")
-
-if not google_client_id or not google_client_secret:
-    logger.warning("Google OAuth credentials not found!")
-    logger.warning("Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables")
-    logger.warning("You can get these from: https://console.cloud.google.com/apis/credentials")
-    logger.warning("For now, OAuth authentication will be disabled")
-else:
-    try:
-        logger.debug(f"Attempting to register OAuth client with ID: {google_client_id[:10]}...")
-        # Use manual OAuth configuration (no OpenID Connect discovery)
-        oauth.register(
-            name="google",
-            client_id=google_client_id,
-            client_secret=google_client_secret,
-            access_token_url="https://accounts.google.com/o/oauth2/token",
-            access_token_params=None,
-            authorize_url="https://accounts.google.com/o/oauth2/auth",
-            authorize_params=None,
-            api_base_url="https://www.googleapis.com/oauth2/v1/",
-            jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
-            client_kwargs={
-                "scope": "openid email profile",
-                "token_endpoint_auth_method": "client_secret_post"
-            },
-        )
-        logger.info("Google OAuth client registered successfully")
-    except Exception as e:
-        logger.error(f"Failed to register Google OAuth client: {e}")
-        logger.error("OAuth authentication will be disabled")
 
 
 async def broadcast_event(event_type: str, data: dict):
@@ -165,6 +166,7 @@ async def root():
             "recipes": "/api/recipes/*",
             "timers": "/api/timers/*",
             "events": "/api/events",
+            "debug": "/debug/*",
             "health": "/health"
         }
     }
@@ -233,7 +235,9 @@ async def events():
 # Include routers with injected broadcast function
 app.include_router(create_timers_router(broadcast_event))
 app.include_router(create_recipes_router(broadcast_event))
-app.include_router(create_auth_router(broadcast_event))
+app.include_router(create_debug_router())
+# Auth proxy router - forwards requests to auth microservice
+app.include_router(auth_proxy_router)
 
 
 if __name__ == "__main__":

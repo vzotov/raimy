@@ -1,16 +1,13 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from uuid import UUID
-import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func, desc
+from sqlalchemy import desc
 from pydantic import BaseModel
 
-from database import get_db, AsyncSessionLocal
-from models import User, Recipe, RecipeStep, Session
+from .database import AsyncSessionLocal
+from .models import User, Recipe, RecipeStep, Session
 
 # Pydantic models for API compatibility with existing Firebase service
 class RecipeStepModel(BaseModel):

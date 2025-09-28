@@ -6,9 +6,7 @@ import sys
 import aiohttp
 from datetime import datetime
 
-# Add server path to import tools
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from tools import get_service_token, save_recipe
+from ...agents.tools import get_service_token, save_recipe
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 
@@ -73,7 +71,7 @@ async def test_service_auth():
     start_time = datetime.now()
 
     # Clear cache for fresh test
-    import tools
+    from ...agents import tools
     tools._service_token_cache = None
 
     try:

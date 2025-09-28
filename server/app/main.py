@@ -12,11 +12,11 @@ from sse_starlette.sse import EventSourceResponse
 import uvicorn
 
 # Import routers
-from routes.timers import create_timers_router
-from routes.recipes import create_recipes_router
-from routes.debug import create_debug_router
-from auth_client import auth_client
-from auth_proxy import router as auth_proxy_router
+from .routes.timers import create_timers_router
+from .routes.recipes import create_recipes_router
+from .routes.debug import create_debug_router
+from ..core.auth_client import auth_client
+from ..agents.auth_proxy import router as auth_proxy_router
 
 # Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
@@ -37,7 +37,7 @@ async def run_database_migrations():
         # Run alembic upgrade head
         result = subprocess.run(
             [sys.executable, "-m", "alembic", "upgrade", "head"],
-            cwd=os.path.dirname(os.path.abspath(__file__)),
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             capture_output=True,
             text=True,
             check=True

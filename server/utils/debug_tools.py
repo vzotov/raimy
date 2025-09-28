@@ -12,8 +12,8 @@ import asyncio
 import sys
 import os
 import json
-from tools import get_service_token, save_recipe
-from livekit.agents import RunContext
+from server.agents.tools import get_service_token, save_recipe
+
 
 class MockRunContext:
     """Mock RunContext for testing tools without LiveKit agent"""
@@ -32,8 +32,7 @@ async def test_service_auth():
     print()
 
     # Clear cache for fresh test
-    from tools import _service_token_cache
-    import tools
+    from server.agents import tools
     tools._service_token_cache = None
 
     # Test authentication

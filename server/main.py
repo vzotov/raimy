@@ -8,8 +8,8 @@ from livekit.agents import (
     cli,
 )
 from livekit.plugins import openai, silero
-from prompts import COOKING_ASSISTANT_PROMPT
-from tools import set_timer, send_recipe_name, save_recipe, set_ingredients, update_ingredients
+from agents.prompts import COOKING_ASSISTANT_PROMPT
+from agents.tools import set_timer, send_recipe_name, save_recipe, set_ingredients, update_ingredients
 
 
 load_dotenv()

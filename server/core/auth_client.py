@@ -1,9 +1,8 @@
 import httpx
 import logging
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from fastapi import HTTPException, Request
 import os
-from database_service import database_service
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +43,6 @@ class AuthClient:
                 auth_data = response.json()
                 logger.debug(f"Auth verification result: {auth_data.get('authenticated')}")
 
-                # If user is authenticated, store user data in PostgreSQL
-                if auth_data.get('authenticated') and auth_data.get('user'):
-                    await self._store_user_data(auth_data['user'])
-
                 return auth_data
             else:
                 logger.error(f"Auth service error: {response.status_code}")
@@ -56,20 +51,6 @@ class AuthClient:
         except Exception as e:
             logger.error(f"Failed to verify auth: {str(e)}")
             return {"authenticated": False, "error": str(e)}
-
-    async def _store_user_data(self, user_data: Dict[str, Any]):
-        """Store/update user data in PostgreSQL"""
-        try:
-            user_email = user_data.get('email')
-            if user_email:
-                # Use the database service to save user data
-                success = await database_service.save_user(user_data)
-                if success:
-                    logger.debug(f"Updated user data for: {user_email}")
-                else:
-                    logger.warning(f"Failed to update user data for: {user_email}")
-        except Exception as e:
-            logger.warning(f"Failed to store user data: {str(e)}")  # Don't fail auth for storage issues
 
     async def get_current_user(self, request: Request) -> Dict[str, Any]:
         """Get current authenticated user or raise HTTPException"""

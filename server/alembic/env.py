@@ -8,10 +8,10 @@ from sqlalchemy import pool
 from alembic import context
 
 # Add the server directory to the path so we can import models
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import our models
-from models import Base
+from app.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

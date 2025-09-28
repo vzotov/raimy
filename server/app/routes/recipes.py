@@ -2,9 +2,40 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 import asyncio
 
-from database_service import database_service, RecipeModel, RecipeStepModel
+from ..services import database_service, RecipeModel, RecipeStepModel
 from .models import RecipeNameRequest, SaveRecipeRequest
-from auth_client import get_current_user
+from ...core.auth_client import auth_client
+from fastapi import Request
+import logging
+
+logger = logging.getLogger(__name__)
+
+async def get_current_user_with_storage(request: Request):
+    """Get current user and ensure user data is stored in database"""
+    try:
+        # Verify authentication (pure auth check)
+        auth_data = await auth_client.verify_auth(request)
+
+        if not auth_data.get("authenticated"):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_data = auth_data.get("user", {})
+
+        # Store/update user data in database (app layer responsibility)
+        if user_data and user_data.get('email'):
+            try:
+                await database_service.save_user(user_data)
+                logger.debug(f"Updated user data for: {user_data.get('email')}")
+            except Exception as e:
+                logger.warning(f"Failed to store user data: {str(e)}")  # Don't fail auth for storage issues
+
+        return user_data
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        logger.error(f"Failed to get current user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Authentication error")
 
 # Import broadcast_event from main API
 broadcast_event = None
@@ -46,7 +77,7 @@ async def set_ingredients(ingredients_request: dict):
 
 
 @router.get("/")
-async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user_with_storage)):
     """Get recipes from PostgreSQL database"""
     try:
         # Get all recipes for now (showing agent-created recipes)
@@ -63,7 +94,7 @@ async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depend
 
 
 @router.post("/")
-async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user)):
+async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user_with_storage)):
     """Save a new recipe for the current user"""
     try:
         # Convert steps to RecipeStepModel objects

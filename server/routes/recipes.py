@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 import asyncio
 
-from firebase_service import firebase_service, Recipe, RecipeStep
+from database_service import database_service, RecipeModel, RecipeStepModel
 from .models import RecipeNameRequest, SaveRecipeRequest
 from auth_client import get_current_user
 
@@ -47,16 +47,16 @@ async def set_ingredients(ingredients_request: dict):
 
 @router.get("/")
 async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    """Get recipes from the database - temporarily showing all recipes"""
+    """Get recipes from PostgreSQL database"""
     try:
-        # TODO: After PostgreSQL migration, properly associate agent recipes with users
-        # For now, show all recipes so agent-created recipes are visible
-        recipes = await firebase_service.get_recipes()
+        # Get all recipes for now (showing agent-created recipes)
+        # TODO: Add proper user filtering if needed
+        recipes = await database_service.get_recipes()
 
         return {
             "recipes": recipes,
             "count": len(recipes),
-            "note": "Currently showing all recipes. User filtering will be restored after DB migration."
+            "note": "Showing all recipes from PostgreSQL database."
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recipes: {str(e)}")
@@ -66,19 +66,19 @@ async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depend
 async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user)):
     """Save a new recipe for the current user"""
     try:
-        # Convert steps to RecipeStep objects
+        # Convert steps to RecipeStepModel objects
         steps = []
         for i, step_data in enumerate(recipe_request.steps):
-            step = RecipeStep(
+            step = RecipeStepModel(
                 step_number=i + 1,
                 instruction=step_data.get("instruction", ""),
                 duration_minutes=step_data.get("duration_minutes"),
                 ingredients=step_data.get("ingredients")
             )
             steps.append(step)
-        
-        # Create Recipe object with current user
-        recipe = Recipe(
+
+        # Create RecipeModel object with current user
+        recipe = RecipeModel(
             name=recipe_request.name,
             description=recipe_request.description,
             ingredients=recipe_request.ingredients,
@@ -89,10 +89,10 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
             tags=recipe_request.tags,
             user_id=current_user["email"]  # Always use current user
         )
-        
-        # Save to Firebase
-        recipe_id = await firebase_service.save_recipe(recipe)
-        
+
+        # Save to PostgreSQL
+        recipe_id = await database_service.save_recipe(recipe)
+
         return {
             "message": "Recipe saved successfully",
             "recipe_id": recipe_id,

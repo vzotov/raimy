@@ -1,6 +1,6 @@
 services:
   auth-service:
-    build: ./auth-service
+    build: ./server/auth-service
     ports:
       - "8001:8001"  # Auth microservice
     environment:
@@ -13,7 +13,7 @@ services:
       - API_URL=${API_URL:-http://localhost:8000}
     volumes:
       # Mount for development auto-reload
-      - ./auth-service:/app
+      - ./server/auth-service:/app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]

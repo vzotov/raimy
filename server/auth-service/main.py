@@ -8,7 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
 
 # Import auth router
-from app.auth import router as auth_router, oauth
+from auth import router as auth_router, oauth
 
 
 @asynccontextmanager

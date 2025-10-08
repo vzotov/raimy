@@ -22,6 +22,29 @@ services:
       retries: 3
       start_period: 5s
 
+  mcp-service:
+    build: ./server/mcp_service
+    ports:
+      - "8002:8002"  # MCP server (Streamable HTTP)
+    environment:
+      - PYTHONPATH=/app
+      - API_URL=http://raimy-api:8000
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
+    volumes:
+      # Mount for development auto-reload
+      - ./server/mcp_service:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      raimy-api:
+        condition: service_healthy
+
   postgres:
     image: postgres:15-alpine
     ports:

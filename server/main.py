@@ -30,7 +30,7 @@ async def entrypoint(ctx: JobContext):
         ),
         stt=openai.STT(),
         llm=openai.LLM(
-            model="gpt-4.1-nano"
+            model="gpt-5-mini"
         ),
     )
 

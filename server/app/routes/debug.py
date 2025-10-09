@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
-import asyncio
 import os
-import sys
 import aiohttp
 from datetime import datetime
 
-from ...agents.tools import get_service_token, save_recipe
+# Import from MCP server instead of agents.tools
+from ...mcp_service.server import get_service_token, save_recipe
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 
@@ -71,8 +70,8 @@ async def test_service_auth():
     start_time = datetime.now()
 
     # Clear cache for fresh test
-    from ...agents import tools
-    tools._service_token_cache = None
+    from ...mcp_service import server as mcp_server
+    mcp_server._service_token_cache = None
 
     try:
         token = await get_service_token()

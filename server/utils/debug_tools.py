@@ -12,7 +12,8 @@ import asyncio
 import sys
 import os
 import json
-from server.agents.tools import get_service_token, save_recipe
+# Import from MCP server instead of agents.tools
+from server.mcp_service.server import get_service_token, save_recipe
 
 
 class MockRunContext:
@@ -32,8 +33,8 @@ async def test_service_auth():
     print()
 
     # Clear cache for fresh test
-    from server.agents import tools
-    tools._service_token_cache = None
+    from server.mcp_service import server as mcp_server
+    mcp_server._service_token_cache = None
 
     # Test authentication
     token = await get_service_token()

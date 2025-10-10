@@ -7,10 +7,17 @@ from livekit.agents import (
     JobContext,
     WorkerOptions,
     cli,
+    RoomInputOptions,
+    RoomOutputOptions,
 )
 from livekit.agents.llm.mcp import MCPServerHTTP
 from livekit.plugins import openai, silero
-from agents.prompts import COOKING_ASSISTANT_PROMPT
+from agents.prompts import (
+    COOKING_ASSISTANT_PROMPT,
+    MEAL_PLANNER_PROMPT,
+    COOKING_GREETING,
+    MEAL_PLANNER_GREETING,
+)
 
 
 load_dotenv()
@@ -27,26 +34,50 @@ async def entrypoint(ctx: JobContext):
     # Get tools from MCP server
     mcp_tools = await mcp_server.list_tools()
 
+    # Determine which prompt to use based on room name
+    is_meal_planner = ctx.room.name.startswith("meal-planner")
+    prompt = MEAL_PLANNER_PROMPT if is_meal_planner else COOKING_ASSISTANT_PROMPT
+    greeting_instructions = MEAL_PLANNER_GREETING if is_meal_planner else COOKING_GREETING
+
     agent = Agent(
-        instructions=COOKING_ASSISTANT_PROMPT,
+        instructions=prompt,
         tools=mcp_tools,  # Use tools from MCP server
     )
-    session = AgentSession(
-        vad=silero.VAD.load(),
-        tts=openai.TTS(
-            voice="fable",
-            model="gpt-4o-mini-tts"
-        ),
-        stt=openai.STT(),
-        llm=openai.LLM(
-            model="gpt-5-mini"
-        ),
-    )
 
-    await session.start(agent=agent, room=ctx.room)
-    await session.generate_reply(
-        instructions="greet the user and ask what they want to cook"
-    )
+    # Configure session based on room type
+    if is_meal_planner:
+        # Text-only session for meal planner
+        session = AgentSession(
+            llm=openai.LLM(
+                model="gpt-5-mini"
+            ),
+        )
+
+        await session.start(
+            agent=agent,
+            room=ctx.room,
+            room_input_options=RoomInputOptions(audio_enabled=False),
+            room_output_options=RoomOutputOptions(audio_enabled=False, transcription_enabled=True),
+        )
+
+        print(f"[DEBUG] Text-only session started for meal planner")
+        print(f"[DEBUG] Generating greeting with instructions: {greeting_instructions}")
+    else:
+        # Voice session for cooking assistant
+        session = AgentSession(
+            vad=silero.VAD.load(),
+            tts=openai.TTS(
+                voice="fable",
+                model="gpt-4o-mini-tts"
+            ),
+            stt=openai.STT(),
+            llm=openai.LLM(
+                model="gpt-5-mini"
+            ),
+        )
+        await session.start(agent=agent, room=ctx.room)
+
+    await session.generate_reply(instructions=greeting_instructions)
 
 
 if __name__ == "__main__":

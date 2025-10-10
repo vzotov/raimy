@@ -48,15 +48,22 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         {/* Navigation Links - Scrollable middle section */}
         <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
           <div className="px-3 space-y-2">
-            <Link 
-              href="/kitchen" 
+            <Link
+              href="/kitchen"
               className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
               onClick={handleCloseMenu}
             >
               Kitchen
             </Link>
-            <Link 
-              href="/myrecipes" 
+            <Link
+              href="/meal-planner"
+              className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
+              onClick={handleCloseMenu}
+            >
+              Meal Planner
+            </Link>
+            <Link
+              href="/myrecipes"
               className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
               onClick={handleCloseMenu}
             >

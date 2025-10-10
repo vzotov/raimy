@@ -1,10 +1,12 @@
 import { useMemo, useEffect } from 'react';
 import { useChat, useLocalParticipant, useTranscriptions } from '@livekit/components-react';
 import { useAgentParticipant } from './useAgentParticipant';
+import { MessageContent } from '@/types/chat-message-types';
+import { parseMessageContent } from '@/utils/messageParser';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | MessageContent;
   timestamp: Date;
   id: string;
 }
@@ -59,9 +61,12 @@ export function useChatMessages(): ChatMessage[] {
 
           console.log('[useChatMessages] Converted timestamp:', timestamp, 'Date:', new Date(timestamp));
 
+          // Parse message content - handles both plain text and structured JSON
+          const parsedContent = parseMessageContent(transcription.text);
+
           allMessages.push({
             role: 'assistant',
-            content: transcription.text,
+            content: parsedContent,
             timestamp: new Date(timestamp),
             id: `transcription-${transcription.participantInfo?.identity}-${timestamp}`,
           });

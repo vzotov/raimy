@@ -1,10 +1,11 @@
 import React from 'react';
 import ScrollableArea from './ScrollableArea';
+import { BaseIngredient } from '@/types/ingredient';
 
-export interface Ingredient {
-  name: string;
-  amount?: string;
-  unit?: string;
+/**
+ * Kitchen ingredient extends base with UI state for highlighting and tracking usage
+ */
+export interface Ingredient extends BaseIngredient {
   highlighted?: boolean;
   used?: boolean;
 }

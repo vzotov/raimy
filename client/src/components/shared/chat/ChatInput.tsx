@@ -1,4 +1,4 @@
-import { useState, FormEvent, KeyboardEvent } from 'react';
+import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react';
 import classNames from 'classnames';
 
 export interface ChatInputProps {
@@ -10,6 +10,7 @@ export interface ChatInputProps {
 /**
  * Stateless component for text input with send button.
  * Handles enter key to send, shift+enter for new line.
+ * Auto-focuses input after sending message for continuous UX.
  */
 export default function ChatInput({
   onSend,
@@ -17,14 +18,24 @@ export default function ChatInput({
   placeholder = 'Type a message...'
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
       onSend(message.trim());
       setMessage('');
+      // Auto-focus input after sending for continuous conversation
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
     }
   };
+
+  // Focus on mount for immediate typing
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Send on Enter, new line on Shift+Enter
@@ -38,6 +49,7 @@ export default function ChatInput({
     <form onSubmit={handleSubmit} className="border-t border-accent/20 p-4">
       <div className="flex gap-2 items-end">
         <textarea
+          ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}

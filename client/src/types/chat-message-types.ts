@@ -3,11 +3,12 @@
  * Supports multiple message types with type-safe content.
  */
 
-// Base ingredient structure
-export interface Ingredient {
-  name: string;
-  quantity?: number;
-  unit?: string;
+import { BaseIngredient } from './ingredient';
+
+/**
+ * Chat ingredient extends base with additional meal planning fields
+ */
+export interface ChatIngredient extends BaseIngredient {
   notes?: string;
 }
 
@@ -20,27 +21,10 @@ export type TextContent = {
 export type IngredientsContent = {
   type: 'ingredients';
   title?: string;
-  items: Ingredient[];
+  items: ChatIngredient[];
 };
 
 // Union type for all message content types
 export type MessageContent =
   | TextContent
   | IngredientsContent;
-
-// Extended chat message with typed content
-export interface TypedChatMessage {
-  role: 'user' | 'assistant';
-  messageContent: MessageContent;
-  timestamp: Date;
-  id: string;
-}
-
-// Type guard functions
-export function isTextContent(content: MessageContent): content is TextContent {
-  return content.type === 'text';
-}
-
-export function isIngredientsContent(content: MessageContent): content is IngredientsContent {
-  return content.type === 'ingredients';
-}

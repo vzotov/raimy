@@ -1,9 +1,9 @@
-import { Ingredient } from '@/types/chat-message-types';
+import { ChatIngredient } from '@/types/chat-message-types';
 import classNames from 'classnames';
 
 export interface IngredientListProps {
   title?: string;
-  items: Ingredient[];
+  items: ChatIngredient[];
   isUser?: boolean;
 }
 
@@ -51,12 +51,12 @@ export default function IngredientList({ title, items, isUser = false }: Ingredi
             {/* Ingredient details */}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                {ingredient.quantity && (
+                {ingredient.amount && (
                   <span className={classNames('font-medium', {
                     'text-white': isUser,
                     'text-text': !isUser,
                   })}>
-                    {ingredient.quantity}
+                    {ingredient.amount}
                   </span>
                 )}
                 {ingredient.unit && (

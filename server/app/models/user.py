@@ -17,6 +17,7 @@ class User(Base, TimestampMixin):
     # Relationships
     recipes = relationship("Recipe", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    meal_planner_sessions = relationship("MealPlannerSession", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(email='{self.email}', name='{self.name}')>"

@@ -15,8 +15,9 @@ import uvicorn
 from .routes.timers import create_timers_router
 from .routes.recipes import create_recipes_router
 from .routes.debug import create_debug_router
-from ..core.auth_client import auth_client
-from ..agents.auth_proxy import router as auth_proxy_router
+from .routes.meal_planner_sessions import create_meal_planner_sessions_router
+from core.auth_client import auth_client
+from agents.auth_proxy import router as auth_proxy_router
 
 # Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
@@ -235,6 +236,7 @@ async def events():
 # Include routers with injected broadcast function
 app.include_router(create_timers_router(broadcast_event))
 app.include_router(create_recipes_router(broadcast_event))
+app.include_router(create_meal_planner_sessions_router(broadcast_event))
 app.include_router(create_debug_router())
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)

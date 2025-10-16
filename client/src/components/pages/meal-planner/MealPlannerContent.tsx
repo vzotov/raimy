@@ -1,18 +1,35 @@
 import { createToken } from '@/lib/livekit';
 import MealPlannerLiveKitWrapper from './MealPlannerLiveKitWrapper';
 import { getServerAuth } from '@/lib/serverAuth';
+import { SessionMessage } from '@/types/meal-planner-session';
 
-export default async function MealPlannerContent() {
+interface MealPlannerContentProps {
+  sessionId: string;
+  sessionName: string;
+  roomName: string;
+  initialMessages?: SessionMessage[];
+}
+
+export default async function MealPlannerContent({
+  sessionId,
+  sessionName,
+  roomName,
+  initialMessages = [],
+}: MealPlannerContentProps) {
   const { user } = await getServerAuth();
   const userId = user?.email || '';
 
-  // Generate room name for meal planner
-  // TODO: Use conversation ID for persistent rooms
-  const roomName = `meal-planner-${Date.now()}`;
+  // Use the session's room name for persistent LiveKit rooms
   const token = await createToken(userId, roomName);
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || '';
 
   return (
-    <MealPlannerLiveKitWrapper serverUrl={serverUrl} token={token} />
+    <MealPlannerLiveKitWrapper
+      serverUrl={serverUrl}
+      token={token}
+      sessionId={sessionId}
+      sessionName={sessionName}
+      initialMessages={initialMessages}
+    />
   );
 }

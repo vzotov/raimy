@@ -7,8 +7,19 @@ import ChatDebugPanel from '@/components/debug/ChatDebugPanel';
 import classNames from 'classnames';
 import { ChatMessage } from '@/hooks/useChatMessages';
 import { MessageContent } from '@/types/chat-message-types';
+import { SessionMessage } from '@/types/meal-planner-session';
 
-export default function MealPlanner() {
+interface MealPlannerProps {
+  sessionId: string;
+  sessionName: string;
+  initialMessages?: SessionMessage[];
+}
+
+export default function MealPlanner({
+  sessionId,
+  sessionName,
+  initialMessages = [],
+}: MealPlannerProps) {
   const connectionState = useConnectionState();
   const participants = useParticipants();
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -50,9 +61,11 @@ export default function MealPlanner() {
       {/* Header */}
       <div className="p-4 border-b border-accent/20 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text">Meal Planner</h1>
+          <h1 className="text-2xl font-bold text-text">{sessionName}</h1>
           <p className="text-sm text-text/70 mt-1">
-            Plan your meals with AI assistance
+            {initialMessages.length > 0
+              ? `${initialMessages.length} message${initialMessages.length !== 1 ? 's' : ''} in this session`
+              : 'Plan your meals with AI assistance'}
           </p>
           {connectionState !== 'connected' && (
             <p className="text-xs text-primary mt-2">Connecting to assistant...</p>
@@ -85,7 +98,8 @@ export default function MealPlanner() {
           <Chat
             showDebugPanel={showDebugPanel}
             debugMessages={debugMessages}
-            onDebugMessagesChange={setDebugMessages}
+            sessionId={sessionId}
+            initialMessages={initialMessages}
           />
         </div>
 

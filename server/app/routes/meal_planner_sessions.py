@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import List
 import logging
 
 from ..services import database_service
-from .models import UpdateSessionNameRequest
+from .models import UpdateSessionNameRequest, CreateSessionRequest
 from core.auth_client import auth_client
 
 logger = logging.getLogger(__name__)
@@ -42,10 +41,17 @@ router = APIRouter(prefix="/api/meal-planner-sessions", tags=["meal_planner_sess
 
 
 @router.post("")
-async def create_session(current_user: dict = Depends(get_current_user_with_storage)):
+async def create_session(
+    request: CreateSessionRequest = None,
+    current_user: dict = Depends(get_current_user_with_storage)
+):
     """Create a new meal planner session"""
     try:
-        session = await database_service.create_meal_planner_session(current_user["email"])
+        initial_message = request.initial_message if request else None
+        session = await database_service.create_meal_planner_session(
+            current_user["email"],
+            initial_message
+        )
 
         # Broadcast session created event via SSE
         if broadcast_event:

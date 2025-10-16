@@ -56,6 +56,17 @@ class SaveRecipeRequest(BaseModel):
     user_id: Optional[str] = Field(None, description="User ID (auto-filled from session)")
 
 
+class CreateSessionRequest(BaseModel):
+    """Request model for creating a meal planner session"""
+    model_config = ConfigDict(json_schema_extra={
+        "examples": [{
+            "initial_message": "I want to plan healthy meals for next week"
+        }]
+    })
+
+    initial_message: Optional[str] = Field(None, description="Optional first message to start the session")
+
+
 class UpdateSessionNameRequest(BaseModel):
     """Request model for updating meal planner session name"""
     model_config = ConfigDict(json_schema_extra={

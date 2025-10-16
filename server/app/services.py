@@ -341,6 +341,35 @@ class DatabaseService:
                 print(f"Error getting meal planner session {session_id}: {e}")
                 return None
 
+    async def add_message_to_session(self, session_id: str, role: str, content: str) -> bool:
+        """Add a message to a meal planner session"""
+        async with AsyncSessionLocal() as db:
+            try:
+                # Create new message
+                new_message = MealPlannerMessage(
+                    session_id=session_id,
+                    role=role,
+                    content=content
+                )
+                db.add(new_message)
+
+                # Update session's updated_at timestamp
+                result = await db.execute(
+                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if session:
+                    session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                print(f"Error adding message to session {session_id}: {e}")
+                return False
+
     async def update_session_name(self, session_id: str, session_name: str) -> bool:
         """Update the name of a meal planner session"""
         async with AsyncSessionLocal() as db:

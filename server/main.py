@@ -1,5 +1,6 @@
 import os
 import sys
+import asyncio
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -81,6 +82,33 @@ async def entrypoint(ctx: JobContext):
                 model="gpt-5-mini"
             ),
         )
+
+        # Hook into conversation events to save messages to database
+        @session.on("conversation_item_added")
+        def on_message_added(event):
+            async def save_message():
+                try:
+                    # Extract session ID from room name
+                    msg_session_id = ctx.room.name.replace("meal-planner-", "")
+
+                    # Skip if no text content
+                    if not event.item.text_content:
+                        return
+
+                    # Save message to database
+                    await database_service.add_message_to_session(
+                        session_id=msg_session_id,
+                        role=event.item.role,
+                        content=event.item.text_content
+                    )
+                    print(f"[Meal Planner] Saved {event.item.role} message to session {msg_session_id}")
+                except Exception as e:
+                    print(f"[Meal Planner] Error saving message: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            # Create task to run async function
+            asyncio.create_task(save_message())
 
         await session.start(
             agent=agent,

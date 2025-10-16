@@ -1,4 +1,4 @@
-"""Add meal_planner_sessions table
+"""Add meal_planner_sessions and meal_planner_messages tables
 
 Revision ID: 002
 Revises: 001
@@ -23,7 +23,6 @@ def upgrade() -> None:
         sa.Column('user_id', sa.String(length=255), nullable=False),
         sa.Column('session_name', sa.String(length=255), nullable=False, server_default='Untitled Session'),
         sa.Column('room_name', sa.String(length=255), nullable=False),
-        sa.Column('messages', sa.JSON(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.email'], ),
@@ -35,8 +34,30 @@ def upgrade() -> None:
     op.create_index('ix_meal_planner_sessions_user_id', 'meal_planner_sessions', ['user_id'])
     op.create_index('ix_meal_planner_sessions_room_name', 'meal_planner_sessions', ['room_name'])
 
+    # Create meal_planner_messages table
+    op.create_table('meal_planner_messages',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('session_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('role', sa.String(length=20), nullable=False),
+        sa.Column('content', sa.JSON(), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.ForeignKeyConstraint(['session_id'], ['meal_planner_sessions.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id')
+    )
+
+    # Create indexes for messages table
+    op.create_index('ix_meal_planner_messages_session_id', 'meal_planner_messages', ['session_id'])
+    op.create_index('ix_meal_planner_messages_created_at', 'meal_planner_messages', ['created_at'])
+
 
 def downgrade() -> None:
+    # Drop messages table first (due to FK constraint)
+    op.drop_index('ix_meal_planner_messages_created_at', table_name='meal_planner_messages')
+    op.drop_index('ix_meal_planner_messages_session_id', table_name='meal_planner_messages')
+    op.drop_table('meal_planner_messages')
+
+    # Drop sessions table
     op.drop_index('ix_meal_planner_sessions_room_name', table_name='meal_planner_sessions')
     op.drop_index('ix_meal_planner_sessions_user_id', table_name='meal_planner_sessions')
     op.drop_table('meal_planner_sessions')

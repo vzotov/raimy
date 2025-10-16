@@ -7,7 +7,7 @@ from sqlalchemy import desc
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
-from .models import User, Recipe, RecipeStep, Session, MealPlannerSession
+from .models import User, Recipe, RecipeStep, Session, MealPlannerSession, MealPlannerMessage
 import uuid
 
 # Pydantic models for API compatibility with existing Firebase service
@@ -224,22 +224,40 @@ class DatabaseService:
 
     # Meal Planner Session Methods
 
-    async def create_meal_planner_session(self, user_id: str) -> Dict[str, Any]:
-        """Create a new meal planner session"""
+    async def create_meal_planner_session(self, user_id: str, initial_message: str = None) -> Dict[str, Any]:
+        """Create a new meal planner session with optional initial message"""
         async with AsyncSessionLocal() as db:
             try:
                 session_id = uuid.uuid4()
                 room_name = f"meal-planner-{session_id}"
 
+                # Create session
                 new_session = MealPlannerSession(
                     id=session_id,
                     user_id=user_id,
                     session_name="Untitled Session",
-                    room_name=room_name,
-                    messages=[]
+                    room_name=room_name
                 )
-
                 db.add(new_session)
+                await db.flush()  # Flush to get the session ID for FK reference
+
+                # Create initial message if provided
+                message_data = []
+                if initial_message:
+                    initial_msg = MealPlannerMessage(
+                        session_id=session_id,
+                        role="user",
+                        content=initial_message
+                    )
+                    db.add(initial_msg)
+                    await db.flush()  # Flush to get created_at timestamp
+
+                    message_data.append({
+                        "role": initial_msg.role,
+                        "content": initial_msg.content,
+                        "timestamp": initial_msg.created_at.isoformat()
+                    })
+
                 await db.commit()
 
                 return {
@@ -247,9 +265,9 @@ class DatabaseService:
                     "user_id": user_id,
                     "session_name": "Untitled Session",
                     "room_name": room_name,
-                    "messages": [],
-                    "created_at": new_session.created_at,
-                    "updated_at": new_session.updated_at
+                    "messages": message_data,
+                    "created_at": new_session.created_at.isoformat(),
+                    "updated_at": new_session.updated_at.isoformat()
                 }
 
             except Exception as e:
@@ -262,6 +280,7 @@ class DatabaseService:
             try:
                 result = await db.execute(
                     select(MealPlannerSession)
+                    .options(selectinload(MealPlannerSession.message_records))
                     .where(MealPlannerSession.user_id == user_id)
                     .order_by(desc(MealPlannerSession.updated_at))
                 )
@@ -273,9 +292,9 @@ class DatabaseService:
                         "user_id": session.user_id,
                         "session_name": session.session_name,
                         "room_name": session.room_name,
-                        "message_count": len(session.messages) if session.messages else 0,
-                        "created_at": session.created_at,
-                        "updated_at": session.updated_at
+                        "message_count": len(session.message_records),
+                        "created_at": session.created_at.isoformat(),
+                        "updated_at": session.updated_at.isoformat()
                     }
                     for session in sessions
                 ]
@@ -289,52 +308,38 @@ class DatabaseService:
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                    select(MealPlannerSession)
+                    .options(selectinload(MealPlannerSession.message_records))
+                    .where(MealPlannerSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
                 if not session:
                     return None
 
+                # Convert message records to API format with proper ISO timestamp
+                messages = [
+                    {
+                        "role": msg.role,
+                        "content": msg.content,
+                        "timestamp": msg.created_at.isoformat()
+                    }
+                    for msg in session.message_records
+                ]
+
                 return {
                     "id": str(session.id),
                     "user_id": session.user_id,
                     "session_name": session.session_name,
                     "room_name": session.room_name,
-                    "messages": session.messages or [],
-                    "created_at": session.created_at,
-                    "updated_at": session.updated_at
+                    "messages": messages,
+                    "created_at": session.created_at.isoformat(),
+                    "updated_at": session.updated_at.isoformat()
                 }
 
             except Exception as e:
                 print(f"Error getting meal planner session {session_id}: {e}")
                 return None
-
-    async def append_session_message(self, session_id: str, message: Dict[str, Any]) -> bool:
-        """Append a new message to a session's message history"""
-        async with AsyncSessionLocal() as db:
-            try:
-                result = await db.execute(
-                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
-                )
-                session = result.scalar_one_or_none()
-
-                if not session:
-                    return False
-
-                # Append message to messages array
-                messages = session.messages or []
-                messages.append(message)
-                session.messages = messages
-                session.updated_at = datetime.utcnow()
-
-                await db.commit()
-                return True
-
-            except Exception as e:
-                await db.rollback()
-                print(f"Error appending message to session {session_id}: {e}")
-                return False
 
     async def update_session_name(self, session_id: str, session_name: str) -> bool:
         """Update the name of a meal planner session"""

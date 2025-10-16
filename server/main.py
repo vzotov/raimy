@@ -1,6 +1,6 @@
 import os
+import sys
 from dotenv import load_dotenv
-from datetime import datetime
 from livekit.agents import (
     Agent,
     AgentSession,
@@ -11,7 +11,6 @@ from livekit.agents import (
     RoomInputOptions,
     RoomOutputOptions,
     ChatContext,
-    ChatMessage,
 )
 from livekit.agents.llm.mcp import MCPServerHTTP
 from livekit.plugins import openai, silero
@@ -21,11 +20,10 @@ from agents.prompts import (
     COOKING_GREETING,
     MEAL_PLANNER_GREETING,
 )
+
 # Import database service
-import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 from app.services import database_service
-
 
 load_dotenv()
 
@@ -46,16 +44,11 @@ async def entrypoint(ctx: JobContext):
     prompt = MEAL_PLANNER_PROMPT if is_meal_planner else COOKING_ASSISTANT_PROMPT
     greeting_instructions = MEAL_PLANNER_GREETING if is_meal_planner else COOKING_GREETING
 
-    # For meal planner, load session from database and restore context
+    # For meal planner, restore chat context from database
     chat_ctx = None
-    session_id = None
-    session_data = None
-    message_count = 0
-
     if is_meal_planner:
         # Extract session ID from room name (format: meal-planner-{uuid})
         session_id = ctx.room.name.replace("meal-planner-", "")
-        print(f"[Meal Planner] Loading session: {session_id}")
 
         try:
             # Load session from database
@@ -65,21 +58,19 @@ async def entrypoint(ctx: JobContext):
                 # Restore ChatContext from saved messages
                 chat_ctx = ChatContext.empty()
                 for msg in session_data["messages"]:
-                    chat_ctx.messages.append(ChatMessage(
+                    chat_ctx.add_message(
                         role=msg["role"],
                         content=msg["content"]
-                    ))
-                message_count = len(session_data["messages"])
-                print(f"[Meal Planner] Restored {message_count} messages from session")
+                    )
         except Exception as e:
-            print(f"[Meal Planner] Error loading session: {e}")
+            print(f"Error loading meal planner session: {e}")
             # Continue with empty context if loading fails
 
     # Create agent with restored context (if any)
     agent = Agent(
         instructions=prompt,
         tools=mcp_tools,
-        chat_ctx=chat_ctx  # Will be None for cooking assistant or empty chat_ctx for new meal planner sessions
+        chat_ctx=chat_ctx,
     )
 
     # Configure session based on room type
@@ -91,31 +82,6 @@ async def entrypoint(ctx: JobContext):
             ),
         )
 
-        # Hook into conversation_item_added for auto-save
-        @session.on("conversation_item_added")
-        async def on_message_added(event):
-            try:
-                message = {
-                    "role": event.item.role,
-                    "content": event.item.text_content,
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-
-                # Save message to database
-                success = await database_service.append_session_message(session_id, message)
-                if success:
-                    nonlocal message_count
-                    message_count += 1
-                    print(f"[Meal Planner] Saved message {message_count} to session {session_id}")
-
-                    # After 3 messages, check if session needs naming (if still "Untitled Session")
-                    if message_count == 3 and session_data and session_data.get("session_name") == "Untitled Session":
-                        print(f"[Meal Planner] Session reached 3 messages - LLM should generate name")
-                else:
-                    print(f"[Meal Planner] Failed to save message to session")
-            except Exception as e:
-                print(f"[Meal Planner] Error in conversation_item_added hook: {e}")
-
         await session.start(
             agent=agent,
             room=ctx.room,
@@ -123,8 +89,11 @@ async def entrypoint(ctx: JobContext):
             room_output_options=RoomOutputOptions(audio_enabled=False, transcription_enabled=True),
         )
 
-        print(f"[DEBUG] Text-only session started for meal planner")
-        print(f"[DEBUG] Generating greeting with instructions: {greeting_instructions}")
+        # If we restored messages and last message is from user, generate a reply
+        if chat_ctx and len(chat_ctx.items) > 0:
+            last_message = chat_ctx.items[-1]
+            if last_message.role == "user":
+                await session.generate_reply()
     else:
         # Voice session for cooking assistant
         session = AgentSession(
@@ -140,7 +109,8 @@ async def entrypoint(ctx: JobContext):
         )
         await session.start(agent=agent, room=ctx.room)
 
-    await session.generate_reply(instructions=greeting_instructions)
+        # Send greeting for voice cooking assistant
+        await session.generate_reply(instructions=greeting_instructions)
 
 
 if __name__ == "__main__":

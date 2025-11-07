@@ -7,7 +7,8 @@ from sqlalchemy import desc
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
-from .models import User, Recipe, RecipeStep, Session
+from .models import User, Recipe, RecipeStep, Session, MealPlannerSession, MealPlannerMessage
+import uuid
 
 # Pydantic models for API compatibility with existing Firebase service
 class RecipeStepModel(BaseModel):
@@ -220,6 +221,198 @@ class DatabaseService:
                 await db.rollback()
                 print(f"Error cleaning up sessions: {e}")
                 return 0
+
+    # Meal Planner Session Methods
+
+    async def create_meal_planner_session(self, user_id: str, initial_message: str = None) -> Dict[str, Any]:
+        """Create a new meal planner session with optional initial message"""
+        async with AsyncSessionLocal() as db:
+            try:
+                session_id = uuid.uuid4()
+                room_name = f"meal-planner-{session_id}"
+
+                # Create session
+                new_session = MealPlannerSession(
+                    id=session_id,
+                    user_id=user_id,
+                    session_name="Untitled Session",
+                    room_name=room_name
+                )
+                db.add(new_session)
+                await db.flush()  # Flush to get the session ID for FK reference
+
+                # Create initial message if provided
+                message_data = []
+                if initial_message:
+                    initial_msg = MealPlannerMessage(
+                        session_id=session_id,
+                        role="user",
+                        content=initial_message
+                    )
+                    db.add(initial_msg)
+                    await db.flush()  # Flush to get created_at timestamp
+
+                    message_data.append({
+                        "role": initial_msg.role,
+                        "content": initial_msg.content,
+                        "timestamp": initial_msg.created_at.isoformat()
+                    })
+
+                await db.commit()
+
+                return {
+                    "id": str(session_id),
+                    "user_id": user_id,
+                    "session_name": "Untitled Session",
+                    "room_name": room_name,
+                    "messages": message_data,
+                    "created_at": new_session.created_at.isoformat(),
+                    "updated_at": new_session.updated_at.isoformat()
+                }
+
+            except Exception as e:
+                await db.rollback()
+                raise Exception(f"Failed to create meal planner session: {str(e)}")
+
+    async def get_user_meal_planner_sessions(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all meal planner sessions for a user"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession)
+                    .options(selectinload(MealPlannerSession.message_records))
+                    .where(MealPlannerSession.user_id == user_id)
+                    .order_by(desc(MealPlannerSession.updated_at))
+                )
+                sessions = result.scalars().all()
+
+                return [
+                    {
+                        "id": str(session.id),
+                        "user_id": session.user_id,
+                        "session_name": session.session_name,
+                        "room_name": session.room_name,
+                        "message_count": len(session.message_records),
+                        "created_at": session.created_at.isoformat(),
+                        "updated_at": session.updated_at.isoformat()
+                    }
+                    for session in sessions
+                ]
+
+            except Exception as e:
+                print(f"Error getting meal planner sessions for user {user_id}: {e}")
+                return []
+
+    async def get_meal_planner_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific meal planner session with full message history"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession)
+                    .options(selectinload(MealPlannerSession.message_records))
+                    .where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    return None
+
+                # Convert message records to API format with proper ISO timestamp
+                messages = [
+                    {
+                        "role": msg.role,
+                        "content": msg.content,
+                        "timestamp": msg.created_at.isoformat()
+                    }
+                    for msg in session.message_records
+                ]
+
+                return {
+                    "id": str(session.id),
+                    "user_id": session.user_id,
+                    "session_name": session.session_name,
+                    "room_name": session.room_name,
+                    "messages": messages,
+                    "created_at": session.created_at.isoformat(),
+                    "updated_at": session.updated_at.isoformat()
+                }
+
+            except Exception as e:
+                print(f"Error getting meal planner session {session_id}: {e}")
+                return None
+
+    async def add_message_to_session(self, session_id: str, role: str, content: str) -> bool:
+        """Add a message to a meal planner session"""
+        async with AsyncSessionLocal() as db:
+            try:
+                # Create new message
+                new_message = MealPlannerMessage(
+                    session_id=session_id,
+                    role=role,
+                    content=content
+                )
+                db.add(new_message)
+
+                # Update session's updated_at timestamp
+                result = await db.execute(
+                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if session:
+                    session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                print(f"Error adding message to session {session_id}: {e}")
+                return False
+
+    async def update_session_name(self, session_id: str, session_name: str) -> bool:
+        """Update the name of a meal planner session"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    return False
+
+                session.session_name = session_name
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                print(f"Error updating session name for {session_id}: {e}")
+                return False
+
+    async def delete_meal_planner_session(self, session_id: str) -> bool:
+        """Delete a meal planner session"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    return False
+
+                await db.delete(session)
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                print(f"Error deleting session {session_id}: {e}")
+                return False
 
 # Global instance
 database_service = DatabaseService()

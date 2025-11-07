@@ -4,7 +4,7 @@ import asyncio
 
 from ..services import database_service, RecipeModel, RecipeStepModel
 from .models import RecipeNameRequest, SaveRecipeRequest
-from ...core.auth_client import auth_client
+from core.auth_client import auth_client
 from fastapi import Request
 import logging
 

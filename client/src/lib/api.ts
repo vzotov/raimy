@@ -1,3 +1,13 @@
+// Meal Planner Session API
+import type {
+  CreateSessionResponse,
+  ListSessionsResponse,
+  GetSessionResponse,
+  UpdateSessionNameRequest,
+  UpdateSessionNameResponse,
+  DeleteSessionResponse,
+} from '@/types/meal-planner-session';
+
 export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
@@ -6,14 +16,14 @@ export interface ApiResponse<T = any> {
 
 async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
   try {
     const url = `${endpoint}`;
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
+      ...((options.headers as Record<string, string>) || {}),
     };
 
     const response = await fetch(url, {
@@ -62,4 +72,22 @@ export const put = <T = any>(endpoint: string, data?: any) =>
 export const del = <T = any>(endpoint: string) =>
   apiRequest<T>(endpoint, {
     method: 'DELETE',
-  }); 
+  });
+
+export const mealPlannerSessions = {
+  create: (initialMessage?: string) =>
+    post<CreateSessionResponse>(
+      '/api/meal-planner-sessions',
+      initialMessage ? { initial_message: initialMessage } : undefined,
+    ),
+
+  list: () => get<ListSessionsResponse>('/api/meal-planner-sessions'),
+
+  get: (sessionId: string) => get<GetSessionResponse>(`/api/meal-planner-sessions/${sessionId}`),
+
+  updateName: (sessionId: string, data: UpdateSessionNameRequest) =>
+    put<UpdateSessionNameResponse>(`/api/meal-planner-sessions/${sessionId}/name`, data),
+
+  delete: (sessionId: string) =>
+    del<DeleteSessionResponse>(`/api/meal-planner-sessions/${sessionId}`),
+};

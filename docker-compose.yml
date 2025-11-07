@@ -110,6 +110,7 @@ services:
       - API_URL=http://raimy-api:8000
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - MCP_SERVER_URL=http://mcp-service:8002/mcp
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - LIVEKIT_URL=${LIVEKIT_URL}

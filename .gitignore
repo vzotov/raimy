@@ -8,6 +8,12 @@ __pycache__/
 venv/
 .env
 
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
 # Next.js
 .next/
 out/

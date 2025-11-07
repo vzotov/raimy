@@ -1,12 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import classNames from 'classnames';
 import AuthButton from '@/components/shared/AuthButton';
 import ThemeSelector from '@/components/shared/ThemeSelector';
 import Logo from '@/components/shared/Logo';
 import { XIcon } from '@/components/icons';
 import { useAuth } from '@/hooks/useAuth';
+import { useMealPlannerSessions } from '@/hooks/useMealPlannerSessions';
+import { useSSE } from '@/hooks/useSSE';
+import { MealPlannerSession } from '@/types/meal-planner-session';
 
 interface MainMenuProps {
   isOpen: boolean;
@@ -14,10 +19,93 @@ interface MainMenuProps {
 }
 
 export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated } = useAuth();
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [isMealPlannerExpanded, setIsMealPlannerExpanded] = useState(false);
+
+  const {
+    sessions,
+    updateSessionName,
+    deleteSession,
+    handleSessionCreated,
+    handleSessionNameUpdated,
+  } = useMealPlannerSessions();
+
+  // Set up SSE for real-time updates
+  useSSE({
+    onMessage: (event) => {
+      if (event.type === 'session_created') {
+        const sessionData = event.data as unknown as MealPlannerSession;
+        handleSessionCreated(sessionData);
+      } else if (event.type === 'session_name_updated') {
+        const data = event.data as unknown as { id: string; session_name: string };
+        handleSessionNameUpdated(data);
+      }
+    },
+  });
+
+  // Auto-expand meal planner submenu when on a meal planner page
+  useEffect(() => {
+    if (pathname.startsWith('/meal-planner')) {
+      setIsMealPlannerExpanded(true);
+    }
+  }, [pathname]);
+
   if (!isAuthenticated || !user) return null;
 
   const handleCloseMenu = () => onClose();
+
+  const handleStartEdit = (session: MealPlannerSession, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingSessionId(session.id);
+    setEditValue(session.session_name);
+  };
+
+  const handleSaveEdit = async (sessionId: string) => {
+    if (!editValue.trim()) return;
+
+    try {
+      await updateSessionName(sessionId, editValue.trim());
+      setEditingSessionId(null);
+    } catch (err) {
+      console.error('Failed to update session name:', err);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSessionId(null);
+    setEditValue('');
+  };
+
+  const handleDelete = async (sessionId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!confirm('Are you sure you want to delete this session?')) {
+      return;
+    }
+
+    try {
+      await deleteSession(sessionId);
+
+      // If we're viewing this session, redirect to meal planner home
+      if (pathname === `/meal-planner/${sessionId}`) {
+        router.push('/meal-planner');
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+    }
+  };
+
+  const handleSessionClick = (sessionId: string) => {
+    if (editingSessionId === sessionId) return;
+    router.push(`/meal-planner/${sessionId}`);
+    handleCloseMenu();
+  };
 
   return (
     <>
@@ -48,15 +136,127 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         {/* Navigation Links - Scrollable middle section */}
         <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
           <div className="px-3 space-y-2">
-            <Link 
-              href="/kitchen" 
+            <Link
+              href="/kitchen"
               className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
               onClick={handleCloseMenu}
             >
               Kitchen
             </Link>
-            <Link 
-              href="/myrecipes" 
+
+            {/* Meal Planner with Submenu */}
+            <div>
+              <div
+                className="flex items-center justify-between px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150 cursor-pointer"
+                onClick={() => setIsMealPlannerExpanded(!isMealPlannerExpanded)}
+              >
+                <span>Meal Planner</span>
+                <span className="text-xs transition-transform duration-200" style={{ transform: isMealPlannerExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                  ▶
+                </span>
+              </div>
+
+              {/* Submenu */}
+              {isMealPlannerExpanded && (
+                <div className="mt-1 ml-4 space-y-1">
+                  {/* New Meal Plan */}
+                  <Link
+                    href="/meal-planner"
+                    className="block px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
+                    onClick={handleCloseMenu}
+                  >
+                    + New Meal Plan
+                  </Link>
+
+                  {/* Sessions */}
+                  {sessions.slice(0, 10).map((session) => {
+                  const isActive = pathname === `/meal-planner/${session.id}`;
+                  const isEditing = editingSessionId === session.id;
+
+                  return (
+                    <div
+                      key={session.id}
+                      className={classNames(
+                        'group relative rounded-lg transition-colors',
+                        {
+                          'bg-accent/30': isActive,
+                          'hover:bg-accent/10': !isActive && !isEditing,
+                        }
+                      )}
+                    >
+                      {isEditing ? (
+                        <div className="px-2 py-2 flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveEdit(session.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEdit();
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 text-sm bg-background border border-accent/30 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleSaveEdit(session.id)}
+                            className="px-2 py-1 text-xs text-green-500 hover:text-green-600"
+                            title="Save"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-2 py-1 text-xs text-red-500 hover:text-red-600"
+                            title="Cancel"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => handleSessionClick(session.id)}
+                          className="w-full text-left px-3 py-2 flex items-center justify-between cursor-pointer"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-text truncate">
+                              {session.session_name}
+                            </div>
+                            <div className="text-xs text-text/50 mt-0.5">
+                              {session.message_count || 0} msgs
+                            </div>
+                          </div>
+
+                          {/* Actions (visible on hover) */}
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-2 transition-opacity">
+                            <button
+                              onClick={(e) => handleStartEdit(session, e)}
+                              className="p-1 text-xs text-text/50 hover:text-primary rounded transition-colors"
+                              title="Rename"
+                            >
+                              ✎
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(session.id, e)}
+                              className="p-1 text-xs text-text/50 hover:text-red-500 rounded transition-colors"
+                              title="Delete"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                </div>
+              )}
+            </div>
+
+            <Link
+              href="/myrecipes"
               className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
               onClick={handleCloseMenu}
             >

@@ -30,7 +30,7 @@ export default function HomeContent() {
 
           {/* Hero Headline */}
           <h1 className="text-4xl md:text-5xl font-heading font-bold text-text mb-6">
-            Let's cook something delicious
+            Let&apos;s cook something delicious
           </h1>
 
           {/* Sub-headline */}

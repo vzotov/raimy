@@ -13,7 +13,7 @@ export default function AuthButton() {
     );
   }
 
-  if (isAuthenticated) {
+  if (isAuthenticated && user) {
     return (
       <div className="flex flex-col items-center gap-2">
         <span className="text-sm text-text/80">Signed in as {user.email}</span>

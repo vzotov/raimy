@@ -1,13 +1,12 @@
 'use client';
 
-import { MessageContent, Ingredient } from '@/types/chat-message-types';
-import classNames from 'classnames';
+import { MessageContent, ChatIngredient } from '@/types/chat-message-types';
 
 // Sample data
-const sampleIngredients: Ingredient[] = [
-  { name: 'Chicken breast', quantity: 2, unit: 'lbs', notes: 'boneless, skinless' },
-  { name: 'Olive oil', quantity: 2, unit: 'tbsp' },
-  { name: 'Garlic', quantity: 4, unit: 'cloves', notes: 'minced' },
+const sampleIngredients: ChatIngredient[] = [
+  { name: 'Chicken breast', amount: 2, unit: 'lbs', notes: 'boneless, skinless' },
+  { name: 'Olive oil', amount: 2, unit: 'tbsp' },
+  { name: 'Garlic', amount: 4, unit: 'cloves', notes: 'minced' },
   { name: 'Salt', notes: 'to taste' },
   { name: 'Black pepper', notes: 'to taste' },
 ];

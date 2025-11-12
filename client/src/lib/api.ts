@@ -8,13 +8,13 @@ import type {
   DeleteSessionResponse,
 } from '@/types/meal-planner-session';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   status: number;
 }
 
-async function apiRequest<T = any>(
+async function apiRequest<T = unknown>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
@@ -55,21 +55,21 @@ async function apiRequest<T = any>(
 }
 
 // Export convenience functions for common HTTP methods
-export const get = <T = any>(endpoint: string) => apiRequest<T>(endpoint);
+export const get = <T = unknown>(endpoint: string) => apiRequest<T>(endpoint);
 
-export const post = <T = any>(endpoint: string, data?: any) =>
+export const post = <T = unknown>(endpoint: string, data?: unknown) =>
   apiRequest<T>(endpoint, {
     method: 'POST',
     body: data ? JSON.stringify(data) : undefined,
   });
 
-export const put = <T = any>(endpoint: string, data?: any) =>
+export const put = <T = unknown>(endpoint: string, data?: unknown) =>
   apiRequest<T>(endpoint, {
     method: 'PUT',
     body: data ? JSON.stringify(data) : undefined,
   });
 
-export const del = <T = any>(endpoint: string) =>
+export const del = <T = unknown>(endpoint: string) =>
   apiRequest<T>(endpoint, {
     method: 'DELETE',
   });

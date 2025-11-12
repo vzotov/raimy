@@ -7,8 +7,8 @@ interface ScrollableAreaProps {
   direction?: 'vertical' | 'horizontal';
 }
 
-export default function ScrollableArea({ 
-  children, 
+export default function ScrollableArea({
+  children,
   className = "",
   direction = "vertical"
 }: ScrollableAreaProps) {
@@ -17,7 +17,7 @@ export default function ScrollableArea({
   const [showBottomFade, setShowBottomFade] = useState(false);
 
   // Check scroll position for both top/bottom or left/right indicators
-  const checkScrollPosition = () => {
+  const checkScrollPosition = React.useCallback(() => {
     if (scrollContainerRef.current) {
       if (direction === 'vertical') {
         const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
@@ -37,7 +37,7 @@ export default function ScrollableArea({
         setShowBottomFade(!isAtRight && hasOverflow);
       }
     }
-  };
+  }, [direction]);
 
   // Add scroll listener
   useEffect(() => {
@@ -46,12 +46,12 @@ export default function ScrollableArea({
       container.addEventListener('scroll', checkScrollPosition);
       // Check initial state
       checkScrollPosition();
-      
+
       return () => {
         container.removeEventListener('scroll', checkScrollPosition);
       };
     }
-  }, [children]);
+  }, [children, checkScrollPosition]);
 
   return (
     <div className={classNames('relative', className)}>

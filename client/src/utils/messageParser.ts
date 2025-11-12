@@ -57,20 +57,25 @@ export function parseMessageContent(rawContent: string): MessageContent {
 /**
  * Type guard to validate MessageContent structure at runtime
  */
-function isValidMessageContent(obj: any): boolean {
-  if (!obj || typeof obj !== 'object' || !obj.type) {
+function isValidMessageContent(obj: unknown): boolean {
+  if (!obj || typeof obj !== 'object' || !('type' in obj)) {
     return false;
   }
 
-  switch (obj.type) {
+  const typed = obj as { type: string; [key: string]: unknown };
+
+  switch (typed.type) {
     case 'text':
-      return typeof obj.content === 'string';
+      return 'content' in typed && typeof typed.content === 'string';
 
     case 'ingredients':
       return (
-        Array.isArray(obj.items) &&
-        obj.items.every((item: any) =>
+        'items' in typed &&
+        Array.isArray(typed.items) &&
+        typed.items.every((item: unknown) =>
           typeof item === 'object' &&
+          item !== null &&
+          'name' in item &&
           typeof item.name === 'string'
         )
       );

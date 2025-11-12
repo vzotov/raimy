@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useMealPlannerSessions } from '@/hooks/useMealPlannerSessions';
 import { useSSE } from '@/hooks/useSSE';
@@ -29,7 +29,7 @@ export default function MealPlannerNav() {
   useSSE({
     onMessage: (event) => {
       if (event.type === 'session_created') {
-        const sessionData = event.data as MealPlannerSession;
+        const sessionData = event.data as unknown as MealPlannerSession;
         handleSessionCreated(sessionData);
       } else if (event.type === 'session_name_updated') {
         const data = event.data as { id: string; session_name: string };

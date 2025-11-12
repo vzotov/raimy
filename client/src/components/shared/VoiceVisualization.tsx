@@ -16,6 +16,12 @@ interface VoiceVisualizationProps {
   className?: string;
 }
 
+interface RadialDataPoint {
+  angle: number;
+  r: number;
+  value: number;
+}
+
 const VoiceVisualization: React.FC<VoiceVisualizationProps> = ({
   audioTrack,
   width = 200,
@@ -57,7 +63,7 @@ const VoiceVisualization: React.FC<VoiceVisualizationProps> = ({
   const displayVolumes = audioTrack ? volumes : Array.from({ length: BANDS }, () => 0);
 
   // D3 update function
-  const updateVisualization = () => {
+  const updateVisualization = React.useCallback(() => {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
@@ -140,9 +146,9 @@ const VoiceVisualization: React.FC<VoiceVisualizationProps> = ({
 
     // Create radial line generator
     const lineGenerator = d3
-      .lineRadial()
-      .angle((d: any) => d.angle)
-      .radius((d: any) => d.r)
+      .lineRadial<RadialDataPoint>()
+      .angle((d) => d.angle)
+      .radius((d) => d.r)
       .curve(d3.curveCardinalClosed.tension(0.3));
 
     // Update line with transitions
@@ -161,6 +167,7 @@ const VoiceVisualization: React.FC<VoiceVisualizationProps> = ({
       .attr('stroke-width', 2);
 
     // Merge enter and update selections
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lineUpdate = lineEnter.merge(line as any);
 
     // Update line with transitions
@@ -168,13 +175,13 @@ const VoiceVisualization: React.FC<VoiceVisualizationProps> = ({
       .transition()
       .duration(100)
       .ease(d3.easeCubicInOut)
-      .attr('d', (d) => lineGenerator(d as any))
+      .attr('d', (d: RadialDataPoint[]) => lineGenerator(d))
       .attr('transform', `translate(${centerX}, ${centerY})`);
-  };
+  }, [displayVolumes, width, height]);
 
   useEffect(() => {
     updateVisualization();
-  }, [displayVolumes, width, height]);
+  }, [displayVolumes, width, height, updateVisualization]);
 
   return (
     <div

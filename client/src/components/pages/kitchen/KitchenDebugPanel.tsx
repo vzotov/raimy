@@ -1,11 +1,12 @@
 import { ChefHatIcon } from '@/components/icons';
 import React, { useState } from 'react';
 import { Timer } from '@/components/shared/TimerList';
+import { Ingredient } from '@/components/shared/IngredientList';
 
 interface KitchenDebugPanelProps {
   connectionState: string;
   assistantState: string;
-  onSetIngredients: (ingredients: any[]) => void;
+  onSetIngredients: (ingredients: Ingredient[]) => void;
   onSetTimers: (timers: Timer[]) => void;
   onSetUserMessage: (message: string) => void;
   onSetRecipeName: (name: string) => void;

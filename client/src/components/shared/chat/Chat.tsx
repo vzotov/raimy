@@ -23,12 +23,11 @@ export interface ChatProps {
 export default function Chat({
   showDebugPanel = false,
   debugMessages = [],
-  sessionId,
   initialMessages = [],
 }: ChatProps) {
   const liveMessages = useChatMessages();
   const connectionState = useConnectionState();
-  const { send, isSending, chatMessages } = useChat();
+  const { send, isSending } = useChat();
 
   // Merge initial messages from database with live messages from LiveKit
   // This ensures persisted messages appear in the UI

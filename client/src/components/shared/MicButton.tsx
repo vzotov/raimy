@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { useVoiceAssistant, useLocalParticipant } from '@livekit/components-react';
+import { useLocalParticipant } from '@livekit/components-react';
 import classNames from 'classnames';
 import { MicrophoneIcon } from '@/components/icons';
 
@@ -9,7 +9,6 @@ interface MicButtonProps {
 }
 
 export default function MicButton({ disabled = false }: MicButtonProps) {
-  const voiceAssistant = useVoiceAssistant();
   const { localParticipant, microphoneTrack, isMicrophoneEnabled } = useLocalParticipant();
 
   const handleClick = async () => {

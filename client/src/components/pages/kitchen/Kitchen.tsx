@@ -59,7 +59,7 @@ export default function Kitchen() {
       
       if (action === 'set') {
         // Set complete ingredients list (replace all)
-        const formattedIngredients: Ingredient[] = ingredientsData.ingredients.map((ingredient, index) => ({
+        const formattedIngredients: Ingredient[] = ingredientsData.ingredients.map((ingredient) => ({
           name: ingredient.name,
           amount: ingredient.amount,
           unit: ingredient.unit,

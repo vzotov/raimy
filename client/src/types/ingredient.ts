@@ -4,6 +4,6 @@
  */
 export interface BaseIngredient {
   name: string;
-  amount?: string;
+  amount?: string | number;
   unit?: string;
 }

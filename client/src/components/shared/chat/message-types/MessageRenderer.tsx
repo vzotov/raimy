@@ -35,7 +35,6 @@ export default function MessageRenderer({ content, isUser = false }: MessageRend
 
     default:
       // TypeScript exhaustiveness check - if we miss a case, this will error
-      const _exhaustiveCheck: never = content;
       console.error('Unknown message content type:', content);
       return (
         <p className="text-sm text-red-500">

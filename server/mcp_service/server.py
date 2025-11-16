@@ -482,13 +482,25 @@ Respond with ONLY the session name, nothing else."""
 
 if __name__ == "__main__":
     import uvicorn
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
 
     # Run the MCP server with Streamable HTTP transport
     # This makes it accessible over HTTP for both LiveKit and OpenAI Agent Builder
     print("🚀 Starting Raimy MCP Server on HTTP (Streamable HTTP transport)...")
 
     # FastMCP 2.0 uses http_app() to create an ASGI application
-    app = mcp.http_app()
+    mcp_app = mcp.http_app()
+
+    # Wrap with FastAPI to add health endpoint
+    app = FastAPI()
+
+    @app.get("/health")
+    async def health_check():
+        return JSONResponse({"status": "healthy", "service": "mcp"})
+
+    # Mount MCP app at /mcp
+    app.mount("/mcp", mcp_app)
 
     uvicorn.run(
         app,

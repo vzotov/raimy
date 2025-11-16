@@ -44,7 +44,6 @@ export default async function MealPlannerSessionPage({
         <MealPlannerContent
           sessionId={session.id}
           sessionName={session.session_name}
-          roomName={session.room_name}
           initialMessages={session.messages || []}
         />
       </ServerAuthGuard>

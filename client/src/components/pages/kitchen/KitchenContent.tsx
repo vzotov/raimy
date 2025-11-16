@@ -1,17 +1,14 @@
-import { createToken } from '@/lib/livekit';
-import KitchenLiveKitWrapper from './KitchenLiveKitWrapper';
-import { getServerAuth } from '@/lib/serverAuth';
-
 export default async function KitchenContent() {
-  const { user } = await getServerAuth();
-  const userId = user?.email || '';
-
-  // Generate a unique room name like playground does
-  const roomName = `kitchen-${Date.now()}`;
-  const token = await createToken(userId, roomName);
-  const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || '';
-
   return (
-    <KitchenLiveKitWrapper serverUrl={serverUrl} token={token} />
+    <div className="flex flex-1 items-center justify-center p-8">
+      <div className="text-center max-w-md">
+        <h1 className="text-4xl font-bold text-text mb-4">🍳 Kitchen Assistant</h1>
+        <p className="text-lg text-text/70 mb-2">Voice mode coming soon!</p>
+        <p className="text-sm text-text/50">
+          The voice-powered cooking assistant is being upgraded.
+          In the meantime, try the Meal Planner for text-based assistance.
+        </p>
+      </div>
+    </div>
   );
 }

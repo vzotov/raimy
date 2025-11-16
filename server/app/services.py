@@ -224,18 +224,24 @@ class DatabaseService:
 
     # Meal Planner Session Methods
 
-    async def create_meal_planner_session(self, user_id: str, initial_message: str = None) -> Dict[str, Any]:
+    async def create_meal_planner_session(
+        self,
+        user_id: str,
+        initial_message: str = None,
+        session_type: str = "meal-planner"
+    ) -> Dict[str, Any]:
         """Create a new meal planner session with optional initial message"""
         async with AsyncSessionLocal() as db:
             try:
                 session_id = uuid.uuid4()
-                room_name = f"meal-planner-{session_id}"
+                room_name = f"{session_type}-{session_id}"  # Include session type in room name
 
                 # Create session
                 new_session = MealPlannerSession(
                     id=session_id,
                     user_id=user_id,
                     session_name="Untitled Session",
+                    session_type=session_type,
                     room_name=room_name
                 )
                 db.add(new_session)
@@ -264,6 +270,7 @@ class DatabaseService:
                     "id": str(session_id),
                     "user_id": user_id,
                     "session_name": "Untitled Session",
+                    "session_type": session_type,
                     "room_name": room_name,
                     "messages": message_data,
                     "created_at": new_session.created_at.isoformat(),
@@ -291,6 +298,7 @@ class DatabaseService:
                         "id": str(session.id),
                         "user_id": session.user_id,
                         "session_name": session.session_name,
+                        "session_type": session.session_type,
                         "room_name": session.room_name,
                         "message_count": len(session.message_records),
                         "created_at": session.created_at.isoformat(),
@@ -331,6 +339,7 @@ class DatabaseService:
                     "id": str(session.id),
                     "user_id": session.user_id,
                     "session_name": session.session_name,
+                    "session_type": session.session_type,
                     "room_name": session.room_name,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),

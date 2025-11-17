@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getServerAuth } from '@/lib/serverAuth';
-import MealPlannerContent from '@/components/pages/meal-planner/MealPlannerContent';
+import MealPlannerChat from '@/components/pages/meal-planner/MealPlannerChat';
 import ServerAuthGuard from '@/components/shared/ServerAuthGuard';
 
 interface MealPlannerSessionPageProps {
@@ -20,7 +20,7 @@ export default async function MealPlannerSessionPage({
     return null; // ServerAuthGuard will redirect
   }
 
-  // Verify the session exists
+  // Fetch session data
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const cookieStore = await cookies();
 
@@ -41,7 +41,7 @@ export default async function MealPlannerSessionPage({
 
     return (
       <ServerAuthGuard>
-        <MealPlannerContent
+        <MealPlannerChat
           sessionId={session.id}
           sessionName={session.session_name}
           initialMessages={session.messages || []}

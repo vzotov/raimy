@@ -382,125 +382,36 @@ async def save_recipe(recipe_data: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
-async def generate_session_name(conversation_summary: str, session_id: str) -> dict:
-    """
-    Generate a concise 3-5 word name for a meal planning session.
-
-    WHEN TO USE:
-    - Call automatically after first 2-3 message exchanges in a meal planner session
-    - Only call ONCE per session when it still has default name "Untitled Session"
-    - Do NOT mention this to the user - it happens silently
-
-    NAMING GUIDELINES:
-    - Keep it 3-5 words maximum
-    - Make it descriptive of the meal/recipe being planned
-    - Use title case (e.g., "Thai Curry Recipe", "Weekly Meal Prep")
-    - Avoid generic names like "Meal Plan" or "Recipe Ideas"
-
-    Args:
-        conversation_summary: Brief summary of what user wants to plan (2-3 sentences)
-        session_id: The session ID to update
-
-    Returns:
-        dict with success status and generated session_name
-
-    Examples:
-        "Thai Curry Recipe"
-        "Weekly Meal Prep"
-        "Dinner Party Planning"
-        "Healthy Lunch Ideas"
-    """
-    print(f"🔧 MCP TOOL: generate_session_name(session_id={session_id})")
-
-    try:
-        # Use a simple LLM call to generate name
-        from livekit.plugins import openai as openai_plugin
-
-        llm = openai_plugin.LLM(model="gpt-4o-mini")
-
-        prompt = f"""Generate a concise 3-5 word name for this meal planning session.
-
-Conversation Summary:
-{conversation_summary}
-
-Requirements:
-- Maximum 5 words
-- Title case
-- Descriptive and specific
-- No generic terms
-
-Respond with ONLY the session name, nothing else."""
-
-        # Generate name using LLM
-        response = await llm.chat(prompt)
-        session_name = response.content.strip().strip('"').strip("'")
-
-        # Validate length
-        word_count = len(session_name.split())
-        if word_count > 6:
-            # Truncate to first 5 words
-            session_name = " ".join(session_name.split()[:5])
-
-        print(f"✅ Generated session name: '{session_name}'")
-
-        # Update session name via API
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
-        auth_token = await get_service_token()
-        headers = {}
-
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
-        else:
-            print("⚠️  WARNING: No service token - session name update may fail")
-
-        async with aiohttp.ClientSession() as session:
-            async with session.put(
-                f"{api_url}/api/meal-planner-sessions/{session_id}/name",
-                json={"session_name": session_name},
-                headers=headers
-            ) as response:
-                if response.status == 200:
-                    return {
-                        "success": True,
-                        "session_name": session_name,
-                        "message": f"Session renamed to: {session_name}"
-                    }
-                else:
-                    error_text = await response.text()
-                    print(f"❌ Failed to update session name: {response.status} - {error_text}")
-                    return {
-                        "success": False,
-                        "session_name": session_name,
-                        "message": f"Generated name but failed to save: {error_text}"
-                    }
-
-    except Exception as e:
-        print(f"❌ generate_session_name error: {str(e)}")
-        return {"success": False, "message": f"Error: {str(e)}"}
+# NOTE: generate_session_name tool removed - was using deprecated LiveKit plugin
+# Session names can be updated manually by the user via the UI
 
 
 if __name__ == "__main__":
     import uvicorn
-    from fastapi import FastAPI
-    from fastapi.responses import JSONResponse
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.responses import JSONResponse
 
-    # Run the MCP server with Streamable HTTP transport
-    # This makes it accessible over HTTP for both LiveKit and OpenAI Agent Builder
-    print("🚀 Starting Raimy MCP Server on HTTP (Streamable HTTP transport)...")
+    # Run the MCP server with stateless HTTP transport
+    print("🚀 Starting Raimy MCP Server on HTTP (stateless HTTP transport)...")
 
     # FastMCP 2.0 uses http_app() to create an ASGI application
-    mcp_app = mcp.http_app()
+    # Use stateless_http=True to avoid session management complexity
+    mcp_app = mcp.http_app(stateless_http=True)
 
-    # Wrap with FastAPI to add health endpoint
-    app = FastAPI()
-
-    @app.get("/health")
-    async def health_check():
+    # Add health check route
+    async def health_check(request):
         return JSONResponse({"status": "healthy", "service": "mcp"})
 
-    # Mount MCP app at /mcp
-    app.mount("/mcp", mcp_app)
+    # Create app with both MCP and health endpoints
+    # IMPORTANT: Must pass lifespan from mcp_app to parent Starlette app
+    app = Starlette(
+        routes=[
+            Route("/health", health_check),
+            Mount("/", app=mcp_app),
+        ],
+        lifespan=mcp_app.lifespan
+    )
 
     uvicorn.run(
         app,

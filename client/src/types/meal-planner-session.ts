@@ -16,7 +16,7 @@ export interface MealPlannerSessionWithMessages extends MealPlannerSession {
 export interface SessionMessage {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
+  created_at: string;
 }
 
 export interface CreateSessionResponse {

@@ -10,7 +10,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
       - AUTH_DEBUG=${AUTH_DEBUG:-false}
       - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - API_URL=http://raimy-api:8000
+      - API_URL=${API_URL:-http://localhost:8000}
     volumes:
       # Mount for development auto-reload
       - ./server/auth-service:/app
@@ -112,6 +112,10 @@ services:
       - MCP_SERVER_URL=http://mcp-service:8002/mcp
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # LangSmith for debugging
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-raimy-agent}
       # PostgreSQL Configuration
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
       - POSTGRES_HOST=postgres

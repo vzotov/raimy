@@ -34,7 +34,7 @@ class LangGraphAgent:
         """
         self.mcp_tools = mcp_tools or []
         self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             temperature=0.7,
             api_key=os.getenv("OPENAI_API_KEY")
         )

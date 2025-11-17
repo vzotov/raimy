@@ -5,6 +5,7 @@ This module fetches tools from the MCP server and converts them
 to LangChain tool format for use with the LangGraph agent.
 """
 import os
+import json
 import httpx
 from typing import List, Dict, Any, Optional, Callable
 from langchain_core.tools import Tool, StructuredTool
@@ -22,8 +23,9 @@ async def fetch_mcp_tools(mcp_url: str) -> List[Dict[str, Any]]:
         List of tool definitions from MCP server
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             # MCP HTTP protocol: POST to /mcp with list_tools request
+            # FastMCP requires Accept header for both JSON and event-stream
             response = await client.post(
                 mcp_url,
                 json={
@@ -31,14 +33,46 @@ async def fetch_mcp_tools(mcp_url: str) -> List[Dict[str, Any]]:
                     "id": 1,
                     "method": "tools/list",
                     "params": {}
+                },
+                headers={
+                    "Accept": "application/json, text/event-stream"
                 }
             )
 
             if response.status_code == 200:
-                result = response.json()
-                tools = result.get("result", {}).get("tools", [])
-                print(f"✅ Fetched {len(tools)} tools from MCP server")
-                return tools
+                # FastMCP returns SSE format - parse the event stream
+                response_text = response.text
+
+                # Extract JSON from SSE format: "event: message\ndata: {...}"
+                if response_text.startswith("event: message"):
+                    lines = response_text.split('\n')
+                    for line in lines:
+                        if line.startswith("data: "):
+                            json_data = line[6:].strip()  # Remove "data: " prefix and whitespace
+                            if json_data:
+                                try:
+                                    result = json.loads(json_data)
+                                    tools = result.get("result", {}).get("tools", [])
+                                    print(f"✅ Fetched {len(tools)} tools from MCP server")
+                                    return tools
+                                except json.JSONDecodeError as e:
+                                    print(f"❌ JSON parse error: {e}")
+                                    print(f"   Data: {json_data[:100]}...")
+                                    return []
+                else:
+                    # Try parsing as plain JSON (fallback)
+                    try:
+                        result = response.json()
+                        tools = result.get("result", {}).get("tools", [])
+                        print(f"✅ Fetched {len(tools)} tools from MCP server")
+                        return tools
+                    except Exception as e:
+                        print(f"❌ Could not parse as JSON: {e}")
+                        print(f"   Response: {response_text[:200]}...")
+                        return []
+
+                print("❌ Could not parse MCP response")
+                return []
             else:
                 print(f"❌ Failed to fetch MCP tools: HTTP {response.status_code}")
                 return []
@@ -73,16 +107,38 @@ def _create_tool_function(tool_name: str, mcp_url: str) -> Callable:
                             "name": tool_name,
                             "arguments": kwargs
                         }
+                    },
+                    headers={
+                        "Accept": "application/json, text/event-stream"
                     }
                 )
 
                 if response.status_code == 200:
-                    result = response.json()
-                    # Extract content from MCP response
-                    content = result.get("result", {}).get("content", [])
-                    if content and len(content) > 0:
-                        return content[0].get("text", {})
-                    return result.get("result", {})
+                    # Parse SSE format response
+                    response_text = response.text
+                    result = None
+
+                    if response_text.startswith("event: message"):
+                        lines = response_text.split('\n')
+                        for line in lines:
+                            if line.startswith("data: "):
+                                json_data = line[6:]
+                                result = json.loads(json_data) if json_data else {}
+                                break
+                    else:
+                        result = response.json()
+
+                    if result:
+                        # Extract content from MCP response
+                        content = result.get("result", {}).get("content", [])
+                        if content and len(content) > 0:
+                            return content[0].get("text", {})
+                        return result.get("result", {})
+
+                    return {
+                        "success": False,
+                        "message": "Could not parse response"
+                    }
                 else:
                     return {
                         "success": False,

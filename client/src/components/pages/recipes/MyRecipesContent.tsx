@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { get } from '@/lib/api';
 import CreateFakeRecipeButton from './CreateFakeRecipeButton';
 
@@ -87,12 +88,12 @@ export default function MyRecipesContent() {
             <p className="text-text/70 mb-6">
               Start cooking with Raimy to create your first recipe!
             </p>
-            <a
+            <Link
               href="/kitchen"
               className="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
             >
               Go to Kitchen
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

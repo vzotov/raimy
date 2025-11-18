@@ -74,10 +74,16 @@ async def create_session(
 
 
 @router.get("")
-async def list_sessions(current_user: dict = Depends(get_current_user_with_storage)):
-    """Get all meal planner sessions for the current user"""
+async def list_sessions(
+    session_type: str = None,
+    current_user: dict = Depends(get_current_user_with_storage)
+):
+    """Get all sessions for the current user, optionally filtered by session_type (meal-planner or kitchen)"""
     try:
-        sessions = await database_service.get_user_meal_planner_sessions(current_user["email"])
+        sessions = await database_service.get_user_meal_planner_sessions(
+            current_user["email"],
+            session_type=session_type
+        )
         return {
             "sessions": sessions,
             "count": len(sessions)

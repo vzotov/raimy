@@ -281,16 +281,23 @@ class DatabaseService:
                 await db.rollback()
                 raise Exception(f"Failed to create meal planner session: {str(e)}")
 
-    async def get_user_meal_planner_sessions(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get all meal planner sessions for a user"""
+    async def get_user_meal_planner_sessions(self, user_id: str, session_type: str = None) -> List[Dict[str, Any]]:
+        """Get all meal planner sessions for a user, optionally filtered by session_type"""
         async with AsyncSessionLocal() as db:
             try:
-                result = await db.execute(
+                query = (
                     select(MealPlannerSession)
                     .options(selectinload(MealPlannerSession.message_records))
                     .where(MealPlannerSession.user_id == user_id)
-                    .order_by(desc(MealPlannerSession.updated_at))
                 )
+
+                # Filter by session_type if provided
+                if session_type:
+                    query = query.where(MealPlannerSession.session_type == session_type)
+
+                query = query.order_by(desc(MealPlannerSession.updated_at))
+
+                result = await db.execute(query)
                 sessions = result.scalars().all()
 
                 return [

@@ -34,15 +34,13 @@ export default function MealPlannerChat({
     console.log('[MealPlannerChat] Received:', wsMessage);
 
     if (wsMessage.type === 'agent_message' && wsMessage.content) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: wsMessage.message_id || `agent-${Date.now()}`,
-          role: 'assistant',
-          content: wsMessage.content,
-          timestamp: new Date(),
-        },
-      ]);
+      const newMessage: ChatMessage = {
+        id: wsMessage.message_id || `agent-${Date.now()}`,
+        role: 'assistant',
+        content: wsMessage.content,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, newMessage]);
     }
   }, []);
 

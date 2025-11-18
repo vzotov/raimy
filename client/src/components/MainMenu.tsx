@@ -10,6 +10,7 @@ import Logo from '@/components/shared/Logo';
 import { XIcon } from '@/components/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { useMealPlannerSessions } from '@/hooks/useMealPlannerSessions';
+import { useKitchenSessions } from '@/hooks/useKitchenSessions';
 import { useSSE } from '@/hooks/useSSE';
 import { MealPlannerSession } from '@/types/meal-planner-session';
 
@@ -25,6 +26,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [isMealPlannerExpanded, setIsMealPlannerExpanded] = useState(false);
+  const [isKitchenExpanded, setIsKitchenExpanded] = useState(false);
 
   const {
     sessions,
@@ -34,23 +36,40 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
     handleSessionNameUpdated,
   } = useMealPlannerSessions();
 
+  const {
+    sessions: kitchenSessions,
+    updateSessionName: updateKitchenSessionName,
+    deleteSession: deleteKitchenSession,
+    handleSessionCreated: handleKitchenSessionCreated,
+    handleSessionNameUpdated: handleKitchenSessionNameUpdated,
+  } = useKitchenSessions();
+
   // Set up SSE for real-time updates
   useSSE({
     onMessage: (event) => {
       if (event.type === 'session_created') {
         const sessionData = event.data as unknown as MealPlannerSession;
-        handleSessionCreated(sessionData);
+        // Route to appropriate handler based on session_type
+        if (sessionData.session_type === 'kitchen') {
+          handleKitchenSessionCreated(sessionData);
+        } else {
+          handleSessionCreated(sessionData);
+        }
       } else if (event.type === 'session_name_updated') {
-        const data = event.data as unknown as { id: string; session_name: string };
+        const data = event.data as unknown as { id: string; session_name: string; session_type?: string };
+        // Update both to ensure we catch it regardless of type
         handleSessionNameUpdated(data);
+        handleKitchenSessionNameUpdated(data);
       }
     },
   });
 
-  // Auto-expand meal planner submenu when on a meal planner page
+  // Auto-expand submenus when on their respective pages
   useEffect(() => {
     if (pathname.startsWith('/meal-planner')) {
       setIsMealPlannerExpanded(true);
+    } else if (pathname.startsWith('/kitchen')) {
+      setIsKitchenExpanded(true);
     }
   }, [pathname]);
 
@@ -81,7 +100,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
     setEditValue('');
   };
 
-  const handleDelete = async (sessionId: string, e: React.MouseEvent) => {
+  const handleDelete = async (sessionId: string, e: React.MouseEvent, sessionType: 'meal-planner' | 'kitchen' = 'meal-planner') => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -90,21 +109,43 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
     }
 
     try {
-      await deleteSession(sessionId);
-
-      // If we're viewing this session, redirect to meal planner home
-      if (pathname === `/meal-planner/${sessionId}`) {
-        router.push('/meal-planner');
+      if (sessionType === 'kitchen') {
+        await deleteKitchenSession(sessionId);
+        // If we're viewing this session, redirect to kitchen home
+        if (pathname === `/kitchen/${sessionId}`) {
+          router.push('/kitchen');
+        }
+      } else {
+        await deleteSession(sessionId);
+        // If we're viewing this session, redirect to meal planner home
+        if (pathname === `/meal-planner/${sessionId}`) {
+          router.push('/meal-planner');
+        }
       }
     } catch (err) {
       console.error('Failed to delete session:', err);
     }
   };
 
-  const handleSessionClick = (sessionId: string) => {
+  const handleSessionClick = (sessionId: string, sessionType: 'meal-planner' | 'kitchen' = 'meal-planner') => {
     if (editingSessionId === sessionId) return;
-    router.push(`/meal-planner/${sessionId}`);
+    if (sessionType === 'kitchen') {
+      router.push(`/kitchen/${sessionId}`);
+    } else {
+      router.push(`/meal-planner/${sessionId}`);
+    }
     handleCloseMenu();
+  };
+
+  const handleKitchenSaveEdit = async (sessionId: string) => {
+    if (!editValue.trim()) return;
+
+    try {
+      await updateKitchenSessionName(sessionId, editValue.trim());
+      setEditingSessionId(null);
+    } catch (err) {
+      console.error('Failed to update kitchen session name:', err);
+    }
   };
 
   return (
@@ -136,13 +177,116 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         {/* Navigation Links - Scrollable middle section */}
         <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
           <div className="px-3 space-y-2">
-            <Link
-              href="/kitchen"
-              className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
-              onClick={handleCloseMenu}
-            >
-              Kitchen
-            </Link>
+            {/* Kitchen with Submenu */}
+            <div>
+              <div
+                className="flex items-center justify-between px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150 cursor-pointer"
+                onClick={() => setIsKitchenExpanded(!isKitchenExpanded)}
+              >
+                <span>Kitchen</span>
+                <span className="text-xs transition-transform duration-200" style={{ transform: isKitchenExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                  ▶
+                </span>
+              </div>
+
+              {/* Kitchen Submenu */}
+              {isKitchenExpanded && (
+                <div className="mt-1 ml-4 space-y-1">
+                  {/* New Kitchen Session */}
+                  <Link
+                    href="/kitchen/new"
+                    className="block px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
+                    onClick={handleCloseMenu}
+                  >
+                    + Start Cooking
+                  </Link>
+
+                  {/* Kitchen Sessions */}
+                  {kitchenSessions.slice(0, 10).map((session) => {
+                  const isActive = pathname === `/kitchen/${session.id}`;
+                  const isEditing = editingSessionId === session.id;
+
+                  return (
+                    <div
+                      key={session.id}
+                      className={classNames(
+                        'group relative rounded-lg transition-colors',
+                        {
+                          'bg-accent/30': isActive,
+                          'hover:bg-accent/10': !isActive && !isEditing,
+                        }
+                      )}
+                    >
+                      {isEditing ? (
+                        <div className="px-2 py-2 flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleKitchenSaveEdit(session.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEdit();
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 text-sm bg-background border border-accent/30 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleKitchenSaveEdit(session.id)}
+                            className="px-2 py-1 text-xs text-green-500 hover:text-green-600"
+                            title="Save"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-2 py-1 text-xs text-red-500 hover:text-red-600"
+                            title="Cancel"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => handleSessionClick(session.id, 'kitchen')}
+                          className="w-full text-left px-3 py-2 flex items-center justify-between cursor-pointer"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-text truncate">
+                              {session.session_name}
+                            </div>
+                            <div className="text-xs text-text/50 mt-0.5">
+                              {session.message_count || 0} msgs
+                            </div>
+                          </div>
+
+                          {/* Actions (visible on hover) */}
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-2 transition-opacity">
+                            <button
+                              onClick={(e) => handleStartEdit(session, e)}
+                              className="p-1 text-xs text-text/50 hover:text-primary rounded transition-colors"
+                              title="Rename"
+                            >
+                              ✎
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(session.id, e, 'kitchen')}
+                              className="p-1 text-xs text-text/50 hover:text-red-500 rounded transition-colors"
+                              title="Delete"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                </div>
+              )}
+            </div>
 
             {/* Meal Planner with Submenu */}
             <div>

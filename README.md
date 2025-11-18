@@ -19,11 +19,6 @@ Create a `.env` file in the root directory:
 # OpenAI
 OPENAI_API_KEY=your_openai_api_key_here
 
-# LiveKit (optional)
-LIVEKIT_URL=your_livekit_url
-LIVEKIT_API_KEY=your_livekit_api_key
-LIVEKIT_API_SECRET=your_livekit_api_secret
-
 # Google OAuth (required for authentication)
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here

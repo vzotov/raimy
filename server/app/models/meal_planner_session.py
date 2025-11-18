@@ -10,7 +10,8 @@ class MealPlannerSession(Base, TimestampMixin):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String(255), ForeignKey("users.email"), nullable=False)
     session_name = Column(String(255), nullable=False, default="Untitled Session")
-    room_name = Column(String(255), unique=True, nullable=False)
+    session_type = Column(String(50), nullable=False, default="meal-planner", index=True)
+    room_name = Column(String(255), unique=True, nullable=True)  # LiveKit remnant, nullable now
 
     # Relationships
     user = relationship("User", back_populates="meal_planner_sessions")

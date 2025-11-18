@@ -36,7 +36,7 @@ services:
       - ./server/mcp_service:/app
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -71,9 +71,7 @@ services:
       - PYTHONPATH=/app/server
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LIVEKIT_URL=${LIVEKIT_URL}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - AGENT_SERVICE_URL=http://raimy-bot:8003
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       # PostgreSQL Configuration
@@ -103,8 +101,9 @@ services:
         condition: service_healthy
 
   raimy-bot:
-    build: .
-    command: ["python", "server/main.py", "start"]
+    build: ./server/agent-service
+    ports:
+      - "8003:8003"  # Agent service
     environment:
       - PYTHONPATH=/app/server
       - API_URL=http://raimy-api:8000
@@ -113,9 +112,10 @@ services:
       - MCP_SERVER_URL=http://mcp-service:8002/mcp
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LIVEKIT_URL=${LIVEKIT_URL}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      # LangSmith for debugging
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-raimy-agent}
       # PostgreSQL Configuration
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
       - POSTGRES_HOST=postgres
@@ -123,14 +123,22 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-raimy}
       - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
-      # Migration Configuration (disabled for bot, only API runs migrations)
+      # Migration Configuration (disabled for agent, only API runs migrations)
       - AUTO_MIGRATE=false
     volumes:
-      # Mount for development (optional)
+      # Mount entire server directory for development
       - ./server:/app/server
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     depends_on:
       raimy-api:
+        condition: service_healthy
+      mcp-service:
         condition: service_healthy
 
 volumes:

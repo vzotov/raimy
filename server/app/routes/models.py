@@ -60,11 +60,13 @@ class CreateSessionRequest(BaseModel):
     """Request model for creating a meal planner session"""
     model_config = ConfigDict(json_schema_extra={
         "examples": [{
-            "initial_message": "I want to plan healthy meals for next week"
+            "initial_message": "I want to plan healthy meals for next week",
+            "session_type": "meal-planner"
         }]
     })
 
     initial_message: Optional[str] = Field(None, description="Optional first message to start the session")
+    session_type: Optional[str] = Field("meal-planner", description="Session type: 'meal-planner' or 'kitchen'")
 
 
 class UpdateSessionNameRequest(BaseModel):

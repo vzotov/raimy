@@ -48,9 +48,11 @@ async def create_session(
     """Create a new meal planner session"""
     try:
         initial_message = request.initial_message if request else None
+        session_type = request.session_type if request else "meal-planner"
         session = await database_service.create_meal_planner_session(
             current_user["email"],
-            initial_message
+            initial_message,
+            session_type
         )
 
         # Broadcast session created event via SSE
@@ -58,6 +60,7 @@ async def create_session(
             await broadcast_event("session_created", {
                 "id": session["id"],
                 "session_name": session["session_name"],
+                "session_type": session["session_type"],
                 "room_name": session["room_name"]
             })
 
@@ -71,10 +74,16 @@ async def create_session(
 
 
 @router.get("")
-async def list_sessions(current_user: dict = Depends(get_current_user_with_storage)):
-    """Get all meal planner sessions for the current user"""
+async def list_sessions(
+    session_type: str = None,
+    current_user: dict = Depends(get_current_user_with_storage)
+):
+    """Get all sessions for the current user, optionally filtered by session_type (meal-planner or kitchen)"""
     try:
-        sessions = await database_service.get_user_meal_planner_sessions(current_user["email"])
+        sessions = await database_service.get_user_meal_planner_sessions(
+            current_user["email"],
+            session_type=session_type
+        )
         return {
             "sessions": sessions,
             "count": len(sessions)

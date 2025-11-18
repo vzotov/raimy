@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { mealPlannerSessions } from '@/lib/api';
+import { kitchenSessions } from '@/lib/api';
 import type { MealPlannerSession } from '@/types/meal-planner-session';
 
-export function useMealPlannerSessions() {
+export function useKitchenSessions() {
   const [sessions, setSessions] = useState<MealPlannerSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -11,8 +11,8 @@ export function useMealPlannerSessions() {
     try {
       setLoading(true);
       setError(null);
-      // Explicitly filter for meal-planner sessions only
-      const response = await mealPlannerSessions.list('meal-planner');
+      // Fetch kitchen sessions only
+      const response = await kitchenSessions.list();
 
       if (response.error) {
         setError(response.error);
@@ -23,8 +23,8 @@ export function useMealPlannerSessions() {
         setSessions(response.data.sessions);
       }
     } catch (err) {
-      setError('Failed to fetch sessions');
-      console.error('Error fetching sessions:', err);
+      setError('Failed to fetch kitchen sessions');
+      console.error('Error fetching kitchen sessions:', err);
     } finally {
       setLoading(false);
     }
@@ -32,7 +32,7 @@ export function useMealPlannerSessions() {
 
   const createSession = useCallback(async () => {
     try {
-      const response = await mealPlannerSessions.create();
+      const response = await kitchenSessions.create();
 
       if (response.error) {
         throw new Error(response.error);
@@ -44,14 +44,14 @@ export function useMealPlannerSessions() {
         return response.data.session;
       }
     } catch (err) {
-      console.error('Error creating session:', err);
+      console.error('Error creating kitchen session:', err);
       throw err;
     }
   }, []);
 
   const updateSessionName = useCallback(async (sessionId: string, newName: string) => {
     try {
-      const response = await mealPlannerSessions.updateName(sessionId, {
+      const response = await kitchenSessions.updateName(sessionId, {
         session_name: newName,
       });
 
@@ -77,7 +77,7 @@ export function useMealPlannerSessions() {
 
   const deleteSession = useCallback(async (sessionId: string) => {
     try {
-      const response = await mealPlannerSessions.delete(sessionId);
+      const response = await kitchenSessions.delete(sessionId);
 
       if (response.error) {
         throw new Error(response.error);
@@ -88,7 +88,7 @@ export function useMealPlannerSessions() {
 
       return response.data;
     } catch (err) {
-      console.error('Error deleting session:', err);
+      console.error('Error deleting kitchen session:', err);
       throw err;
     }
   }, []);

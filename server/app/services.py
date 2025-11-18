@@ -224,18 +224,24 @@ class DatabaseService:
 
     # Meal Planner Session Methods
 
-    async def create_meal_planner_session(self, user_id: str, initial_message: str = None) -> Dict[str, Any]:
+    async def create_meal_planner_session(
+        self,
+        user_id: str,
+        initial_message: str = None,
+        session_type: str = "meal-planner"
+    ) -> Dict[str, Any]:
         """Create a new meal planner session with optional initial message"""
         async with AsyncSessionLocal() as db:
             try:
                 session_id = uuid.uuid4()
-                room_name = f"meal-planner-{session_id}"
+                room_name = f"{session_type}-{session_id}"  # Include session type in room name
 
                 # Create session
                 new_session = MealPlannerSession(
                     id=session_id,
                     user_id=user_id,
                     session_name="Untitled Session",
+                    session_type=session_type,
                     room_name=room_name
                 )
                 db.add(new_session)
@@ -264,6 +270,7 @@ class DatabaseService:
                     "id": str(session_id),
                     "user_id": user_id,
                     "session_name": "Untitled Session",
+                    "session_type": session_type,
                     "room_name": room_name,
                     "messages": message_data,
                     "created_at": new_session.created_at.isoformat(),
@@ -274,16 +281,23 @@ class DatabaseService:
                 await db.rollback()
                 raise Exception(f"Failed to create meal planner session: {str(e)}")
 
-    async def get_user_meal_planner_sessions(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get all meal planner sessions for a user"""
+    async def get_user_meal_planner_sessions(self, user_id: str, session_type: str = None) -> List[Dict[str, Any]]:
+        """Get all meal planner sessions for a user, optionally filtered by session_type"""
         async with AsyncSessionLocal() as db:
             try:
-                result = await db.execute(
+                query = (
                     select(MealPlannerSession)
                     .options(selectinload(MealPlannerSession.message_records))
                     .where(MealPlannerSession.user_id == user_id)
-                    .order_by(desc(MealPlannerSession.updated_at))
                 )
+
+                # Filter by session_type if provided
+                if session_type:
+                    query = query.where(MealPlannerSession.session_type == session_type)
+
+                query = query.order_by(desc(MealPlannerSession.updated_at))
+
+                result = await db.execute(query)
                 sessions = result.scalars().all()
 
                 return [
@@ -291,6 +305,7 @@ class DatabaseService:
                         "id": str(session.id),
                         "user_id": session.user_id,
                         "session_name": session.session_name,
+                        "session_type": session.session_type,
                         "room_name": session.room_name,
                         "message_count": len(session.message_records),
                         "created_at": session.created_at.isoformat(),
@@ -331,6 +346,7 @@ class DatabaseService:
                     "id": str(session.id),
                     "user_id": session.user_id,
                     "session_name": session.session_name,
+                    "session_type": session.session_type,
                     "room_name": session.room_name,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),

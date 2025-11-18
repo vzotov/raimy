@@ -75,13 +75,22 @@ export const del = <T = unknown>(endpoint: string) =>
   });
 
 export const mealPlannerSessions = {
-  create: (initialMessage?: string) =>
+  create: (initialMessage?: string, sessionType: string = 'meal-planner', recipeId?: string) =>
     post<CreateSessionResponse>(
       '/api/meal-planner-sessions',
-      initialMessage ? { initial_message: initialMessage } : undefined,
+      {
+        initial_message: initialMessage || 'Hello!',
+        session_type: sessionType,
+        ...(recipeId && { recipe_id: recipeId }),
+      },
     ),
 
-  list: () => get<ListSessionsResponse>('/api/meal-planner-sessions'),
+  list: (sessionType?: string) =>
+    get<ListSessionsResponse>(
+      sessionType
+        ? `/api/meal-planner-sessions?session_type=${sessionType}`
+        : '/api/meal-planner-sessions'
+    ),
 
   get: (sessionId: string) => get<GetSessionResponse>(`/api/meal-planner-sessions/${sessionId}`),
 
@@ -90,4 +99,19 @@ export const mealPlannerSessions = {
 
   delete: (sessionId: string) =>
     del<DeleteSessionResponse>(`/api/meal-planner-sessions/${sessionId}`),
+};
+
+// Kitchen sessions - reuse meal planner endpoints with kitchen session_type
+export const kitchenSessions = {
+  create: (initialMessage: string = "I'm ready to cook!", recipeId?: string) =>
+    mealPlannerSessions.create(initialMessage, 'kitchen', recipeId),
+
+  list: () => mealPlannerSessions.list('kitchen'),
+
+  get: (sessionId: string) => mealPlannerSessions.get(sessionId),
+
+  updateName: (sessionId: string, data: UpdateSessionNameRequest) =>
+    mealPlannerSessions.updateName(sessionId, data),
+
+  delete: (sessionId: string) => mealPlannerSessions.delete(sessionId),
 };

@@ -2,7 +2,8 @@ export interface MealPlannerSession {
   id: string;
   user_id: string;
   session_name: string;
-  room_name: string;
+  session_type: 'meal-planner' | 'kitchen';
+  room_name?: string;  // Optional - LiveKit remnant
   message_count?: number;
   created_at: string;
   updated_at: string;
@@ -15,7 +16,7 @@ export interface MealPlannerSessionWithMessages extends MealPlannerSession {
 export interface SessionMessage {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
+  created_at: string;
 }
 
 export interface CreateSessionResponse {

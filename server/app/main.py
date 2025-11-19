@@ -8,7 +8,6 @@ import sys
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sse_starlette.sse import EventSourceResponse
 import uvicorn
 import httpx
 
@@ -20,9 +19,6 @@ from .routes.meal_planner_sessions import create_meal_planner_sessions_router
 from core.auth_client import auth_client
 from agents.auth_proxy import router as auth_proxy_router
 from .services import database_service
-
-# Global state for SSE connections
-sse_connections: List[asyncio.Queue] = []
 
 
 class ConnectionManager:
@@ -177,23 +173,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-async def broadcast_event(event_type: str, data: dict):
-    """Broadcast event to all connected SSE clients"""
-    event_data = {"type": event_type, "data": data}
-
-    # Remove disconnected clients
-    disconnected = []
-    for i, queue in enumerate(sse_connections):
-        try:
-            await queue.put(json.dumps(event_data))
-        except Exception:
-            disconnected.append(i)
-
-    # Remove disconnected clients
-    for i in reversed(disconnected):
-        sse_connections.pop(i)
-
-
 @app.get("/", tags=["Root"])
 async def root():
     """
@@ -212,7 +191,7 @@ async def root():
             "auth": "/auth/*",
             "recipes": "/api/recipes/*",
             "timers": "/api/timers/*",
-            "events": "/api/events",
+            "chat": "/ws/chat/{session_id}",
             "debug": "/debug/*",
             "health": "/health"
         }
@@ -224,15 +203,14 @@ async def health_check():
     """
     ## Health Check
 
-    Check the health status of the API and get current SSE connection count.
+    Check the health status of the API and get current WebSocket connection count.
 
     Returns:
     - `status`: API health status
-    - `connections`: Number of active SSE connections
+    - `websocket_connections`: Number of active WebSocket connections
     """
     return {
         "status": "healthy",
-        "connections": len(sse_connections),
         "websocket_connections": len(connection_manager.active_connections),
         "timestamp": asyncio.get_event_loop().time()
     }
@@ -307,9 +285,9 @@ async def websocket_chat_endpoint(
     - `session_id`: The meal planner session ID
 
     Message format:
-    - Client sends: `{"type": "user_message", "content": "text"}`
-    - Server sends: `{"type": "agent_message", "content": "text"}`
-    - Server sends: `{"type": "error", "message": "error text"}`
+    - Client sends: `{"type": "user_message", "content": {"type": "text", "content": "..."}}`
+    - Server sends: `{"type": "agent_message", "content": {"type": "text", "content": "..."}}`
+    - Server sends: `{"type": "system", "system_type": "connected|error", "message": "..."}`
     """
     # Authenticate user before accepting connection
     try:
@@ -330,9 +308,12 @@ async def websocket_chat_endpoint(
 
         # Send connection confirmation
         await connection_manager.send_message(session_id, {
-            "type": "connected",
-            "session_id": session_id,
-            "message": "Connected to chat"
+            "type": "system",
+            "content": {
+                "type": "connected",
+                "message": "Connected to chat"
+            },
+            "session_id": session_id
         })
 
         # Get agent service URL from environment
@@ -430,21 +411,30 @@ async def websocket_chat_endpoint(
                         else:
                             logger.error(f"Agent service error: {response.status_code}")
                             await connection_manager.send_message(session_id, {
-                                "type": "error",
-                                "message": "Failed to get response from agent"
+                                "type": "system",
+                                "content": {
+                                    "type": "error",
+                                    "message": "Failed to get response from agent"
+                                }
                             })
 
                 except httpx.RequestError as e:
                     logger.error(f"Failed to connect to agent service: {e}")
                     await connection_manager.send_message(session_id, {
-                        "type": "error",
-                        "message": "Agent service unavailable"
+                        "type": "system",
+                        "content": {
+                            "type": "error",
+                            "message": "Agent service unavailable"
+                        }
                     })
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     await connection_manager.send_message(session_id, {
-                        "type": "error",
-                        "message": str(e)
+                        "type": "system",
+                        "content": {
+                            "type": "error",
+                            "message": str(e)
+                        }
                     })
 
     except WebSocketDisconnect:
@@ -455,52 +445,11 @@ async def websocket_chat_endpoint(
         connection_manager.disconnect(session_id)
 
 
-@app.get("/api/events", tags=["Events"])
-async def events():
-    """
-    ## Server-Sent Events (SSE)
-    
-    Real-time event stream for cooking updates, timer notifications, and user events.
-    
-    ### Event Types:
-    - `timer_set`: When a timer is started
-    - `recipe_name`: When a recipe name is sent
-    - `user_logout`: When a user logs out
-    
-    ### Usage:
-    ```javascript
-    const eventSource = new EventSource('/api/events');
-    eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log(data.type, data.data);
-    };
-    ```
-    """
-    queue = asyncio.Queue()
-    sse_connections.append(queue)
 
-    async def event_generator():
-        try:
-            while True:
-                try:
-                    data = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield {"event": "message", "data": data}
-                except asyncio.TimeoutError:
-                    # Send keepalive
-                    yield {"event": "ping", "data": "keepalive"}
-        except Exception as e:
-            print(f"SSE connection error: {e}")
-        finally:
-            if queue in sse_connections:
-                sse_connections.remove(queue)
-
-    return EventSourceResponse(event_generator())
-
-
-# Include routers with injected broadcast function
-app.include_router(create_timers_router(broadcast_event))
-app.include_router(create_recipes_router(broadcast_event))
-app.include_router(create_meal_planner_sessions_router(broadcast_event))
+# Include routers (no longer need broadcast_event injection)
+app.include_router(create_timers_router(None))
+app.include_router(create_recipes_router(None))
+app.include_router(create_meal_planner_sessions_router(None))
 app.include_router(create_debug_router())
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)

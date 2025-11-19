@@ -8,10 +8,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { MessageContent } from '@/types/chat-message-types';
 
 export interface ChatMessage {
-  type: 'user_message' | 'agent_message' | 'connected' | 'error';
-  content?: MessageContent;  // Always structured MessageContent from backend
+  type: 'user_message' | 'agent_message' | 'system';
+  content?: MessageContent;
   session_id?: string;
-  message?: string;
   message_id?: string;
 }
 

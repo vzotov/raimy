@@ -44,36 +44,46 @@ router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
 @router.post("/name")
-async def send_recipe_name(recipe: RecipeNameRequest):
-    """Send recipe name to the client via SSE"""
-    recipe_data = {
-        "recipe_name": recipe.recipe_name,
-        "timestamp": asyncio.get_event_loop().time()
-    }
-    
-    # Broadcast recipe name event
-    if broadcast_event:
-        await broadcast_event("recipe_name", recipe_data)
-    
-    return {"message": f"Recipe name sent: {recipe.recipe_name}"}
+async def send_recipe_name(recipe_request: dict):
+    """Send recipe name to the client via WebSocket"""
+    recipe_name = recipe_request.get("recipe_name")
+    session_id = recipe_request.get("session_id")
+
+    # Send via WebSocket to specific session
+    if session_id:
+        from app.main import connection_manager
+        await connection_manager.send_message(session_id, {
+            "type": "agent_message",
+            "content": {
+                "type": "recipe_name",
+                "name": recipe_name
+            }
+        })
+
+    return {"message": f"Recipe name sent: {recipe_name}"}
 
 
 @router.post("/ingredients")
 async def set_ingredients(ingredients_request: dict):
-    """Send ingredients list to the client via SSE"""
-    action = ingredients_request.get("action", "set")  # Default to "set" for backward compatibility
-    ingredients_data = {
-        "ingredients": ingredients_request.get("ingredients", []),
-        "action": action,
-        "timestamp": asyncio.get_event_loop().time()
-    }
-    
-    # Broadcast ingredients event
-    if broadcast_event:
-        await broadcast_event("ingredients", ingredients_data)
-    
+    """Send ingredients list to the client via WebSocket"""
+    action = ingredients_request.get("action", "set")
+    session_id = ingredients_request.get("session_id")
+
+    # Send via WebSocket to specific session
+    if session_id:
+        from app.main import connection_manager
+        await connection_manager.send_message(session_id, {
+            "type": "agent_message",
+            "content": {
+                "type": "ingredients",
+                "items": ingredients_request.get("ingredients", []),
+                "action": action
+            }
+        })
+
     action_text = "set" if action == "set" else "updated"
-    return {"message": f"Ingredients {action_text}: {len(ingredients_data['ingredients'])} items"}
+    ingredients_count = len(ingredients_request.get("ingredients", []))
+    return {"message": f"Ingredients {action_text}: {ingredients_count} items"}
 
 
 @router.get("/")

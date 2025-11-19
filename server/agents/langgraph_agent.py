@@ -132,6 +132,10 @@ class LangGraphAgent:
                 tool_args = tool_call.get("args", {})
                 tool_id = tool_call.get("id", "")
 
+                # Inject session_id into tool args if not already present
+                if "session_id" not in tool_args and "session_id" in state:
+                    tool_args["session_id"] = state["session_id"]
+
                 # Find the tool in our tool list
                 tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
 

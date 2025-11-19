@@ -11,7 +11,6 @@ import { XIcon } from '@/components/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { useMealPlannerSessions } from '@/hooks/useMealPlannerSessions';
 import { useKitchenSessions } from '@/hooks/useKitchenSessions';
-import { useSSE } from '@/hooks/useSSE';
 import { MealPlannerSession } from '@/types/meal-planner-session';
 import { kitchenSessions as kitchenSessionsApi } from '@/lib/api';
 
@@ -33,37 +32,13 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
     sessions,
     updateSessionName,
     deleteSession,
-    handleSessionCreated,
-    handleSessionNameUpdated,
   } = useMealPlannerSessions();
 
   const {
     sessions: kitchenSessions,
     updateSessionName: updateKitchenSessionName,
     deleteSession: deleteKitchenSession,
-    handleSessionCreated: handleKitchenSessionCreated,
-    handleSessionNameUpdated: handleKitchenSessionNameUpdated,
   } = useKitchenSessions();
-
-  // Set up SSE for real-time updates
-  useSSE({
-    onMessage: (event) => {
-      if (event.type === 'session_created') {
-        const sessionData = event.data as unknown as MealPlannerSession;
-        // Route to appropriate handler based on session_type
-        if (sessionData.session_type === 'kitchen') {
-          handleKitchenSessionCreated(sessionData);
-        } else {
-          handleSessionCreated(sessionData);
-        }
-      } else if (event.type === 'session_name_updated') {
-        const data = event.data as unknown as { id: string; session_name: string; session_type?: string };
-        // Update both to ensure we catch it regardless of type
-        handleSessionNameUpdated(data);
-        handleKitchenSessionNameUpdated(data);
-      }
-    },
-  });
 
   // Auto-expand submenus when on their respective pages
   useEffect(() => {

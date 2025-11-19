@@ -71,7 +71,7 @@ async def get_service_token() -> Optional[str]:
 
 
 @mcp.tool()
-async def set_ingredients(ingredients: List[dict]) -> dict:
+async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
     """
     Set the complete ingredients list for the current recipe.
 
@@ -92,6 +92,7 @@ async def set_ingredients(ingredients: List[dict]) -> dict:
 
     Args:
         ingredients: List of ingredient dictionaries
+        session_id: Session ID for WebSocket routing (REQUIRED)
 
     Returns:
         dict: Success status and message
@@ -101,9 +102,9 @@ async def set_ingredients(ingredients: List[dict]) -> dict:
             {"name": "eggs", "amount": "4"},
             {"name": "salt", "unit": "to taste"},
             {"name": "milk", "amount": "200", "unit": "ml"}
-        ])
+        ], session_id="abc-123")
     """
-    print(f"🔧 MCP TOOL: set_ingredients({len(ingredients)} items)")
+    print(f"🔧 MCP TOOL: set_ingredients({len(ingredients)} items, session={session_id})")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
@@ -119,7 +120,8 @@ async def set_ingredients(ingredients: List[dict]) -> dict:
                 f"{api_url}/api/recipes/ingredients",
                 json={
                     "ingredients": ingredients_clean,
-                    "action": "set"
+                    "action": "set",
+                    "session_id": session_id
                 }
             ) as response:
                 if response.status == 200:
@@ -141,7 +143,7 @@ async def set_ingredients(ingredients: List[dict]) -> dict:
 
 
 @mcp.tool()
-async def update_ingredients(ingredients: List[dict]) -> dict:
+async def update_ingredients(ingredients: List[dict], session_id: str) -> dict:
     """
     Update specific ingredients in the current recipe.
 
@@ -166,20 +168,21 @@ async def update_ingredients(ingredients: List[dict]) -> dict:
 
     Args:
         ingredients: List of ingredient dictionaries to update
+        session_id: Session ID for WebSocket routing (REQUIRED)
 
     Returns:
         dict: Success status and message
 
     Example Workflow:
         # Before step: Highlight ingredients
-        update_ingredients([{"name": "eggs", "highlighted": true}])
+        update_ingredients([{"name": "eggs", "highlighted": true}], session_id="abc-123")
 
         # After step: Mark as used and unhighlight
         update_ingredients([
             {"name": "eggs", "highlighted": false, "used": true}
-        ])
+        ], session_id="abc-123")
     """
-    print(f"🔧 MCP TOOL: update_ingredients({len(ingredients)} items)")
+    print(f"🔧 MCP TOOL: update_ingredients({len(ingredients)} items, session={session_id})")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
@@ -194,7 +197,8 @@ async def update_ingredients(ingredients: List[dict]) -> dict:
                 f"{api_url}/api/recipes/ingredients",
                 json={
                     "ingredients": ingredients_clean,
-                    "action": "update"
+                    "action": "update",
+                    "session_id": session_id
                 }
             ) as response:
                 if response.status == 200:
@@ -216,7 +220,7 @@ async def update_ingredients(ingredients: List[dict]) -> dict:
 
 
 @mcp.tool()
-async def set_timer(duration: int, label: str) -> dict:
+async def set_timer(duration: int, label: str, session_id: str) -> dict:
     """
     Set a cooking timer with a descriptive label.
 
@@ -230,16 +234,17 @@ async def set_timer(duration: int, label: str) -> dict:
     Args:
         duration: Timer duration in seconds (REQUIRED)
         label: Descriptive label using infinitive form, e.g., "to flip", "to simmer" (REQUIRED)
+        session_id: Session ID for WebSocket routing (REQUIRED)
 
     Returns:
         dict: Success status and message
 
     Examples:
-        ✅ CORRECT: set_timer(duration=300, label="to simmer sauce")
-        ✅ CORRECT: set_timer(duration=600, label="to boil pasta")
-        ❌ WRONG: set_timer(duration=90, label="to beat eggs")  # Active task!
+        ✅ CORRECT: set_timer(duration=300, label="to simmer sauce", session_id="abc-123")
+        ✅ CORRECT: set_timer(duration=600, label="to boil pasta", session_id="abc-123")
+        ❌ WRONG: set_timer(duration=90, label="to beat eggs", session_id="abc-123")  # Active task!
     """
-    print(f"🔧 MCP TOOL: set_timer({duration}s, '{label}')")
+    print(f"🔧 MCP TOOL: set_timer({duration}s, '{label}', session={session_id})")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
@@ -247,7 +252,7 @@ async def set_timer(duration: int, label: str) -> dict:
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{api_url}/api/timers/set",
-                json={"duration": duration, "label": label}
+                json={"duration": duration, "label": label, "session_id": session_id}
             ) as response:
                 if response.status == 200:
                     result = await response.json()
@@ -268,7 +273,7 @@ async def set_timer(duration: int, label: str) -> dict:
 
 
 @mcp.tool()
-async def send_recipe_name(recipe_name: str) -> dict:
+async def send_recipe_name(recipe_name: str, session_id: str) -> dict:
     """
     Display the recipe name to the user.
 
@@ -276,14 +281,15 @@ async def send_recipe_name(recipe_name: str) -> dict:
 
     Args:
         recipe_name: Name of the recipe being prepared
+        session_id: Session ID for WebSocket routing (REQUIRED)
 
     Returns:
         dict: Success status and message
 
     Example:
-        send_recipe_name("Spaghetti Carbonara")
+        send_recipe_name("Spaghetti Carbonara", session_id="abc-123")
     """
-    print(f"🔧 MCP TOOL: send_recipe_name('{recipe_name}')")
+    print(f"🔧 MCP TOOL: send_recipe_name('{recipe_name}', session={session_id})")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
@@ -291,7 +297,7 @@ async def send_recipe_name(recipe_name: str) -> dict:
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{api_url}/api/recipes/name",
-                json={"recipe_name": recipe_name}
+                json={"recipe_name": recipe_name, "session_id": session_id}
             ) as response:
                 if response.status == 200:
                     result = await response.json()

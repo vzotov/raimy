@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
+import { useWebSocket, ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import Chat from '@/components/shared/chat/Chat';
 import { ChatMessage } from '@/hooks/useChatMessages';
 import { SessionMessage } from '@/types/meal-planner-session';
+import {
+  MessageContent,
+  RecipeNameContent,
+  IngredientsContent,
+  TimerContent
+} from '@/types/chat-message-types';
 import IngredientList, { Ingredient } from '@/components/shared/IngredientList';
 import TimerList, { Timer } from '@/components/shared/TimerList';
 import classNames from 'classnames';
@@ -32,29 +37,85 @@ export default function KitchenChat({
   );
 
   // Kitchen-specific state
-  const [ingredients] = useState<Ingredient[]>([]);
-  const [timers] = useState<Timer[]>([]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [timers, setTimers] = useState<Timer[]>([]);
+  const [recipeName, setRecipeName] = useState<string>('');
 
   // Memoize WebSocket callbacks to prevent reconnections
   const handleMessage = useCallback((wsMessage: WebSocketMessage) => {
     console.log('[KitchenChat] Received:', wsMessage);
 
+    // Handle agent messages - route by content type
     if (wsMessage.type === 'agent_message' && wsMessage.content) {
-      const newMessage: ChatMessage = {
-        id: wsMessage.message_id || `agent-${Date.now()}`,
-        role: 'assistant',
-        content: wsMessage.content,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, newMessage]);
+      const content = wsMessage.content;
+
+      // Route based on content type (application layer)
+      switch (content.type) {
+        case 'text':
+        case 'recipe':
+          // Add to chat history
+          const newMessage: ChatMessage = {
+            id: wsMessage.message_id || `agent-${Date.now()}`,
+            role: 'assistant',
+            content: content as MessageContent,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, newMessage]);
+          break;
+
+        case 'recipe_name':
+          // Update recipe name state
+          const recipeNameContent = content as RecipeNameContent;
+          if (recipeNameContent.name) {
+            setRecipeName(recipeNameContent.name);
+          }
+          break;
+
+        case 'ingredients':
+          // Update ingredients state
+          const ingredientsContent = content as IngredientsContent;
+          if (ingredientsContent.action === 'set' && ingredientsContent.items) {
+            setIngredients(ingredientsContent.items);
+          } else if (ingredientsContent.action === 'update' && ingredientsContent.items) {
+            setIngredients((prev) =>
+              prev.map((ing) => {
+                const update = ingredientsContent.items?.find((u) => u.name === ing.name);
+                return update ? { ...ing, ...update } : ing;
+              })
+            );
+          }
+          break;
+
+        case 'timer':
+          // Add timer to state
+          const timerContent = content as TimerContent;
+          if (timerContent.duration && timerContent.label) {
+            const newTimer: Timer = {
+              id: `timer-${Date.now()}`,
+              duration: timerContent.duration,
+              label: timerContent.label,
+              startedAt: timerContent.started_at || Date.now() / 1000,
+            };
+            setTimers((prev) => [...prev, newTimer]);
+          }
+          break;
+      }
     }
 
-    // TODO: Handle MCP tool responses for ingredients and timers
-    // Parse wsMessage for:
-    // - send_recipe_name() -> update recipe name
-    // - set_ingredients() -> populate ingredient list
-    // - update_ingredients() -> highlight/check ingredients
-    // - set_timer() -> add timer
+    // Handle system messages
+    if (wsMessage.type === 'system' && wsMessage.content) {
+      const systemContent = wsMessage.content;
+
+      switch (systemContent.type) {
+        case 'connected':
+          console.log('✅', systemContent.message);
+          break;
+
+        case 'error':
+          console.error('❌', systemContent.message);
+          break;
+      }
+    }
   }, []);
 
   const handleConnect = useCallback(() => {
@@ -97,7 +158,9 @@ export default function KitchenChat({
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-accent/20">
-          <h1 className="text-2xl font-bold text-text">{sessionName}</h1>
+          <h1 className="text-2xl font-bold text-text">
+            {recipeName || sessionName}
+          </h1>
           <div className="flex items-center gap-4 mt-2">
             <p className="text-sm text-text/70">
               {messages.length} message{messages.length !== 1 ? 's' : ''}

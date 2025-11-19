@@ -55,15 +55,6 @@ async def create_session(
             session_type
         )
 
-        # Broadcast session created event via SSE
-        if broadcast_event:
-            await broadcast_event("session_created", {
-                "id": session["id"],
-                "session_name": session["session_name"],
-                "session_type": session["session_type"],
-                "room_name": session["room_name"]
-            })
-
         return {
             "message": "Session created successfully",
             "session": session
@@ -136,13 +127,6 @@ async def update_session_name(
 
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update session name")
-
-        # Broadcast name update via SSE
-        if broadcast_event:
-            await broadcast_event("session_name_updated", {
-                "id": session_id,
-                "session_name": request.session_name
-            })
 
         return {
             "message": "Session name updated successfully",

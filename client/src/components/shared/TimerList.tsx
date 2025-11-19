@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ScrollableArea from '@/components/shared/ScrollableArea';
 
 export interface Timer {
+  id?: string;
   duration: number;
   label: string;
   startedAt: number;
@@ -38,7 +39,7 @@ export default function TimerList({ timers }: TimerListProps) {
 
         return (
           <div
-            key={index}
+            key={timer.id || index}
             className="flex flex-col items-center w-20 shrink-0"
           >
             <div className="text-2xl font-bold text-primary text-center">

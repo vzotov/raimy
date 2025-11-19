@@ -22,6 +22,12 @@ export type IngredientsContent = {
   type: 'ingredients';
   title?: string;
   items: ChatIngredient[];
+  action: 'set' | 'update';
+};
+
+export type RecipeNameContent = {
+  type: 'recipe_name';
+  name: string;
 };
 
 export type RecipeStep = {
@@ -44,8 +50,23 @@ export type RecipeContent = {
   tags?: string[];
 };
 
+export type TimerContent = {
+  type: 'timer';
+  duration: number;
+  label: string;
+  started_at: number;
+};
+
+export type SystemContent = {
+  type: 'connected' | 'error';
+  message: string;
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
   | IngredientsContent
-  | RecipeContent;
+  | RecipeNameContent
+  | RecipeContent
+  | TimerContent
+  | SystemContent;

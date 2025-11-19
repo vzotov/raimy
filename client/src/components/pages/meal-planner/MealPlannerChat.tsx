@@ -6,6 +6,7 @@ import { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import Chat from '@/components/shared/chat/Chat';
 import { ChatMessage } from '@/hooks/useChatMessages';
 import { SessionMessage } from '@/types/meal-planner-session';
+import { MessageContent } from '@/types/chat-message-types';
 import classNames from 'classnames';
 
 interface MealPlannerChatProps {
@@ -35,14 +36,31 @@ export default function MealPlannerChat({
     console.log('[MealPlannerChat] Received:', wsMessage);
 
     if (wsMessage.type === 'agent_message' && wsMessage.content) {
-      // Content is always MessageContent from backend - no parsing needed!
-      const newMessage: ChatMessage = {
-        id: wsMessage.message_id || `agent-${Date.now()}`,
-        role: 'assistant',
-        content: wsMessage.content,  // Direct use - already structured
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, newMessage]);
+      const content = wsMessage.content;
+      // Only add MessageContent types (text, ingredients, recipe) to chat
+      // Meal planner doesn't handle tool responses like recipe_name, timer, etc.
+      if (content.type === 'text' || content.type === 'ingredients' || content.type === 'recipe') {
+        const newMessage: ChatMessage = {
+          id: wsMessage.message_id || `agent-${Date.now()}`,
+          role: 'assistant',
+          content: content as MessageContent,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, newMessage]);
+      }
+    }
+
+    // Handle system messages (log for now, could show toasts/banners)
+    if (wsMessage.type === 'system' && wsMessage.content) {
+      const systemContent = wsMessage.content;
+      switch (systemContent.type) {
+        case 'connected':
+          console.log('✅', systemContent.message);
+          break;
+        case 'error':
+          console.error('❌', systemContent.message);
+          break;
+      }
     }
   }, []);
 

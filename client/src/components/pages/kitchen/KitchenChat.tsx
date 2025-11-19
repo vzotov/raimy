@@ -32,8 +32,8 @@ export default function KitchenChat({
   );
 
   // Kitchen-specific state
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [timers, setTimers] = useState<Timer[]>([]);
+  const [ingredients] = useState<Ingredient[]>([]);
+  const [timers] = useState<Timer[]>([]);
 
   // Memoize WebSocket callbacks to prevent reconnections
   const handleMessage = useCallback((wsMessage: WebSocketMessage) => {

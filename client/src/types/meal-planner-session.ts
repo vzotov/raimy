@@ -1,3 +1,5 @@
+import { MessageContent } from './chat-message-types';
+
 export interface MealPlannerSession {
   id: string;
   user_id: string;
@@ -15,7 +17,7 @@ export interface MealPlannerSessionWithMessages extends MealPlannerSession {
 
 export interface SessionMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | MessageContent;  // Support both plain strings and structured content
   created_at: string;
 }
 

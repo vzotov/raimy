@@ -312,37 +312,67 @@ async def send_recipe_name(recipe_name: str) -> dict:
 
 
 @mcp.tool()
-async def save_recipe(recipe_data: str) -> dict:
+async def save_recipe(
+    name: str,
+    ingredients: List[str],
+    steps: List[dict],
+    session_id: str,
+    description: Optional[str] = None,
+    total_time_minutes: Optional[int] = None,
+    difficulty: Optional[str] = "medium",
+    servings: Optional[int] = 4,
+    tags: Optional[List[str]] = None
+) -> dict:
     """
-    Save a complete recipe to the database for future reference.
+    Save a complete recipe to the database with structured data.
 
-    Use this when the user has finished cooking and wants to save the recipe.
+    Use this after having a conversation with the user where they described a recipe.
+    Extract the structured information from the conversation before calling this.
 
     Args:
-        recipe_data: Complete recipe information including ingredients and steps
+        name: Recipe name (e.g., "Spaghetti Carbonara")
+        ingredients: List of ingredient strings (e.g., ["200g pasta", "100g bacon", "2 eggs"])
+        steps: List of step dicts with 'instruction' and optional 'duration_minutes' and 'ingredients'
+               Example: [{"instruction": "Boil pasta", "duration_minutes": 10}, ...]
+        session_id: The meal planner session ID where this recipe was created
+        description: Optional recipe description or story
+        total_time_minutes: Total time to prepare and cook
+        difficulty: Recipe difficulty: "easy", "medium", or "hard"
+        servings: Number of servings
+        tags: Optional list of tags (e.g., ["italian", "pasta", "quick"])
 
     Returns:
-        dict: Success status, recipe ID, and message
+        dict: Success status, recipe ID, full recipe data for UI display, and message
 
     Example:
-        save_recipe("Spaghetti Carbonara: Boil pasta for 10 minutes...")
+        save_recipe(
+            name="Spaghetti Carbonara",
+            ingredients=["200g spaghetti", "100g bacon", "2 eggs"],
+            steps=[
+                {"instruction": "Boil pasta for 10 minutes", "duration_minutes": 10},
+                {"instruction": "Fry bacon until crispy", "duration_minutes": 5}
+            ],
+            session_id="uuid-here",
+            difficulty="easy",
+            total_time_minutes=20
+        )
     """
-    print(f"🔧 MCP TOOL: save_recipe('{recipe_data[:50]}...')")
+    print(f"🔧 MCP TOOL: save_recipe(name='{name}', session_id='{session_id}')")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
-        user_id = "service@raimy.internal"
 
+        # Build recipe data
         recipe_data_obj = {
-            "name": "Raimy Generated Recipe",
-            "description": recipe_data,
-            "ingredients": ["See recipe description"],
-            "steps": [{"instruction": recipe_data, "duration_minutes": 5}],
-            "total_time_minutes": 30,
-            "difficulty": "medium",
-            "servings": 4,
-            "tags": ["raimy-generated"],
-            "user_id": user_id
+            "name": name,
+            "description": description or f"A delicious {name} recipe created during a conversation.",
+            "ingredients": ingredients,
+            "steps": steps,
+            "total_time_minutes": total_time_minutes,
+            "difficulty": difficulty,
+            "servings": servings,
+            "tags": tags or ["ai-created", "meal-planner"],
+            "meal_planner_session_id": session_id  # Link to conversation
         }
 
         # Get service authentication
@@ -363,11 +393,14 @@ async def save_recipe(recipe_data: str) -> dict:
                 if response.status == 200:
                     result = await response.json()
                     recipe_id = result.get("recipe_id")
-                    print(f"✅ save_recipe: Recipe saved with ID {recipe_id}")
+                    print(f"✅ save_recipe: Recipe '{name}' saved with ID {recipe_id}")
+
+                    # Return full recipe data for creating a structured message
                     return {
                         "success": True,
                         "recipe_id": recipe_id,
-                        "message": result.get("message", "Recipe saved successfully")
+                        "message": f"Recipe '{name}' saved successfully!",
+                        "recipe": recipe_data_obj | {"recipe_id": recipe_id}  # Merge recipe_id into data
                     }
                 else:
                     error_data = await response.json()
@@ -375,11 +408,11 @@ async def save_recipe(recipe_data: str) -> dict:
                     print(f"❌ save_recipe failed: {error_msg}")
                     return {
                         "success": False,
-                        "message": f"Failed: {error_msg}"
+                        "message": f"Failed to save recipe: {error_msg}"
                     }
     except Exception as e:
         print(f"❌ save_recipe error: {str(e)}")
-        return {"success": False, "message": f"Error: {str(e)}"}
+        return {"success": False, "message": f"Error saving recipe: {str(e)}"}
 
 
 # NOTE: generate_session_name tool removed - was using deprecated LiveKit plugin

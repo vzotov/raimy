@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint && npx tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\""
   },
   "dependencies": {

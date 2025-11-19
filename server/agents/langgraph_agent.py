@@ -10,7 +10,7 @@ from typing_extensions import TypedDict as TypedDictExt
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
 
@@ -122,8 +122,6 @@ class LangGraphAgent:
         Returns:
             Updated state with tool results
         """
-        from langchain_core.messages import ToolMessage
-
         last_message = state["messages"][-1]
         tool_results = []
 
@@ -175,7 +173,7 @@ class LangGraphAgent:
         message_history: List[Dict],
         system_prompt: str,
         session_id: str
-    ) -> str:
+    ) -> dict:
         """
         Run the agent to process a message
 
@@ -186,7 +184,7 @@ class LangGraphAgent:
             session_id: Session ID for context
 
         Returns:
-            Agent response as string
+            dict with 'response' (str) and optional 'structured_outputs' (list)
         """
         # Convert message history to LangChain format
         langchain_messages = []
@@ -209,11 +207,32 @@ class LangGraphAgent:
         # Run the graph
         result = await self.graph.ainvoke(initial_state)
 
-        # Extract the last AI message
+        # Extract the last AI message and check for tool results
         final_messages = result["messages"]
-        for msg in reversed(final_messages):
-            if isinstance(msg, AIMessage):
-                return msg.content
+        ai_response = None
+        saved_recipes = []
 
-        # Fallback if no AI message found
-        return "I apologize, I couldn't generate a response."
+        # Scan messages for AI response and tool results
+        for msg in final_messages:
+            if isinstance(msg, AIMessage):
+                ai_response = msg.content
+            elif isinstance(msg, ToolMessage):
+                # Check if this is a save_recipe tool result
+                if msg.name == "save_recipe" and "recipe" in str(msg.content):
+                    try:
+                        # Parse the tool result (it's a string representation of dict)
+                        import json
+                        import ast
+                        tool_result = ast.literal_eval(msg.content)
+                        if tool_result.get("success") and "recipe" in tool_result:
+                            saved_recipes.append(tool_result["recipe"])
+                    except Exception as e:
+                        print(f"Error parsing save_recipe result: {e}")
+
+        response_text = ai_response or "I apologize, I couldn't generate a response."
+
+        # Return response with any structured outputs
+        return {
+            "response": response_text,
+            "structured_outputs": saved_recipes if saved_recipes else []
+        }

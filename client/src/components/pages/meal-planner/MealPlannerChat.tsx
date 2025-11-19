@@ -20,11 +20,12 @@ export default function MealPlannerChat({
   initialMessages = [],
 }: MealPlannerChatProps) {
   // Convert initial messages to ChatMessage format
+  // Messages from DB are already structured - no parsing needed
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     initialMessages.map((msg, index) => ({
       id: `msg-${index}`,
       role: msg.role as 'user' | 'assistant',
-      content: msg.content,
+      content: msg.content,  // Already MessageContent from backend
       timestamp: new Date(msg.created_at),
     }))
   );
@@ -34,10 +35,11 @@ export default function MealPlannerChat({
     console.log('[MealPlannerChat] Received:', wsMessage);
 
     if (wsMessage.type === 'agent_message' && wsMessage.content) {
+      // Content is always MessageContent from backend - no parsing needed!
       const newMessage: ChatMessage = {
         id: wsMessage.message_id || `agent-${Date.now()}`,
         role: 'assistant',
-        content: wsMessage.content,
+        content: wsMessage.content,  // Direct use - already structured
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, newMessage]);

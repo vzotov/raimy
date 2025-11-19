@@ -32,9 +32,11 @@ class TestMealPlannerSessionRoutes:
             "id": session_id,
             "user_id": "test@example.com",
             "session_name": "Untitled Session",
+            "session_type": "meal-planner",
             "room_name": f"meal-planner-{session_id}",
             "messages": [],
-            "created_at": "2024-01-01T00:00:00"
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00"
         }
 
         # Override dependency
@@ -166,9 +168,11 @@ class TestMealPlannerSessionRoutes:
             "id": session_id,
             "user_id": "test@example.com",
             "session_name": "Untitled Session",
+            "session_type": "meal-planner",
             "room_name": f"meal-planner-{session_id}",
             "messages": [],
-            "created_at": "2024-01-01T00:00:00"
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00"
         }
 
         app.dependency_overrides[get_current_user_with_storage] = mock_get_current_user
@@ -197,9 +201,11 @@ class TestMealPlannerSessionRoutes:
             "id": session_id,
             "user_id": "test@example.com",
             "session_name": "Thai Curry",
+            "session_type": "meal-planner",
             "room_name": f"meal-planner-{session_id}",
             "messages": [],
-            "created_at": "2024-01-01T00:00:00"
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00"
         }
 
         app.dependency_overrides[get_current_user_with_storage] = mock_get_current_user

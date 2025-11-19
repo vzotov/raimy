@@ -54,6 +54,7 @@ class SaveRecipeRequest(BaseModel):
     servings: Optional[int] = Field(None, description="Number of servings")
     tags: Optional[List[str]] = Field(None, description="Recipe tags")
     user_id: Optional[str] = Field(None, description="User ID (auto-filled from session)")
+    meal_planner_session_id: Optional[str] = Field(None, description="Meal planner session ID where this recipe was created")
 
 
 class CreateSessionRequest(BaseModel):

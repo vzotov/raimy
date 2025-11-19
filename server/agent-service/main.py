@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,6 +59,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Response model for chat endpoint"""
     response: str
+    structured_outputs: List[Dict] = []  # Recipe messages and other structured data
     message_id: Optional[str] = None
     session_id: str
 
@@ -118,22 +119,59 @@ async def agent_chat(request: ChatRequest):
         agent = await get_agent()
 
         # Run agent to generate response
-        agent_response = await agent.run(
+        agent_result = await agent.run(
             message=request.message,
             message_history=messages,
             system_prompt=system_prompt,
             session_id=request.session_id
         )
 
-        # Save agent response to database
+        # Extract response and structured outputs
+        agent_response = agent_result["response"]
+        structured_outputs = agent_result.get("structured_outputs", [])
+
+        # Save agent text response to database
         await database_service.add_message_to_session(
             session_id=request.session_id,
             role="assistant",
             content=agent_response
         )
 
+        # If there are saved recipes, create structured messages for each
+        for recipe_data in structured_outputs:
+            # Transform recipe data into frontend-compatible format
+            recipe_message = {
+                "type": "recipe",
+                "recipe_id": recipe_data.get("recipe_id"),
+                "name": recipe_data.get("name"),
+                "description": recipe_data.get("description"),
+                "ingredients": [
+                    {"name": ing} for ing in recipe_data.get("ingredients", [])
+                ],
+                "steps": [
+                    {
+                        "step_number": i + 1,
+                        "instruction": step.get("instruction", ""),
+                        "duration_minutes": step.get("duration_minutes")
+                    }
+                    for i, step in enumerate(recipe_data.get("steps", []))
+                ],
+                "total_time_minutes": recipe_data.get("total_time_minutes"),
+                "difficulty": recipe_data.get("difficulty"),
+                "servings": recipe_data.get("servings"),
+                "tags": recipe_data.get("tags", [])
+            }
+
+            # Save structured recipe message to database
+            await database_service.add_message_to_session(
+                session_id=request.session_id,
+                role="assistant",
+                content=recipe_message
+            )
+
         return ChatResponse(
             response=agent_response,
+            structured_outputs=structured_outputs,
             session_id=request.session_id
         )
 

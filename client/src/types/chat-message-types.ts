@@ -24,7 +24,28 @@ export type IngredientsContent = {
   items: ChatIngredient[];
 };
 
+export type RecipeStep = {
+  step_number: number;
+  instruction: string;
+  duration_minutes?: number;
+  ingredients?: string[];
+};
+
+export type RecipeContent = {
+  type: 'recipe';
+  recipe_id: string;
+  name: string;
+  description?: string;
+  ingredients: ChatIngredient[];
+  steps: RecipeStep[];
+  total_time_minutes?: number;
+  difficulty?: string;
+  servings?: number;
+  tags?: string[];
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
-  | IngredientsContent;
+  | IngredientsContent
+  | RecipeContent;

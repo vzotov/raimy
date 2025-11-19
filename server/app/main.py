@@ -19,6 +19,7 @@ from .routes.debug import create_debug_router
 from .routes.meal_planner_sessions import create_meal_planner_sessions_router
 from core.auth_client import auth_client
 from agents.auth_proxy import router as auth_proxy_router
+from .services import database_service
 
 # Global state for SSE connections
 sse_connections: List[asyncio.Queue] = []
@@ -237,28 +238,91 @@ async def health_check():
     }
 
 
+async def get_websocket_user(websocket: WebSocket) -> dict:
+    """
+    Authenticate WebSocket connection using cookies
+
+    Returns:
+        User data dict if authenticated
+
+    Raises:
+        HTTPException if not authenticated
+    """
+    try:
+        # Get cookies from WebSocket headers
+        cookies = websocket.cookies
+
+        # Create a fake request object with cookies for auth_client
+        from starlette.requests import Request
+        from starlette.datastructures import Headers
+
+        # Build headers with cookies
+        cookie_header = "; ".join([f"{k}={v}" for k, v in cookies.items()])
+        headers = Headers({"cookie": cookie_header} if cookie_header else {})
+
+        # Create minimal request for auth verification
+        scope = {
+            "type": "http",
+            "headers": [(b"cookie", cookie_header.encode())],
+        }
+        request = Request(scope)
+
+        # Verify authentication using existing auth_client
+        auth_data = await auth_client.verify_auth(request)
+
+        if not auth_data.get("authenticated"):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_data = auth_data.get("user", {})
+
+        # Store/update user data in database
+        if user_data and user_data.get('email'):
+            try:
+                await database_service.save_user(user_data)
+                logger.debug(f"WebSocket auth: Updated user data for {user_data.get('email')}")
+            except Exception as e:
+                logger.warning(f"Failed to store user data: {str(e)}")
+
+        return user_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"WebSocket authentication error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+
 @app.websocket("/ws/chat/{session_id}")
 async def websocket_chat_endpoint(
     websocket: WebSocket,
-    session_id: str,
-    token: str = Query(None, description="JWT authentication token")
+    session_id: str
 ):
     """
     ## WebSocket Chat Endpoint
 
     Establishes WebSocket connection for real-time chat with the agent.
+    Authentication is done via session cookies.
 
     Parameters:
     - `session_id`: The meal planner session ID
-    - `token`: JWT authentication token (query parameter)
 
     Message format:
     - Client sends: `{"type": "user_message", "content": "text"}`
     - Server sends: `{"type": "agent_message", "content": "text"}`
     - Server sends: `{"type": "error", "message": "error text"}`
     """
-    # TODO: Validate JWT token when auth is ready
-    # For now, we'll accept connections without strict auth validation
+    # Authenticate user before accepting connection
+    try:
+        user = await get_websocket_user(websocket)
+        logger.info(f"WebSocket authenticated for user: {user.get('email')}")
+    except HTTPException as e:
+        logger.warning(f"WebSocket auth failed: {e.detail}")
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+    except Exception as e:
+        logger.error(f"WebSocket auth error: {str(e)}")
+        await websocket.close(code=1011, reason="Authentication error")
+        return
 
     try:
         # Connect WebSocket
@@ -274,6 +338,46 @@ async def websocket_chat_endpoint(
         # Get agent service URL from environment
         agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
 
+        # Check if this is a new session (no messages) and send agent greeting
+        session_data = await database_service.get_meal_planner_session(session_id)
+        if session_data:
+            messages = session_data.get("messages", [])
+            session_type = session_data.get("session_type", "meal-planner")
+
+            # If session has no messages, trigger agent greeting
+            if len(messages) == 0:
+                from agents.prompts import COOKING_GREETING, MEAL_PLANNER_GREETING
+
+                # Select appropriate greeting based on session type
+                greeting_prompt = COOKING_GREETING if session_type == "kitchen" else MEAL_PLANNER_GREETING
+
+                try:
+                    # Call agent service to generate greeting
+                    async with httpx.AsyncClient(timeout=120.0) as client:
+                        response = await client.post(
+                            f"{agent_url}/agent/chat",
+                            json={
+                                "session_id": session_id,
+                                "message": greeting_prompt,
+                                "user_id": "system"
+                            }
+                        )
+
+                        if response.status_code == 200:
+                            agent_response = response.json()
+
+                            # Send greeting as agent message
+                            await connection_manager.send_message(session_id, {
+                                "type": "agent_message",
+                                "content": {
+                                    "type": "text",
+                                    "content": agent_response.get("response")
+                                },
+                                "message_id": agent_response.get("message_id")
+                            })
+                except Exception as e:
+                    logger.error(f"Failed to send agent greeting: {e}")
+
         # Listen for messages from client
         while True:
             # Receive message from WebSocket
@@ -288,13 +392,17 @@ async def websocket_chat_endpoint(
 
             if message_type == "user_message" and content:
                 try:
+                    # Extract text from MessageContent structure
+                    # content = {type: 'text', content: 'actual message'}
+                    message_text = content.get("content") if isinstance(content, dict) else content
+
                     # Forward message to agent service
                     async with httpx.AsyncClient(timeout=120.0) as client:
                         response = await client.post(
                             f"{agent_url}/agent/chat",
                             json={
                                 "session_id": session_id,
-                                "message": content,
+                                "message": message_text,
                                 "user_id": user_id
                             }
                         )
@@ -302,12 +410,23 @@ async def websocket_chat_endpoint(
                         if response.status_code == 200:
                             agent_response = response.json()
 
-                            # Send agent response back to client
+                            # Send text response wrapped as structured MessageContent
                             await connection_manager.send_message(session_id, {
                                 "type": "agent_message",
-                                "content": agent_response.get("response"),
+                                "content": {
+                                    "type": "text",
+                                    "content": agent_response.get("response")
+                                },
                                 "message_id": agent_response.get("message_id")
                             })
+
+                            # Send each structured output as a separate message
+                            for idx, structured_output in enumerate(agent_response.get("structured_outputs", [])):
+                                await connection_manager.send_message(session_id, {
+                                    "type": "agent_message",
+                                    "content": structured_output,  # Already properly structured
+                                    "message_id": f"{agent_response.get('message_id')}_{idx}"
+                                })
                         else:
                             logger.error(f"Agent service error: {response.status_code}")
                             await connection_manager.send_message(session_id, {

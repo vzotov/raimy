@@ -13,6 +13,7 @@ import { useMealPlannerSessions } from '@/hooks/useMealPlannerSessions';
 import { useKitchenSessions } from '@/hooks/useKitchenSessions';
 import { useSSE } from '@/hooks/useSSE';
 import { MealPlannerSession } from '@/types/meal-planner-session';
+import { kitchenSessions as kitchenSessionsApi } from '@/lib/api';
 
 interface MainMenuProps {
   isOpen: boolean;
@@ -148,6 +149,24 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
     }
   };
 
+  const handleStartCooking = async () => {
+    try {
+      const response = await kitchenSessionsApi.create();
+
+      if (response.error) {
+        console.error('Failed to create kitchen session:', response.error);
+        return;
+      }
+
+      if (response.data?.session?.id) {
+        router.push(`/kitchen/${response.data.session.id}`);
+        handleCloseMenu();
+      }
+    } catch (err) {
+      console.error('Error creating kitchen session:', err);
+    }
+  };
+
   return (
     <>
       {/* Sidebar menu */}
@@ -193,13 +212,12 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
               {isKitchenExpanded && (
                 <div className="mt-1 ml-4 space-y-1">
                   {/* New Kitchen Session */}
-                  <Link
-                    href="/kitchen/new"
-                    className="block px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
-                    onClick={handleCloseMenu}
+                  <button
+                    onClick={handleStartCooking}
+                    className="w-full text-left px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
                   >
                     + Start Cooking
-                  </Link>
+                  </button>
 
                   {/* Kitchen Sessions */}
                   {kitchenSessions.slice(0, 10).map((session) => {

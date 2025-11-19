@@ -79,7 +79,7 @@ export const mealPlannerSessions = {
     post<CreateSessionResponse>(
       '/api/meal-planner-sessions',
       {
-        initial_message: initialMessage || 'Hello!',
+        initial_message: initialMessage,
         session_type: sessionType,
         ...(recipeId && { recipe_id: recipeId }),
       },
@@ -103,7 +103,7 @@ export const mealPlannerSessions = {
 
 // Kitchen sessions - reuse meal planner endpoints with kitchen session_type
 export const kitchenSessions = {
-  create: (initialMessage: string = "I'm ready to cook!", recipeId?: string) =>
+  create: (initialMessage?: string, recipeId?: string) =>
     mealPlannerSessions.create(initialMessage, 'kitchen', recipeId),
 
   list: () => mealPlannerSessions.list('kitchen'),

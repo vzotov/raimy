@@ -1,5 +1,6 @@
 import { MessageContent } from '@/types/chat-message-types';
 import IngredientList from './IngredientList';
+import RecipeCard from './RecipeCard';
 
 export interface MessageRendererProps {
   content: MessageContent;
@@ -29,6 +30,14 @@ export default function MessageRenderer({ content, isUser = false }: MessageRend
         <IngredientList
           title={content.title}
           items={content.items}
+          isUser={isUser}
+        />
+      );
+
+    case 'recipe':
+      return (
+        <RecipeCard
+          recipe={content}
           isUser={isUser}
         />
       );

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -30,6 +30,7 @@ class RecipeModel(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None
+    meal_planner_session_id: Optional[str] = None
 
 class DatabaseService:
     def __init__(self):
@@ -48,7 +49,8 @@ class DatabaseService:
                     difficulty=recipe.difficulty,
                     servings=recipe.servings,
                     tags=recipe.tags or [],
-                    user_id=recipe.user_id
+                    user_id=recipe.user_id,
+                    meal_planner_session_id=recipe.meal_planner_session_id
                 )
 
                 db.add(db_recipe)
@@ -357,8 +359,19 @@ class DatabaseService:
                 print(f"Error getting meal planner session {session_id}: {e}")
                 return None
 
-    async def add_message_to_session(self, session_id: str, role: str, content: str) -> bool:
-        """Add a message to a meal planner session"""
+    async def add_message_to_session(
+        self,
+        session_id: str,
+        role: str,
+        content: Union[str, Dict[str, Any]]  # Accept both strings and structured objects
+    ) -> bool:
+        """Add a message to a meal planner session
+
+        Args:
+            session_id: Session UUID
+            role: Message role ('user' or 'assistant')
+            content: Message content - can be plain string or structured MessageContent object
+        """
         async with AsyncSessionLocal() as db:
             try:
                 # Create new message

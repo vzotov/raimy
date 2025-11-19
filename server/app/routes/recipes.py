@@ -118,7 +118,8 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
             difficulty=recipe_request.difficulty,
             servings=recipe_request.servings,
             tags=recipe_request.tags,
-            user_id=current_user["email"]  # Always use current user
+            user_id=current_user["email"],  # Always use current user
+            meal_planner_session_id=recipe_request.meal_planner_session_id  # Link to session
         )
 
         # Save to PostgreSQL

@@ -5,10 +5,11 @@
  * with automatic reconnection and message handling.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { MessageContent } from '@/types/chat-message-types';
 
 export interface ChatMessage {
   type: 'user_message' | 'agent_message' | 'connected' | 'error';
-  content?: string;
+  content?: MessageContent;  // Always structured MessageContent from backend
   session_id?: string;
   message?: string;
   message_id?: string;
@@ -50,10 +51,10 @@ export function useWebSocket({
 
   const connect = useCallback(() => {
     try {
-      // Build WebSocket URL
+      // Build WebSocket URL (authentication via cookies)
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsHost = process.env.NEXT_PUBLIC_WS_HOST || window.location.host.replace(':3000', ':8000');
-      const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/${sessionId}?token=dummy`;
+      const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/${sessionId}`;
 
       console.log('📡 Connecting to WebSocket:', wsUrl);
 
@@ -130,7 +131,10 @@ export function useWebSocket({
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         const message: ChatMessage = {
           type: 'user_message',
-          content,
+          content: {
+            type: 'text',
+            content: content
+          },
         };
 
         // Include userId in the message

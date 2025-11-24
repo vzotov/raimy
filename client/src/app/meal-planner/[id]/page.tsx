@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { getServerAuth } from '@/lib/serverAuth';
 import MealPlannerChat from '@/components/pages/meal-planner/MealPlannerChat';
-import ServerAuthGuard from '@/components/shared/ServerAuthGuard';
 
 interface MealPlannerSessionPageProps {
   params: Promise<{
@@ -14,11 +12,6 @@ export default async function MealPlannerSessionPage({
   params,
 }: MealPlannerSessionPageProps) {
   const { id } = await params;
-  const { user } = await getServerAuth();
-
-  if (!user) {
-    return null; // ServerAuthGuard will redirect
-  }
 
   // Fetch session data
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -40,13 +33,11 @@ export default async function MealPlannerSessionPage({
     const session = data.session;
 
     return (
-      <ServerAuthGuard>
-        <MealPlannerChat
-          sessionId={session.id}
-          sessionName={session.session_name}
-          initialMessages={session.messages || []}
-        />
-      </ServerAuthGuard>
+      <MealPlannerChat
+        sessionId={session.id}
+        sessionName={session.session_name}
+        initialMessages={session.messages || []}
+      />
     );
   } catch (error) {
     console.error('Error fetching session:', error);

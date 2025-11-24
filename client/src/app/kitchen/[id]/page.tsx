@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { getServerAuth } from '@/lib/serverAuth';
 import KitchenChat from '@/components/pages/kitchen/KitchenChat';
-import ServerAuthGuard from '@/components/shared/ServerAuthGuard';
 
 interface KitchenSessionPageProps {
   params: Promise<{
@@ -14,11 +12,6 @@ export default async function KitchenSessionPage({
   params,
 }: KitchenSessionPageProps) {
   const { id } = await params;
-  const { user } = await getServerAuth();
-
-  if (!user) {
-    return null; // ServerAuthGuard will redirect
-  }
 
   // Fetch session data (reuses meal planner sessions endpoint)
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -45,13 +38,11 @@ export default async function KitchenSessionPage({
     }
 
     return (
-      <ServerAuthGuard>
-        <KitchenChat
-          sessionId={session.id}
-          sessionName={session.session_name}
-          initialMessages={session.messages || []}
-        />
-      </ServerAuthGuard>
+      <KitchenChat
+        sessionId={session.id}
+        sessionName={session.session_name}
+        initialMessages={session.messages || []}
+      />
     );
   } catch (error) {
     console.error('Error fetching kitchen session:', error);

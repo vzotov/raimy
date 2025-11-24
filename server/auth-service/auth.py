@@ -30,20 +30,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def get_frontend_url(request: Request) -> str:
-    """Get frontend URL from request headers with fallbacks"""
-    referer = request.headers.get("referer")
-    if referer:
-        from urllib.parse import urlparse
-        parsed = urlparse(referer)
-        frontend_url = f"{parsed.scheme}://{parsed.netloc}"
-        logger.debug(f"Frontend URL from referer: {frontend_url}")
-        return frontend_url
-
+    """Get frontend URL from origin header"""
     origin = request.headers.get("origin")
     if origin:
         logger.debug(f"Frontend URL from origin: {origin}")
         return origin
 
+    # Fallback to default for local development
     default_url = "http://localhost:3000"
     logger.debug(f"Using default frontend URL: {default_url}")
     return default_url

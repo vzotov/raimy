@@ -17,6 +17,7 @@ from .routes.recipes import create_recipes_router
 from .routes.debug import create_debug_router
 from .routes.meal_planner_sessions import create_meal_planner_sessions_router
 from core.auth_client import auth_client
+from core.redis_client import get_redis_client
 from agents.auth_proxy import router as auth_proxy_router
 from .services import database_service
 
@@ -42,13 +43,21 @@ class ConnectionManager:
 
     async def send_message(self, session_id: str, message: dict):
         """Send message to a specific session"""
+        logger.info(f"🔍 send_message called for session {session_id}")
+        logger.info(f"🔍 Message type: {message.get('type')}, content type: {message.get('content', {}).get('type')}")
+
         if session_id in self.active_connections:
             websocket = self.active_connections[session_id]
+            logger.info(f"✅ Found active WebSocket connection for session {session_id}")
             try:
                 await websocket.send_json(message)
+                logger.info(f"📤 Successfully sent WebSocket message to session {session_id}")
             except Exception as e:
-                logger.error(f"Error sending message to session {session_id}: {e}")
+                logger.error(f"❌ Error sending message to session {session_id}: {e}")
                 self.disconnect(session_id)
+        else:
+            logger.warning(f"⚠️  No active WebSocket connection found for session {session_id}")
+            logger.warning(f"⚠️  Active sessions: {list(self.active_connections.keys())}")
 
     async def receive_message(self, session_id: str) -> dict:
         """Receive message from a specific session"""
@@ -302,6 +311,10 @@ async def websocket_chat_endpoint(
         await websocket.close(code=1011, reason="Authentication error")
         return
 
+    # Initialize Redis client
+    redis_client = get_redis_client()
+    redis_task = None
+
     try:
         # Connect WebSocket
         await connection_manager.connect(session_id, websocket)
@@ -315,6 +328,19 @@ async def websocket_chat_endpoint(
             },
             "session_id": session_id
         })
+
+        # Subscribe to Redis for this session
+        async def redis_listener():
+            """Background task to listen for Redis messages and forward to WebSocket"""
+            try:
+                async for message in redis_client.subscribe(f"session:{session_id}"):
+                    # Forward Redis message to WebSocket
+                    await websocket.send_json(message)
+            except Exception as e:
+                logger.error(f"Redis listener error for session {session_id}: {e}")
+
+        # Start Redis listener as background task
+        redis_task = asyncio.create_task(redis_listener())
 
         # Get agent service URL from environment
         agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
@@ -339,8 +365,7 @@ async def websocket_chat_endpoint(
                             f"{agent_url}/agent/chat",
                             json={
                                 "session_id": session_id,
-                                "message": greeting_prompt,
-                                "user_id": "system"
+                                "message": greeting_prompt
                             }
                         )
 
@@ -369,7 +394,6 @@ async def websocket_chat_endpoint(
             # Extract message content
             message_type = data.get("type")
             content = data.get("content")
-            user_id = data.get("user_id", "anonymous")
 
             if message_type == "user_message" and content:
                 try:
@@ -383,8 +407,7 @@ async def websocket_chat_endpoint(
                             f"{agent_url}/agent/chat",
                             json={
                                 "session_id": session_id,
-                                "message": message_text,
-                                "user_id": user_id
+                                "message": message_text
                             }
                         )
 
@@ -443,6 +466,14 @@ async def websocket_chat_endpoint(
     except Exception as e:
         logger.error(f"WebSocket error for session {session_id}: {e}")
         connection_manager.disconnect(session_id)
+    finally:
+        # Cancel Redis listener task
+        if redis_task:
+            redis_task.cancel()
+            try:
+                await redis_task
+            except asyncio.CancelledError:
+                pass
 
 
 

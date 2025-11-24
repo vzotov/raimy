@@ -43,47 +43,8 @@ broadcast_event = None
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
-@router.post("/name")
-async def send_recipe_name(recipe_request: dict):
-    """Send recipe name to the client via WebSocket"""
-    recipe_name = recipe_request.get("recipe_name")
-    session_id = recipe_request.get("session_id")
-
-    # Send via WebSocket to specific session
-    if session_id:
-        from app.main import connection_manager
-        await connection_manager.send_message(session_id, {
-            "type": "agent_message",
-            "content": {
-                "type": "recipe_name",
-                "name": recipe_name
-            }
-        })
-
-    return {"message": f"Recipe name sent: {recipe_name}"}
-
-
-@router.post("/ingredients")
-async def set_ingredients(ingredients_request: dict):
-    """Send ingredients list to the client via WebSocket"""
-    action = ingredients_request.get("action", "set")
-    session_id = ingredients_request.get("session_id")
-
-    # Send via WebSocket to specific session
-    if session_id:
-        from app.main import connection_manager
-        await connection_manager.send_message(session_id, {
-            "type": "agent_message",
-            "content": {
-                "type": "ingredients",
-                "items": ingredients_request.get("ingredients", []),
-                "action": action
-            }
-        })
-
-    action_text = "set" if action == "set" else "updated"
-    ingredients_count = len(ingredients_request.get("ingredients", []))
-    return {"message": f"Ingredients {action_text}: {ingredients_count} items"}
+# Old HTTP-based routing endpoints removed - now using Redis PubSub
+# MCP tools publish directly to Redis, API WebSocket subscribes to Redis
 
 
 @router.get("/")

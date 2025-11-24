@@ -16,7 +16,6 @@ export interface ChatMessage {
 
 interface UseWebSocketOptions {
   sessionId: string;
-  userId?: string;
   onMessage?: (message: ChatMessage) => void;
   onError?: (error: Event) => void;
   onConnect?: () => void;
@@ -34,7 +33,6 @@ interface UseWebSocketReturn {
 
 export function useWebSocket({
   sessionId,
-  userId = 'anonymous',
   onMessage,
   onError,
   onConnect,
@@ -136,20 +134,14 @@ export function useWebSocket({
           },
         };
 
-        // Include userId in the message
-        const messageWithUser = {
-          ...message,
-          user_id: userId,
-        };
-
-        console.log('📤 Sending message:', messageWithUser);
-        wsRef.current.send(JSON.stringify(messageWithUser));
+        console.log('📤 Sending message:', message);
+        wsRef.current.send(JSON.stringify(message));
       } else {
         console.error('❌ WebSocket not connected. Cannot send message.');
         setError('WebSocket not connected');
       }
     },
-    [userId]
+    []
   );
 
   // Connect on mount

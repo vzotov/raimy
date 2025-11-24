@@ -3,12 +3,20 @@ MCP Server for Raimy Cooking Assistant
 Exposes cooking tools via Model Context Protocol using FastMCP
 """
 import os
+import sys
 from typing import List, Optional
 import aiohttp
 from fastmcp import FastMCP
 
+# Add server directory to path to import core modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from core.redis_client import get_redis_client
+
 # Initialize FastMCP server
 mcp = FastMCP("Raimy Cooking Assistant")
+
+# Initialize Redis client
+redis_client = get_redis_client()
 
 # Cache for service token
 _service_token_cache = None
@@ -92,7 +100,7 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
 
     Args:
         ingredients: List of ingredient dictionaries
-        session_id: Session ID for WebSocket routing (REQUIRED)
+        session_id: Session ID for WebSocket routing (injected automatically by agent)
 
     Returns:
         dict: Success status and message
@@ -102,41 +110,35 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
             {"name": "eggs", "amount": "4"},
             {"name": "salt", "unit": "to taste"},
             {"name": "milk", "amount": "200", "unit": "ml"}
-        ], session_id="abc-123")
+        ])
     """
     print(f"🔧 MCP TOOL: set_ingredients({len(ingredients)} items, session={session_id})")
 
     try:
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
-
         # Filter out None values from each ingredient
         ingredients_clean = [
             {k: v for k, v in ing.items() if v is not None}
             for ing in ingredients
         ]
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{api_url}/api/recipes/ingredients",
-                json={
-                    "ingredients": ingredients_clean,
-                    "action": "set",
-                    "session_id": session_id
+        # Publish to Redis instead of HTTP call
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "ingredients",
+                    "items": ingredients_clean,
+                    "action": "set"
                 }
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    print(f"✅ set_ingredients: {result.get('message')}")
-                    return {
-                        "success": True,
-                        "message": result.get("message", f"Set {len(ingredients)} ingredients")
-                    }
-                else:
-                    print(f"❌ set_ingredients failed: HTTP {response.status}")
-                    return {
-                        "success": False,
-                        "message": f"Failed: HTTP {response.status}"
-                    }
+            }
+        )
+
+        print(f"✅ set_ingredients: Set {len(ingredients)} ingredients")
+        return {
+            "success": True,
+            "message": f"Set {len(ingredients)} ingredients"
+        }
     except Exception as e:
         print(f"❌ set_ingredients error: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}
@@ -168,52 +170,46 @@ async def update_ingredients(ingredients: List[dict], session_id: str) -> dict:
 
     Args:
         ingredients: List of ingredient dictionaries to update
-        session_id: Session ID for WebSocket routing (REQUIRED)
+        session_id: Session ID for WebSocket routing (injected automatically by agent)
 
     Returns:
         dict: Success status and message
 
     Example Workflow:
         # Before step: Highlight ingredients
-        update_ingredients([{"name": "eggs", "highlighted": true}], session_id="abc-123")
+        update_ingredients([{"name": "eggs", "highlighted": true}])
 
         # After step: Mark as used and unhighlight
         update_ingredients([
             {"name": "eggs", "highlighted": false, "used": true}
-        ], session_id="abc-123")
+        ])
     """
     print(f"🔧 MCP TOOL: update_ingredients({len(ingredients)} items, session={session_id})")
 
     try:
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
-
         ingredients_clean = [
             {k: v for k, v in ing.items() if v is not None}
             for ing in ingredients
         ]
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{api_url}/api/recipes/ingredients",
-                json={
-                    "ingredients": ingredients_clean,
-                    "action": "update",
-                    "session_id": session_id
+        # Publish to Redis
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "ingredients",
+                    "items": ingredients_clean,
+                    "action": "update"
                 }
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    print(f"✅ update_ingredients: {result.get('message')}")
-                    return {
-                        "success": True,
-                        "message": result.get("message", f"Updated {len(ingredients)} ingredients")
-                    }
-                else:
-                    print(f"❌ update_ingredients failed: HTTP {response.status}")
-                    return {
-                        "success": False,
-                        "message": f"Failed: HTTP {response.status}"
-                    }
+            }
+        )
+
+        print(f"✅ update_ingredients: Updated {len(ingredients)} ingredients")
+        return {
+            "success": True,
+            "message": f"Updated {len(ingredients)} ingredients"
+        }
     except Exception as e:
         print(f"❌ update_ingredients error: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}
@@ -234,39 +230,37 @@ async def set_timer(duration: int, label: str, session_id: str) -> dict:
     Args:
         duration: Timer duration in seconds (REQUIRED)
         label: Descriptive label using infinitive form, e.g., "to flip", "to simmer" (REQUIRED)
-        session_id: Session ID for WebSocket routing (REQUIRED)
+        session_id: Session ID for WebSocket routing (injected automatically by agent)
 
     Returns:
         dict: Success status and message
 
     Examples:
-        ✅ CORRECT: set_timer(duration=300, label="to simmer sauce", session_id="abc-123")
-        ✅ CORRECT: set_timer(duration=600, label="to boil pasta", session_id="abc-123")
-        ❌ WRONG: set_timer(duration=90, label="to beat eggs", session_id="abc-123")  # Active task!
+        ✅ CORRECT: set_timer(duration=300, label="to simmer sauce")
+        ✅ CORRECT: set_timer(duration=600, label="to boil pasta")
+        ❌ WRONG: set_timer(duration=90, label="to beat eggs")  # Active task!
     """
     print(f"🔧 MCP TOOL: set_timer({duration}s, '{label}', session={session_id})")
 
     try:
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
+        # Publish to Redis
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "timer",
+                    "duration": duration,
+                    "label": label
+                }
+            }
+        )
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{api_url}/api/timers/set",
-                json={"duration": duration, "label": label, "session_id": session_id}
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    print(f"✅ set_timer: {result.get('message')}")
-                    return {
-                        "success": True,
-                        "message": result.get("message", f"Timer set: {duration}s - {label}")
-                    }
-                else:
-                    print(f"❌ set_timer failed: HTTP {response.status}")
-                    return {
-                        "success": False,
-                        "message": f"Failed: HTTP {response.status}"
-                    }
+        print(f"✅ set_timer: Timer set: {duration}s - {label}")
+        return {
+            "success": True,
+            "message": f"Timer set: {duration}s - {label}"
+        }
     except Exception as e:
         print(f"❌ set_timer error: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}
@@ -281,37 +275,34 @@ async def send_recipe_name(recipe_name: str, session_id: str) -> dict:
 
     Args:
         recipe_name: Name of the recipe being prepared
-        session_id: Session ID for WebSocket routing (REQUIRED)
+        session_id: Session ID for WebSocket routing (injected automatically by agent)
 
     Returns:
         dict: Success status and message
 
     Example:
-        send_recipe_name("Spaghetti Carbonara", session_id="abc-123")
+        send_recipe_name("Spaghetti Carbonara")
     """
     print(f"🔧 MCP TOOL: send_recipe_name('{recipe_name}', session={session_id})")
 
     try:
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
+        # Publish to Redis
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_name",
+                    "name": recipe_name
+                }
+            }
+        )
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{api_url}/api/recipes/name",
-                json={"recipe_name": recipe_name, "session_id": session_id}
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    print(f"✅ send_recipe_name: {result.get('message')}")
-                    return {
-                        "success": True,
-                        "message": result.get("message", f"Recipe name sent: {recipe_name}")
-                    }
-                else:
-                    print(f"❌ send_recipe_name failed: HTTP {response.status}")
-                    return {
-                        "success": False,
-                        "message": f"Failed: HTTP {response.status}"
-                    }
+        print(f"✅ send_recipe_name: Recipe name sent: {recipe_name}")
+        return {
+            "success": True,
+            "message": f"Recipe name sent: {recipe_name}"
+        }
     except Exception as e:
         print(f"❌ send_recipe_name error: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}
@@ -358,7 +349,6 @@ async def save_recipe(
                 {"instruction": "Boil pasta for 10 minutes", "duration_minutes": 10},
                 {"instruction": "Fry bacon until crispy", "duration_minutes": 5}
             ],
-            session_id="uuid-here",
             difficulty="easy",
             total_time_minutes=20
         )

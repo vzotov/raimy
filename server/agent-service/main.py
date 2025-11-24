@@ -53,7 +53,6 @@ class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
     session_id: str
     message: str
-    user_id: str = "anonymous"
 
 
 class ChatResponse(BaseModel):

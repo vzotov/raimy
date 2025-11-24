@@ -23,7 +23,9 @@ services:
       start_period: 5s
 
   mcp-service:
-    build: ./server/mcp_service
+    build:
+      context: ./server
+      dockerfile: mcp_service/Dockerfile
     ports:
       - "8002:8002"  # MCP server (Streamable HTTP)
     environment:
@@ -31,9 +33,11 @@ services:
       - API_URL=http://raimy-api:8000
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - REDIS_URL=redis://redis:6379
     volumes:
       # Mount for development auto-reload
-      - ./server/mcp_service:/app
+      - ./server/mcp_service:/app/mcp_service
+      - ./server/core:/app/core
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
@@ -44,6 +48,20 @@ services:
     depends_on:
       raimy-api:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
   postgres:
     image: postgres:15-alpine
@@ -74,6 +92,7 @@ services:
       - AGENT_SERVICE_URL=http://raimy-bot:8003
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - REDIS_URL=redis://redis:6379
       # PostgreSQL Configuration
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
       - POSTGRES_HOST=postgres
@@ -98,6 +117,8 @@ services:
       auth-service:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   raimy-bot:

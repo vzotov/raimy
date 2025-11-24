@@ -16,6 +16,9 @@ httpx
 mcp>=1.0.0
 fastmcp>=2.0.0
 aiohttp>=3.9.0
+
+# Redis for pub/sub messaging
+redis[asyncio]>=5.0.0
 # PostgreSQL and SQLAlchemy dependencies
 sqlalchemy[asyncio]>=2.0.0
 asyncpg

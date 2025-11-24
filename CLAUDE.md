@@ -97,10 +97,9 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 
 ### Git Commits
 - **DO NOT** include Claude Code signatures, co-author tags, or "Generated with Claude Code" footers
-- Write concise commit messages that summarize the context and purpose of changes
-- Focus on the "why" rather than listing every line changed
-- Good length: 1-2 sentences that capture the essence of the change
-- Example: `fix: resolve WebSocket authentication race condition` not `fix: update main.py line 42 to check auth before accepting connection and also update tests`
+- Write concise commit messages with a summary line followed by 3-5 bullet points
+- Focus on high-level "what" and "why" rather than listing every file or implementation detail
+- Avoid verbose explanations, architectural details, or step-by-step descriptions
 
 ## Important Guidelines
 

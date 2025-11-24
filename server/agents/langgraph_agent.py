@@ -132,9 +132,14 @@ class LangGraphAgent:
                 tool_args = tool_call.get("args", {})
                 tool_id = tool_call.get("id", "")
 
-                # Inject session_id into tool args if not already present
-                if "session_id" not in tool_args and "session_id" in state:
+                print(f"🔧 Tool call: {tool_name}, args before injection: {tool_args}")
+
+                # Always override session_id with the actual session from state
+                # The LLM might provide example values from tool docs, so we need to replace them
+                if "session_id" in state:
+                    original_session = tool_args.get("session_id", "not provided")
                     tool_args["session_id"] = state["session_id"]
+                    print(f"✅ Overrode session_id: '{original_session}' → '{state['session_id']}'")
 
                 # Find the tool in our tool list
                 tool = next((t for t in self.mcp_tools if t.name == tool_name), None)

@@ -80,7 +80,7 @@ async def agent_chat(request: ChatRequest):
 
     Steps:
     1. Load session context from database
-    2. Add user message to context
+    2. Add user message to context (if not empty session auto-greeting)
     3. Run LangGraph agent to generate response
     4. Save both user message and agent response to database
     5. Return agent response

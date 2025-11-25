@@ -20,9 +20,9 @@ export default function ChatMessages({ messages, agentStatus }: ChatMessagesProp
   }, [messages, agentStatus]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4">
+    <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col justify-end">
       {messages.length === 0 ? (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex items-center justify-center flex-1">
           <p className="text-text/50 text-sm">
             Start a conversation about meal planning...
           </p>
@@ -38,11 +38,11 @@ export default function ChatMessages({ messages, agentStatus }: ChatMessagesProp
             />
           ))}
           {agentStatus && (
-            <div className="flex items-center gap-2 py-2 px-4 mb-2">
+            <div className="flex items-end gap-2 py-2 px-4 mb-2">
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-text/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-text/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-text/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-1 h-1 bg-text/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1 h-1 bg-text/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1 h-1 bg-text/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
               <span className="text-sm text-text/60">{agentStatus}</span>
             </div>

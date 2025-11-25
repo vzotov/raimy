@@ -345,44 +345,39 @@ async def websocket_chat_endpoint(
         # Get agent service URL from environment
         agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
 
-        # Check if this is a new session (no messages) and send agent greeting
+        # Check if this is a new session (no messages) and send static greeting
         session_data = await database_service.get_meal_planner_session(session_id)
         if session_data:
             messages = session_data.get("messages", [])
             session_type = session_data.get("session_type", "meal-planner")
 
-            # If session has no messages, trigger agent greeting
+            # If session has no messages, send static greeting without calling LLM
             if len(messages) == 0:
-                from agents.prompts import COOKING_GREETING, MEAL_PLANNER_GREETING
+                # Select greeting based on session type
+                if session_type == "kitchen":
+                    greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                else:
+                    greeting = "Hi! I'm Raimy, your meal planning assistant. What would you like to plan for meals?"
 
-                # Select appropriate greeting based on session type
-                greeting_prompt = COOKING_GREETING if session_type == "kitchen" else MEAL_PLANNER_GREETING
-
+                # Save greeting to database
                 try:
-                    # Call agent service to generate greeting
-                    async with httpx.AsyncClient(timeout=120.0) as client:
-                        response = await client.post(
-                            f"{agent_url}/agent/chat",
-                            json={
-                                "session_id": session_id,
-                                "message": greeting_prompt
-                            }
-                        )
-
-                        if response.status_code == 200:
-                            agent_response = response.json()
-
-                            # Send greeting as agent message
-                            await connection_manager.send_message(session_id, {
-                                "type": "agent_message",
-                                "content": {
-                                    "type": "text",
-                                    "content": agent_response.get("response")
-                                },
-                                "message_id": agent_response.get("message_id")
-                            })
+                    await database_service.add_message_to_session(
+                        session_id=session_id,
+                        role="assistant",
+                        content=greeting
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send agent greeting: {e}")
+                    logger.error(f"Failed to save greeting to database: {e}")
+
+                # Send greeting as agent message
+                await connection_manager.send_message(session_id, {
+                    "type": "agent_message",
+                    "content": {
+                        "type": "text",
+                        "content": greeting
+                    },
+                    "message_id": f"greeting-{session_id}"
+                })
 
         # Listen for messages from client
         while True:

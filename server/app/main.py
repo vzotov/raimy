@@ -401,6 +401,15 @@ async def websocket_chat_endpoint(
                     # content = {type: 'text', content: 'actual message'}
                     message_text = content.get("content") if isinstance(content, dict) else content
 
+                    # Send "thinking" status immediately for UI responsiveness
+                    await connection_manager.send_message(session_id, {
+                        "type": "system",
+                        "content": {
+                            "type": "thinking",
+                            "message": "thinking"
+                        }
+                    })
+
                     # Forward message to agent service
                     async with httpx.AsyncClient(timeout=120.0) as client:
                         response = await client.post(

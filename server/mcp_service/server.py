@@ -83,9 +83,11 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
     """
     Set the complete ingredients list for the current recipe.
 
+    ⚠️ CALL EXACTLY ONCE per cooking session, immediately after send_recipe_name.
+    DO NOT call again if you've already set ingredients in this conversation.
+    Use update_ingredients() for any changes after initial setup.
+
     IMPORTANT WORKFLOW RULES:
-    - Call this ONCE per session, immediately after send_recipe_name
-    - Never call set_ingredients more than once - use update_ingredients for changes
     - Include the FULL ingredient list with all items needed for the recipe
     - Do NOT set highlighted or used flags initially (leave them out or false)
 
@@ -271,7 +273,8 @@ async def send_recipe_name(recipe_name: str, session_id: str) -> dict:
     """
     Display the recipe name to the user.
 
-    Call this at the beginning of cooking to show what recipe is being prepared.
+    ⚠️ CALL EXACTLY ONCE per cooking session when recipe is first selected.
+    DO NOT call again if you've already sent the recipe name in this conversation.
 
     Args:
         recipe_name: Name of the recipe being prepared

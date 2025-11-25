@@ -58,7 +58,7 @@ export type TimerContent = {
 };
 
 export type SystemContent = {
-  type: 'connected' | 'error';
+  type: 'connected' | 'error' | 'thinking';
   message: string;
 };
 

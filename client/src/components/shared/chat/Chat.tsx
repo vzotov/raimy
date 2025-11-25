@@ -12,6 +12,7 @@ export interface ChatProps {
   messages?: ChatMessage[];
   onSendMessage?: (message: string) => void;
   isConnected?: boolean;
+  agentStatus?: string | null;
 }
 
 /**
@@ -25,6 +26,7 @@ export default function Chat({
   messages = [],
   onSendMessage,
   isConnected = false,
+  agentStatus = null,
 }: ChatProps) {
   const [isSending, setIsSending] = useState(false);
 
@@ -52,7 +54,7 @@ export default function Chat({
 
   return (
     <div className="flex flex-col h-full">
-      <ChatMessages messages={displayMessages} />
+      <ChatMessages messages={displayMessages} agentStatus={agentStatus} />
       <ChatInput
         onSend={handleSend}
         disabled={isDisabled}

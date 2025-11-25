@@ -40,6 +40,7 @@ export default function KitchenChat({
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [timers, setTimers] = useState<Timer[]>([]);
   const [recipeName, setRecipeName] = useState<string>('');
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
 
   // Memoize WebSocket callbacks to prevent reconnections
   const handleMessage = useCallback((wsMessage: WebSocketMessage) => {
@@ -60,6 +61,8 @@ export default function KitchenChat({
             content: content as MessageContent,
             timestamp: new Date(),
           };
+          // Clear agent status when we receive agent response
+          setAgentStatus(null);
           setMessages((prev) => [...prev, newMessage]);
           break;
 
@@ -111,8 +114,14 @@ export default function KitchenChat({
           console.log('✅', systemContent.message);
           break;
 
+        case 'thinking':
+          // Set agent status to show thinking indicator
+          setAgentStatus(systemContent.message);
+          break;
+
         case 'error':
           console.error('❌', systemContent.message);
+          setAgentStatus(null);
           break;
       }
     }
@@ -153,7 +162,7 @@ export default function KitchenChat({
   );
 
   return (
-    <div className="flex h-screen max-w-7xl mx-auto">
+    <div className="flex h-screen w-full">
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
@@ -193,6 +202,7 @@ export default function KitchenChat({
             messages={messages}
             onSendMessage={handleSendMessage}
             isConnected={isConnected}
+            agentStatus={agentStatus}
           />
         </div>
       </div>

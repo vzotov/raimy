@@ -1,14 +1,18 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
+import logging
 
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import desc
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
 from .models import User, Recipe, RecipeStep, Session, MealPlannerSession, MealPlannerMessage
 import uuid
+
+logger = logging.getLogger(__name__)
 
 # Pydantic models for API compatibility with existing Firebase service
 class RecipeStepModel(BaseModel):
@@ -350,6 +354,7 @@ class DatabaseService:
                     "session_name": session.session_name,
                     "session_type": session.session_type,
                     "room_name": session.room_name,
+                    "ingredients": session.ingredients or [],
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -441,6 +446,62 @@ class DatabaseService:
             except Exception as e:
                 await db.rollback()
                 print(f"Error deleting session {session_id}: {e}")
+                return False
+
+    async def save_or_update_ingredients(
+        self,
+        session_id: str,
+        ingredients: List[Dict[str, Any]],
+        action: str  # "set" or "update"
+    ) -> bool:
+        """Save or update ingredients directly on session."""
+        logger.info(f"🥘 save_or_update_ingredients: session={session_id}, action={action}, items={ingredients}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession)
+                    .where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+                logger.info(f"🔍 Fetched session from DB with items={session.ingredients}")
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                if action == "set":
+                    # Replace entire ingredient list
+                    logger.info(f"📝 Setting {len(ingredients)} ingredients")
+                    session.ingredients = ingredients
+
+                elif action == "update":
+                    # Merge updates with existing by name
+                    existing = session.ingredients or []
+                    logger.info(f"🔄 Updating: {len(existing)} existing + {len(ingredients)} updates")
+                    item_map = {item["name"]: item for item in existing}
+
+                    for update in ingredients:
+                        name = update.get("name")
+                        if name in item_map:
+                            logger.debug(f"  Updating existing: {name}")
+                            item_map[name].update(update)
+                        else:
+                            logger.debug(f"  Adding new: {name}")
+                            item_map[name] = update
+
+                    session.ingredients = list(item_map.values())
+                    flag_modified(session, "ingredients")
+                    logger.info(f"✅ Final ingredient count: {len(session.ingredients)}")
+
+                session.updated_at = datetime.utcnow()
+                await db.commit()
+                logger.info(f"💾 Committed to DB successfully. Saved session state: id={session.id}, ingredients={session.ingredients}, updated_at={session.updated_at.isoformat()}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error saving/updating ingredients for session {session_id}: {e}", exc_info=True)
                 return False
 
 # Global instance

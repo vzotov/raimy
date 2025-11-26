@@ -98,9 +98,27 @@ async def agent_chat(request: ChatRequest):
         # Read session type from database
         session_type = session_data.get("session_type", "meal-planner")
 
+        # Extract ingredients if present
+        ingredients = session_data.get("ingredients", [])
+
         # Select appropriate prompt based on session type
         if session_type == "kitchen":
             system_prompt = COOKING_ASSISTANT_PROMPT
+
+            # If resuming session with ingredients, add context
+            if ingredients:
+                ingredient_context = "\n\n**CURRENT SESSION STATE:**\n"
+                ingredient_context += f"Ingredients for this recipe ({len(ingredients)} total):\n"
+                for ing in ingredients:
+                    status = ""
+                    if ing.get("used"):
+                        status = " [USED]"
+                    elif ing.get("highlighted"):
+                        status = " [CURRENTLY USING]"
+                    ingredient_context += f"- {ing['name']}: {ing.get('amount', '')} {ing.get('unit', '')}{status}\n"
+                ingredient_context += "\nContinue guiding from where the session left off.\n"
+                system_prompt = system_prompt + ingredient_context
+
         elif session_type == "meal-planner":
             system_prompt = MEAL_PLANNER_PROMPT
         else:

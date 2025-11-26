@@ -31,6 +31,7 @@ export default async function KitchenSessionPage({
 
     const data = await response.json();
     const session = data.session;
+    console.log('Fetched kitchen session:', session);
 
     // Verify this is a kitchen session
     if (session.session_type !== 'kitchen') {
@@ -42,6 +43,7 @@ export default async function KitchenSessionPage({
         sessionId={session.id}
         sessionName={session.session_name}
         initialMessages={session.messages || []}
+        initialIngredients={session.ingredients || []}
       />
     );
   } catch (error) {

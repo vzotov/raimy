@@ -19,12 +19,14 @@ interface KitchenChatProps {
   sessionId: string;
   sessionName: string;
   initialMessages?: SessionMessage[];
+  initialIngredients?: Ingredient[];
 }
 
 export default function KitchenChat({
   sessionId,
   sessionName,
   initialMessages = [],
+  initialIngredients = [],
 }: KitchenChatProps) {
   // Convert initial messages to ChatMessage format
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
@@ -37,7 +39,7 @@ export default function KitchenChat({
   );
 
   // Kitchen-specific state
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>(initialIngredients);
   const [timers, setTimers] = useState<Timer[]>([]);
   const [recipeName, setRecipeName] = useState<string>('');
   const [agentStatus, setAgentStatus] = useState<string | null>(null);

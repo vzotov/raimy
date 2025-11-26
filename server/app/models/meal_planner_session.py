@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy import Column, String, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base, TimestampMixin
@@ -12,6 +12,7 @@ class MealPlannerSession(Base, TimestampMixin):
     session_name = Column(String(255), nullable=False, default="Untitled Session")
     session_type = Column(String(50), nullable=False, default="meal-planner", index=True)
     room_name = Column(String(255), unique=True, nullable=True)  # LiveKit remnant, nullable now
+    ingredients = Column(JSON, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="meal_planner_sessions")

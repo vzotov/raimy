@@ -178,6 +178,14 @@ app.add_middleware(
 
 # OAuth handled by auth microservice
 import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(name)s - %(message)s',
+    stream=sys.stdout
+)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -334,8 +342,38 @@ async def websocket_chat_endpoint(
             """Background task to listen for Redis messages and forward to WebSocket"""
             try:
                 async for message in redis_client.subscribe(f"session:{session_id}"):
-                    # Forward Redis message to WebSocket
-                    await websocket.send_json(message)
+                    # Debug: log message structure
+                    msg_type = message.get("type")
+                    content = message.get("content")
+                    content_type = content.get("type") if isinstance(content, dict) else None
+                    print(f"🔍 [REDIS_LISTENER] Redis message: type={msg_type}, content_type={content_type}")
+                    logger.info(f"🔍 Redis message: type={msg_type}, content_type={content_type}, has_content={content is not None}")
+
+                    # Check if this is an ingredients message
+                    if (message.get("type") == "agent_message" and
+                        isinstance(message.get("content"), dict) and
+                        message.get("content", {}).get("type") == "ingredients"):
+
+                        content = message["content"]
+                        action = content.get("action", "set")
+                        items = content.get("items", [])
+
+                        logger.info(f"🥘 Detected ingredients message: action={action}, items={len(items)}")
+
+                        # Persist to session.ingredients field
+                        await database_service.save_or_update_ingredients(
+                            session_id=session_id,
+                            ingredients=items,
+                            action=action
+                        )
+
+                    # Try to forward to WebSocket, but don't fail if disconnected
+                    try:
+                        await websocket.send_json(message)
+                    except Exception as ws_error:
+                        # WebSocket disconnected - that's ok, DB save already happened
+                        logger.debug(f"WebSocket send failed (client likely disconnected): {ws_error}")
+                        # Continue processing next message
             except Exception as e:
                 logger.error(f"Redis listener error for session {session_id}: {e}")
 

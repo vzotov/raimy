@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   try {
@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
     // User is authenticated, allow request to proceed
     return NextResponse.next();
   } catch (error) {
-    console.error('Middleware auth error:', error);
+    console.error('Proxy auth error:', error);
     // On error, redirect to home for safety
     return NextResponse.redirect(new URL('/', request.url));
   }

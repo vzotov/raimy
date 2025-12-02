@@ -52,10 +52,10 @@ The backend services will be available at:
 cd client
 
 # Install dependencies
-npm install
+bun install
 
 # Start development server
-npm run dev
+bun dev
 ```
 
 The frontend will be available at:

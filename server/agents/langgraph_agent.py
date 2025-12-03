@@ -5,13 +5,18 @@ This module implements a stateful agent using LangGraph for processing
 chat messages with tool calling capabilities.
 """
 import os
+import sys
+import uuid
 from typing import List, Dict, Annotated, TypedDict, Optional
-from typing_extensions import TypedDict as TypedDictExt
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from core.redis_client import get_redis_client
 
 
 # Define the state schema for the agent
@@ -45,6 +50,9 @@ class LangGraphAgent:
 
         # Build the graph
         self.graph = self._build_graph()
+
+        # Initialize Redis client for streaming
+        self.redis_client = get_redis_client()
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -112,6 +120,25 @@ class LangGraphAgent:
             return "tools"
         return "end"
 
+    def _get_tool_status_message(self, tool_name: str) -> str:
+        """
+        Get user-friendly status message for a tool execution
+
+        Args:
+            tool_name: Name of the tool being executed
+
+        Returns:
+            User-friendly status message
+        """
+        status_messages = {
+            "save_recipe": "saving recipe",
+            "set_ingredients": "gathering ingredients",
+            "update_ingredients": "updating ingredients",
+            "set_timer": "setting timer",
+            "send_recipe_name": "preparing recipe"
+        }
+        return status_messages.get(tool_name, f"using {tool_name}")
+
     async def _execute_tools_node(self, state: AgentState) -> Dict:
         """
         Execute tool calls from the LLM response
@@ -133,6 +160,17 @@ class LangGraphAgent:
                 tool_id = tool_call.get("id", "")
 
                 print(f"🔧 Tool call: {tool_name}, args before injection: {tool_args}")
+
+                # Publish status based on tool name
+                status_message = self._get_tool_status_message(tool_name)
+                try:
+                    await self.redis_client.send_system_message(
+                        state['session_id'],
+                        "thinking",
+                        status_message
+                    )
+                except Exception as e:
+                    print(f"❌ Failed to publish tool status (non-fatal): {e}")
 
                 # Always override session_id with the actual session from state
                 # The LLM might provide example values from tool docs, so we need to replace them
@@ -176,7 +214,7 @@ class LangGraphAgent:
 
         return {"messages": tool_results}
 
-    async def run(
+    async def run_streaming(
         self,
         message: str,
         message_history: List[Dict],
@@ -184,7 +222,9 @@ class LangGraphAgent:
         session_id: str
     ) -> dict:
         """
-        Run the agent to process a message
+        Run the agent with streaming support
+
+        Publishes LLM tokens to Redis as they arrive, accumulating content for final DB save.
 
         Args:
             message: User message to process
@@ -213,23 +253,105 @@ class LangGraphAgent:
             "system_prompt": system_prompt
         }
 
-        # Run the graph
-        result = await self.graph.ainvoke(initial_state)
-
-        # Extract the last AI message and check for tool results
-        final_messages = result["messages"]
-        ai_response = None
+        # Accumulators for final response
+        accumulated_content = []
         saved_recipes = []
+        all_messages = []
+        current_chunk_buffer = ""
 
-        # Scan messages for AI response and tool results
-        for msg in final_messages:
-            if isinstance(msg, AIMessage):
-                ai_response = msg.content
-            elif isinstance(msg, ToolMessage):
-                # Check if this is a save_recipe tool result
+        # Generate unique message ID for this streaming response
+        message_id = f"msg-{uuid.uuid4()}"
+
+        # Track current node to send appropriate status messages
+        current_node = None
+
+        # Stream through the graph
+        async for msg, metadata in self.graph.astream(
+            initial_state,
+            stream_mode="messages"
+        ):
+            # Track all messages for final processing
+            all_messages.append(msg)
+
+            # Get current node name
+            node_name = metadata.get("langgraph_node", "")
+
+            # Send status updates when entering execute_tools node
+            if node_name and node_name != current_node:
+                current_node = node_name
+
+                if node_name == "execute_tools" and isinstance(msg, AIMessage):
+                    # Check if there are tool calls to determine the message
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        tool_name = msg.tool_calls[0].get("name", "")
+                        status_msg = self._get_tool_status_message(tool_name)
+                        try:
+                            await self.redis_client.send_system_message(
+                                session_id,
+                                "thinking",
+                                status_msg
+                            )
+                        except Exception as e:
+                            print(f"❌ Failed to publish tool status (non-fatal): {e}")
+
+            # Filter for LLM-generated content from call_llm node
+            if node_name == "call_llm" and isinstance(msg, AIMessage):
+                # Handle token streaming
+                if msg.content:
+                    # Accumulate for final save
+                    accumulated_content.append(msg.content)
+
+                    # Buffer small chunks to reduce Redis calls
+                    current_chunk_buffer += msg.content
+
+                    # Publish when buffer reaches ~50 chars or we have a complete word
+                    if len(current_chunk_buffer) >= 50 or msg.content.endswith((" ", "\n", ".", "!", "?")):
+                        # Get full accumulated text
+                        full_text_so_far = "".join(accumulated_content)
+
+                        # Publish accumulated text to Redis
+                        try:
+                            await self.redis_client.send_agent_text_message(
+                                session_id,
+                                full_text_so_far,
+                                message_id
+                            )
+                        except Exception as e:
+                            print(f"❌ Redis publish failed (non-fatal): {e}")
+
+                        # Reset buffer
+                        current_chunk_buffer = ""
+
+        # Flush any remaining buffer
+        if current_chunk_buffer:
+            full_text_final = "".join(accumulated_content)
+            try:
+                await self.redis_client.send_agent_text_message(
+                    session_id,
+                    full_text_final,
+                    message_id
+                )
+            except Exception as e:
+                print(f"❌ Redis publish failed (non-fatal): {e}")
+
+        # Send completion signal to clear thinking status
+        try:
+            await self.redis_client.send_system_message(
+                session_id,
+                "complete",
+                "complete"
+            )
+        except Exception as e:
+            print(f"❌ Failed to publish completion signal (non-fatal): {e}")
+
+        # Combine accumulated content
+        final_text = "".join(accumulated_content)
+
+        # Extract structured outputs (same logic as current run method)
+        for msg in all_messages:
+            if isinstance(msg, ToolMessage):
                 if msg.name == "save_recipe" and "recipe" in str(msg.content):
                     try:
-                        # Parse the tool result (it's a string representation of dict)
                         import json
                         import ast
                         tool_result = ast.literal_eval(msg.content)
@@ -238,10 +360,10 @@ class LangGraphAgent:
                     except Exception as e:
                         print(f"Error parsing save_recipe result: {e}")
 
-        response_text = ai_response or "I apologize, I couldn't generate a response."
+        response_text = final_text or "I apologize, I couldn't generate a response."
 
-        # Return response with any structured outputs
         return {
             "response": response_text,
-            "structured_outputs": saved_recipes if saved_recipes else []
+            "structured_outputs": saved_recipes,
+            "message_id": message_id  # Return message ID for reference
         }

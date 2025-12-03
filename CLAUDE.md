@@ -103,6 +103,17 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 
 ## Important Guidelines
 
+### When Working with Python Backend
+- **Always use proper logging, never use `print()` statements**
+- Use Python's `logging` module with appropriate log levels:
+  - `logger.debug()` - Detailed diagnostic information
+  - `logger.info()` - General informational messages
+  - `logger.warning()` - Warning messages for potentially problematic situations
+  - `logger.error()` - Error messages for serious problems
+- Initialize logger at module level: `logger = logging.getLogger(__name__)`
+- Include contextual information in log messages (session_id, etc.)
+- Use structured logging with clear prefixes (e.g., `logger.info(f"⏱️  TTFT: {ttft:.0f}ms")`)
+
 ### When Working with Agent/LLM Code
 - Read existing prompts before modifying agent behavior
 - Understand tool workflows before adding new MCP tools

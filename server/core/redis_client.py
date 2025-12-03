@@ -105,6 +105,52 @@ class RedisClient:
             self._client = None
             print("🔌 Redis connection closed")
 
+    async def send_system_message(self, session_id: str, message_type: str, message: str):
+        """
+        Send a system message to a session
+
+        Args:
+            session_id: Session ID
+            message_type: Type of system message (e.g., "thinking", "error", "connected")
+            message: Message content
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "system",
+                "content": {
+                    "type": message_type,
+                    "message": message
+                }
+            }
+        )
+
+    async def send_agent_text_message(
+        self,
+        session_id: str,
+        content: str,
+        message_id: str
+    ):
+        """
+        Send an agent text message to a session
+
+        Args:
+            session_id: Session ID
+            content: Text content
+            message_id: Unique message ID
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "text",
+                    "content": content
+                },
+                "message_id": message_id
+            }
+        )
+
 
 # Global Redis client instance
 _redis_client: Optional[RedisClient] = None

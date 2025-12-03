@@ -135,8 +135,8 @@ async def agent_chat(request: ChatRequest):
         # Get LangGraph agent instance
         agent = await get_agent()
 
-        # Run agent to generate response
-        agent_result = await agent.run(
+        # Run agent with streaming to generate response
+        agent_result = await agent.run_streaming(
             message=request.message,
             message_history=messages,
             system_prompt=system_prompt,
@@ -198,6 +198,24 @@ async def agent_chat(request: ChatRequest):
         print(f"Error in agent_chat: {e}")
         import traceback
         traceback.print_exc()
+
+        # Publish error to Redis so UI knows
+        try:
+            from core.redis_client import get_redis_client
+            redis = get_redis_client()
+            await redis.publish(
+                f"session:{request.session_id}",
+                {
+                    "type": "system",
+                    "content": {
+                        "type": "error",
+                        "message": "An error occurred processing your message"
+                    }
+                }
+            )
+        except Exception as redis_error:
+            print(f"Failed to publish error to Redis: {redis_error}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -131,6 +131,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       - MCP_SERVER_URL=http://mcp-service:8002/mcp
+      - REDIS_URL=redis://redis:6379
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       # LangSmith for debugging

@@ -456,16 +456,6 @@ async def websocket_chat_endpoint(
                         if response.status_code == 200:
                             agent_response = response.json()
 
-                            # Send text response wrapped as structured MessageContent
-                            await connection_manager.send_message(session_id, {
-                                "type": "agent_message",
-                                "content": {
-                                    "type": "text",
-                                    "content": agent_response.get("response")
-                                },
-                                "message_id": agent_response.get("message_id")
-                            })
-
                             # Send each structured output as a separate message
                             for idx, structured_output in enumerate(agent_response.get("structured_outputs", [])):
                                 await connection_manager.send_message(session_id, {

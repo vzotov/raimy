@@ -37,9 +37,38 @@ export default function MealPlannerChat({
 
     if (wsMessage.type === 'agent_message' && wsMessage.content) {
       const content = wsMessage.content;
-      // Only add MessageContent types (text, ingredients, recipe) to chat
+      // Handle MessageContent types (text, ingredients, recipe)
       // Meal planner doesn't handle tool responses like recipe_name, timer, etc.
-      if (content.type === 'text' || content.type === 'ingredients' || content.type === 'recipe') {
+      if (content.type === 'text') {
+        // Handle text messages with streaming support
+        const messageId = wsMessage.message_id || `agent-${Date.now()}`;
+
+        setMessages((prev) => {
+          const existingIndex = prev.findIndex((m) => m.id === messageId);
+
+          if (existingIndex >= 0) {
+            // Update existing message with new content
+            const updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              content: content as MessageContent,
+            };
+            return updated;
+          } else {
+            // Create new message
+            return [
+              ...prev,
+              {
+                id: messageId,
+                role: 'assistant',
+                content: content as MessageContent,
+                timestamp: new Date(),
+              },
+            ];
+          }
+        });
+      } else if (content.type === 'ingredients' || content.type === 'recipe') {
+        // Add ingredients and recipe messages normally (no streaming)
         const newMessage: ChatMessage = {
           id: wsMessage.message_id || `agent-${Date.now()}`,
           role: 'assistant',
@@ -56,6 +85,10 @@ export default function MealPlannerChat({
       switch (systemContent.type) {
         case 'connected':
           console.log('✅', systemContent.message);
+          break;
+        case 'complete':
+          // Streaming is complete - could trigger UI updates if needed
+          console.log('✅ Streaming complete');
           break;
         case 'error':
           console.error('❌', systemContent.message);

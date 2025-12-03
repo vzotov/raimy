@@ -55,17 +55,51 @@ export default function KitchenChat({
       // Route based on content type (application layer)
       switch (content.type) {
         case 'text':
+          // Handle text messages with streaming support
+          const textContent = content as MessageContent;
+          const messageId = wsMessage.message_id || `agent-${Date.now()}`;
+
+          // Check if message with this ID already exists
+          setMessages((prev) => {
+            const existingIndex = prev.findIndex((m) => m.id === messageId);
+
+            if (existingIndex >= 0) {
+              // Update existing message with new content
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                content: textContent,
+              };
+              return updated;
+            } else {
+              // Create new message
+              return [
+                ...prev,
+                {
+                  id: messageId,
+                  role: 'assistant',
+                  content: textContent,
+                  timestamp: new Date(),
+                },
+              ];
+            }
+          });
+
+          // Clear agent status on first message
+          if (agentStatus) {
+            setAgentStatus(null);
+          }
+          break;
+
         case 'recipe':
           // Add to chat history
-          const newMessage: ChatMessage = {
+          const recipeMessage: ChatMessage = {
             id: wsMessage.message_id || `agent-${Date.now()}`,
             role: 'assistant',
             content: content as MessageContent,
             timestamp: new Date(),
           };
-          // Clear agent status when we receive agent response
-          setAgentStatus(null);
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => [...prev, recipeMessage]);
           break;
 
         case 'recipe_name':
@@ -119,6 +153,11 @@ export default function KitchenChat({
         case 'thinking':
           // Set agent status to show thinking indicator
           setAgentStatus(systemContent.message);
+          break;
+
+        case 'complete':
+          // Clear thinking status when streaming is complete
+          setAgentStatus(null);
           break;
 
         case 'error':

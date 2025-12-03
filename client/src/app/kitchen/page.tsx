@@ -2,29 +2,24 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { kitchenSessions } from '@/lib/api';
 import classNames from 'classnames';
+import { useKitchenSessions } from '@/hooks/useSessions';
 
 export default function KitchenPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { createSession } = useKitchenSessions();
 
   const handleStartCooking = async () => {
     try {
       setIsCreating(true);
       setError(null);
 
-      const response = await kitchenSessions.create();
+      const session = await createSession();
 
-      if (response.error) {
-        setError(response.error);
-        setIsCreating(false);
-        return;
-      }
-
-      if (response.data?.session?.id) {
-        router.push(`/kitchen/${response.data.session.id}`);
+      if (session?.id) {
+        router.push(`/kitchen/${session.id}`);
       }
     } catch (err) {
       console.error('Failed to create kitchen session:', err);

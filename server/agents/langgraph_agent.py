@@ -338,8 +338,8 @@ class LangGraphAgent:
         try:
             await self.redis_client.send_system_message(
                 session_id,
-                "complete",
-                "complete"
+                "thinking",
+                None
             )
         except Exception as e:
             print(f"❌ Failed to publish completion signal (non-fatal): {e}")

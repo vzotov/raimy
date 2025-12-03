@@ -14,6 +14,7 @@ import {
 import IngredientList, { Ingredient } from '@/components/shared/IngredientList';
 import TimerList, { Timer } from '@/components/shared/TimerList';
 import classNames from 'classnames';
+import { updateSessionNameInCache } from '@/hooks/useSessions';
 
 interface KitchenChatProps {
   sessionId: string;
@@ -107,6 +108,8 @@ export default function KitchenChat({
           const recipeNameContent = content as RecipeNameContent;
           if (recipeNameContent.name) {
             setRecipeName(recipeNameContent.name);
+            // Update sessions list cache so the sidebar shows updated name
+            updateSessionNameInCache(sessionId, recipeNameContent.name, 'kitchen');
           }
           break;
 
@@ -153,11 +156,6 @@ export default function KitchenChat({
         case 'thinking':
           // Set agent status to show thinking indicator
           setAgentStatus(systemContent.message);
-          break;
-
-        case 'complete':
-          // Clear thinking status when streaming is complete
-          setAgentStatus(null);
           break;
 
         case 'error':

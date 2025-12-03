@@ -313,7 +313,6 @@ class DatabaseService:
                         "session_name": session.session_name,
                         "session_type": session.session_type,
                         "room_name": session.room_name,
-                        "message_count": len(session.message_records),
                         "created_at": session.created_at.isoformat(),
                         "updated_at": session.updated_at.isoformat()
                     }

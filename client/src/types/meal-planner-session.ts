@@ -6,7 +6,6 @@ export interface MealPlannerSession {
   session_name: string;
   session_type: 'meal-planner' | 'kitchen';
   room_name?: string;  // Optional - LiveKit remnant
-  message_count?: number;
   ingredients?: ChatIngredient[];
   created_at: string;
   updated_at: string;

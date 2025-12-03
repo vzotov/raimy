@@ -9,10 +9,8 @@ import ThemeSelector from '@/components/shared/ThemeSelector';
 import Logo from '@/components/shared/Logo';
 import { XIcon } from '@/components/icons';
 import { useAuth } from '@/hooks/useAuth';
-import { useMealPlannerSessions } from '@/hooks/useMealPlannerSessions';
-import { useKitchenSessions } from '@/hooks/useKitchenSessions';
+import { useMealPlannerSessions, useKitchenSessions } from '@/hooks/useSessions';
 import { MealPlannerSession } from '@/types/meal-planner-session';
-import { kitchenSessions as kitchenSessionsApi } from '@/lib/api';
 
 interface MainMenuProps {
   isOpen: boolean;
@@ -38,6 +36,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
     sessions: kitchenSessions,
     updateSessionName: updateKitchenSessionName,
     deleteSession: deleteKitchenSession,
+    createSession: createKitchenSession,
   } = useKitchenSessions();
 
   // Auto-expand submenus when on their respective pages
@@ -126,15 +125,10 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
 
   const handleStartCooking = async () => {
     try {
-      const response = await kitchenSessionsApi.create();
+      const session = await createKitchenSession();
 
-      if (response.error) {
-        console.error('Failed to create kitchen session:', response.error);
-        return;
-      }
-
-      if (response.data?.session?.id) {
-        router.push(`/kitchen/${response.data.session.id}`);
+      if (session?.id) {
+        router.push(`/kitchen/${session.id}`);
         handleCloseMenu();
       }
     } catch (err) {
@@ -250,9 +244,6 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
                             <div className="text-sm font-medium text-text truncate">
                               {session.session_name}
                             </div>
-                            <div className="text-xs text-text/50 mt-0.5">
-                              {session.message_count || 0} msgs
-                            </div>
                           </div>
 
                           {/* Actions (visible on hover) */}
@@ -360,9 +351,6 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-text truncate">
                               {session.session_name}
-                            </div>
-                            <div className="text-xs text-text/50 mt-0.5">
-                              {session.message_count || 0} msgs
                             </div>
                           </div>
 

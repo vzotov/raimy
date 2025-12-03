@@ -350,10 +350,7 @@ async def websocket_chat_endpoint(
                     logger.info(f"🔍 Redis message: type={msg_type}, content_type={content_type}, has_content={content is not None}")
 
                     # Check if this is an ingredients message
-                    if (message.get("type") == "agent_message" and
-                        isinstance(message.get("content"), dict) and
-                        message.get("content", {}).get("type") == "ingredients"):
-
+                    if redis_client.is_agent_message(message, "ingredients"):
                         content = message["content"]
                         action = content.get("action", "set")
                         items = content.get("items", [])
@@ -366,6 +363,20 @@ async def websocket_chat_endpoint(
                             ingredients=items,
                             action=action
                         )
+
+                    # Check if this is a recipe_name message
+                    if redis_client.is_agent_message(message, "recipe_name"):
+                        content = message["content"]
+                        recipe_name = content.get("name")
+
+                        if recipe_name:
+                            logger.info(f"📝 Detected recipe_name message: {recipe_name}")
+
+                            # Persist session name to database
+                            await database_service.update_session_name(
+                                session_id=session_id,
+                                session_name=recipe_name
+                            )
 
                     # Try to forward to WebSocket, but don't fail if disconnected
                     try:

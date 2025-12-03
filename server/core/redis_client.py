@@ -151,6 +151,33 @@ class RedisClient:
             }
         )
 
+    def is_agent_message(self, message: dict, content_type: str = None) -> bool:
+        """
+        Check if a message is an agent message, optionally with specific content type
+
+        Args:
+            message: Redis message dictionary
+            content_type: Optional content type to check (e.g., 'ingredients', 'recipe_name', 'text')
+
+        Returns:
+            True if message matches criteria, False otherwise
+
+        Examples:
+            is_agent_message(msg)  # Check if any agent message
+            is_agent_message(msg, 'ingredients')  # Check if ingredients message
+            is_agent_message(msg, 'recipe_name')  # Check if recipe_name message
+        """
+        if message.get("type") != "agent_message":
+            return False
+
+        if not isinstance(message.get("content"), dict):
+            return False
+
+        if content_type is None:
+            return True
+
+        return message.get("content", {}).get("type") == content_type
+
 
 # Global Redis client instance
 _redis_client: Optional[RedisClient] = None

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { BaseIngredient } from '@/types/ingredient';
 import ScrollableArea from './ScrollableArea';
 

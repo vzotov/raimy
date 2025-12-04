@@ -4,7 +4,6 @@ import type { MealPlannerSession } from '@/types/meal-planner-session';
 
 interface SessionItemDisplayModeProps {
   session: MealPlannerSession;
-  isActive: boolean;
   onEdit: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
   onClick: () => void;
@@ -12,7 +11,6 @@ interface SessionItemDisplayModeProps {
 
 export default function SessionItemDisplayMode({
   session,
-  isActive,
   onEdit,
   onDelete,
   onClick,

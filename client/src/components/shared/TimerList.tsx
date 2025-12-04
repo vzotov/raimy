@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ScrollableArea from '@/components/shared/ScrollableArea';
 
 export interface Timer {

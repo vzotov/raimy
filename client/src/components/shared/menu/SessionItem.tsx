@@ -48,7 +48,6 @@ export default function SessionItem({
       ) : (
         <SessionItemDisplayMode
           session={session}
-          isActive={isActive}
           onEdit={onStartEdit}
           onDelete={onDelete}
           onClick={onClick}

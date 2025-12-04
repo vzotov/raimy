@@ -130,9 +130,9 @@ export default function RecipeCard({
         {/* Tags */}
         {recipe.tags && recipe.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
-            {recipe.tags.map((tag, index) => (
+            {recipe.tags.map((tag) => (
               <span
-                key={index}
+                key={`tag-${tag}`}
                 className={classNames('px-2 py-0.5 rounded-full text-xs', {
                   'bg-white/10 text-white/80': isUser,
                   'bg-primary/10 text-primary': !isUser,

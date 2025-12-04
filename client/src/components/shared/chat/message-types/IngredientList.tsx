@@ -29,9 +29,9 @@ export default function IngredientList({
         </h3>
       )}
       <div className="space-y-2">
-        {items.map((ingredient, index) => (
+        {items.map((ingredient) => (
           <div
-            key={index}
+            key={`${ingredient.name}-${ingredient.amount || ''}-${ingredient.unit || ''}`}
             className={classNames(
               'flex items-start gap-3 p-2 rounded-lg transition-colors',
               {

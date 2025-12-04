@@ -8,7 +8,7 @@ interface SessionListProps {
   sessions: MealPlannerSession[];
   currentPath: string;
   sessionType: 'meal-planner' | 'kitchen';
-  onUpdateSessionName: (sessionId: string, newName: string) => Promise<any>;
+  onUpdateSessionName: (sessionId: string, newName: string) => Promise<unknown>;
   onDelete: (sessionId: string) => void;
   onSessionClick: (
     sessionId: string,

@@ -171,9 +171,9 @@ export default function MyRecipesContent() {
                   </div>
 
                   <div className="flex flex-wrap gap-1 mb-4">
-                    {recipe.tags.slice(0, 3).map((tag, index) => (
+                    {recipe.tags.slice(0, 3).map((tag) => (
                       <span
-                        key={index}
+                        key={`tag-${tag}`}
                         className="px-2 py-1 bg-surface/50 text-text/80 text-xs rounded-full"
                       >
                         {tag}

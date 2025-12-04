@@ -26,24 +26,17 @@
 				"useKeyWithClickEvents": "off"
 			},
 			"correctness": {
-				"useExhaustiveDependencies": "warn"
+				"useExhaustiveDependencies": "warn",
+				"noUnusedVariables": "error"
 			},
 			"suspicious": {
-				"noArrayIndexKey": "warn"
+				"noArrayIndexKey": "info"
 			}
 		}
 	},
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "single"
-		}
-	},
-	"assist": {
-		"enabled": true,
-		"actions": {
-			"source": {
-				"organizeImports": "on"
-			}
 		}
 	}
 }

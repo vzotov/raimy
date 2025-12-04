@@ -1,24 +1,15 @@
 'use client';
 
 import classNames from 'classnames';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import Chat from '@/components/shared/chat/Chat';
 import IngredientList, {
   type Ingredient,
 } from '@/components/shared/IngredientList';
-import TimerList, { type Timer } from '@/components/shared/TimerList';
+import TimerList from '@/components/shared/TimerList';
 import type { ChatMessage } from '@/hooks/useChatMessages';
-import { updateSessionNameInCache } from '@/hooks/useSessions';
-import {
-  useWebSocket,
-  type ChatMessage as WebSocketMessage,
-} from '@/hooks/useWebSocket';
-import type {
-  IngredientsContent,
-  MessageContent,
-  RecipeNameContent,
-  TimerContent,
-} from '@/types/chat-message-types';
+import { useKitchenMessageHandler } from '@/hooks/useKitchenMessageHandler';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SessionMessage } from '@/types/meal-planner-session';
 
 interface KitchenChatProps {
@@ -34,157 +25,12 @@ export default function KitchenChat({
   initialMessages = [],
   initialIngredients = [],
 }: KitchenChatProps) {
-  // Convert initial messages to ChatMessage format
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    initialMessages.map((msg, index) => ({
-      id: `msg-${index}`,
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-      timestamp: new Date(msg.timestamp),
-    })),
-  );
-
-  // Kitchen-specific state
-  const [ingredients, setIngredients] =
-    useState<Ingredient[]>(initialIngredients);
-  const [timers, setTimers] = useState<Timer[]>([]);
-  const [recipeName, setRecipeName] = useState<string>('');
-  const [agentStatus, setAgentStatus] = useState<string | null>(null);
-
-  // Memoize WebSocket callbacks to prevent reconnections
-  const handleMessage = useCallback((wsMessage: WebSocketMessage) => {
-    console.log('[KitchenChat] Received:', wsMessage);
-
-    // Handle agent messages - route by content type
-    if (wsMessage.type === 'agent_message' && wsMessage.content) {
-      const content = wsMessage.content;
-
-      // Route based on content type (application layer)
-      switch (content.type) {
-        case 'text': {
-          // Handle text messages with streaming support
-          const textContent = content as MessageContent;
-          const messageId = wsMessage.message_id || `agent-${Date.now()}`;
-
-          // Check if message with this ID already exists
-          setMessages((prev) => {
-            const existingIndex = prev.findIndex((m) => m.id === messageId);
-
-            if (existingIndex >= 0) {
-              // Update existing message with new content
-              const updated = [...prev];
-              updated[existingIndex] = {
-                ...updated[existingIndex],
-                content: textContent,
-              };
-              return updated;
-            } else {
-              // Create new message
-              return [
-                ...prev,
-                {
-                  id: messageId,
-                  role: 'assistant',
-                  content: textContent,
-                  timestamp: new Date(),
-                },
-              ];
-            }
-          });
-
-          // Clear agent status on first message
-          if (agentStatus) {
-            setAgentStatus(null);
-          }
-          break;
-        }
-
-        case 'recipe': {
-          // Add to chat history
-          const recipeMessage: ChatMessage = {
-            id: wsMessage.message_id || `agent-${Date.now()}`,
-            role: 'assistant',
-            content: content as MessageContent,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, recipeMessage]);
-          break;
-        }
-
-        case 'recipe_name': {
-          // Update recipe name state
-          const recipeNameContent = content as RecipeNameContent;
-          if (recipeNameContent.name) {
-            setRecipeName(recipeNameContent.name);
-            // Update sessions list cache so the sidebar shows updated name
-            updateSessionNameInCache(
-              sessionId,
-              recipeNameContent.name,
-              'kitchen',
-            );
-          }
-          break;
-        }
-
-        case 'ingredients': {
-          // Update ingredients state
-          const ingredientsContent = content as IngredientsContent;
-          if (ingredientsContent.action === 'set' && ingredientsContent.items) {
-            setIngredients(ingredientsContent.items);
-          } else if (
-            ingredientsContent.action === 'update' &&
-            ingredientsContent.items
-          ) {
-            setIngredients((prev) =>
-              prev.map((ing) => {
-                const update = ingredientsContent.items?.find(
-                  (u) => u.name === ing.name,
-                );
-                return update ? { ...ing, ...update } : ing;
-              }),
-            );
-          }
-          break;
-        }
-
-        case 'timer': {
-          // Add timer to state
-          const timerContent = content as TimerContent;
-          if (timerContent.duration && timerContent.label) {
-            const newTimer: Timer = {
-              id: `timer-${Date.now()}`,
-              duration: timerContent.duration,
-              label: timerContent.label,
-              startedAt: timerContent.started_at || Date.now() / 1000,
-            };
-            setTimers((prev) => [...prev, newTimer]);
-          }
-          break;
-        }
-      }
-    }
-
-    // Handle system messages
-    if (wsMessage.type === 'system' && wsMessage.content) {
-      const systemContent = wsMessage.content;
-
-      switch (systemContent.type) {
-        case 'connected':
-          console.log('✅', systemContent.message);
-          break;
-
-        case 'thinking':
-          // Set agent status to show thinking indicator
-          setAgentStatus(systemContent.message);
-          break;
-
-        case 'error':
-          console.error('❌', systemContent.message);
-          setAgentStatus(null);
-          break;
-      }
-    }
-  }, []);
+  // Use the custom hook for message handling and state management
+  const { state, handleMessage, addMessage } = useKitchenMessageHandler({
+    sessionId,
+    initialMessages,
+    initialIngredients,
+  });
 
   const handleConnect = useCallback(() => {
     console.log('[KitchenChat] WebSocket connected');
@@ -212,12 +58,12 @@ export default function KitchenChat({
         content,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, userMessage]);
+      addMessage(userMessage);
 
       // Send via WebSocket
       sendMessage(content);
     },
-    [sendMessage],
+    [addMessage, sendMessage],
   );
 
   return (
@@ -227,11 +73,12 @@ export default function KitchenChat({
         {/* Header */}
         <div className="p-4 border-b border-accent/20">
           <h1 className="text-2xl font-bold text-text">
-            {recipeName || sessionName}
+            {state.recipeName || sessionName}
           </h1>
           <div className="flex items-center gap-4 mt-2">
             <p className="text-sm text-text/70">
-              {messages.length} message{messages.length !== 1 ? 's' : ''}
+              {state.messages.length} message
+              {state.messages.length !== 1 ? 's' : ''}
             </p>
             <div className="flex items-center gap-2">
               <div
@@ -256,10 +103,10 @@ export default function KitchenChat({
         {/* Chat */}
         <div className="flex-1 overflow-hidden">
           <Chat
-            messages={messages}
+            messages={state.messages}
             onSendMessage={handleSendMessage}
             isConnected={isConnected}
-            agentStatus={agentStatus}
+            agentStatus={state.agentStatus}
           />
         </div>
       </div>
@@ -268,20 +115,20 @@ export default function KitchenChat({
       <div className="w-80 border-l border-accent/20 flex flex-col">
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Ingredient List */}
-          {ingredients.length > 0 && (
+          {state.ingredients.length > 0 && (
             <div>
               <h2 className="text-lg font-semibold text-text mb-3">
                 Ingredients
               </h2>
-              <IngredientList ingredients={ingredients} />
+              <IngredientList ingredients={state.ingredients} />
             </div>
           )}
 
           {/* Timer List */}
-          {timers.length > 0 && (
+          {state.timers.length > 0 && (
             <div>
               <h2 className="text-lg font-semibold text-text mb-3">Timers</h2>
-              <TimerList timers={timers} />
+              <TimerList timers={state.timers} />
             </div>
           )}
         </div>

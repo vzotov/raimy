@@ -19,4 +19,4 @@ export default function XIcon({ className = '' }: XIconProps) {
       />
     </svg>
   );
-} 
+}

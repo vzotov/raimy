@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
 import classNames from 'classnames';
 import { useTheme } from 'next-themes';
-import { MoonIcon, SunIcon, CogIcon } from '@/components/icons';
+import { useEffect, useState } from 'react';
+import { CogIcon, MoonIcon, SunIcon } from '@/components/icons';
 
 export default function ThemeSelector() {
   const { theme, setTheme, resolvedTheme } = useTheme();

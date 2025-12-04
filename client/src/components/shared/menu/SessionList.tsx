@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MealPlannerSession } from '@/types/meal-planner-session';
+import type { MealPlannerSession } from '@/types/meal-planner-session';
 import SessionItem from './SessionItem';
 
 interface SessionListProps {
@@ -10,7 +10,10 @@ interface SessionListProps {
   sessionType: 'meal-planner' | 'kitchen';
   onUpdateSessionName: (sessionId: string, newName: string) => Promise<any>;
   onDelete: (sessionId: string) => void;
-  onSessionClick: (sessionId: string, sessionType: 'meal-planner' | 'kitchen') => void;
+  onSessionClick: (
+    sessionId: string,
+    sessionType: 'meal-planner' | 'kitchen',
+  ) => void;
 }
 
 export default function SessionList({

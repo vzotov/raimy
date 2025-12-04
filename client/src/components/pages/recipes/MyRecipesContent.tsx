@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { get } from '@/lib/api';
 import CreateFakeRecipeButton from './CreateFakeRecipeButton';
 
@@ -29,11 +29,11 @@ export default function MyRecipesContent() {
     try {
       setLoading(true);
       const result = await get<{ recipes: Recipe[] }>('/api/recipes');
-      
+
       if (result.error) {
         throw new Error(result.error);
       }
-      
+
       setRecipes(result.data?.recipes || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch recipes');
@@ -71,10 +71,9 @@ export default function MyRecipesContent() {
             <div>
               <h1 className="text-3xl font-bold text-text">My Recipes</h1>
               <p className="mt-2 text-text/70">
-                {recipes.length === 0 
+                {recipes.length === 0
                   ? "You haven't created any recipes yet. Start cooking with Raimy to see your recipes here!"
-                  : `You have ${recipes.length} recipe${recipes.length === 1 ? '' : 's'}`
-                }
+                  : `You have ${recipes.length} recipe${recipes.length === 1 ? '' : 's'}`}
               </p>
             </div>
             <CreateFakeRecipeButton onRecipeCreated={fetchRecipes} />
@@ -82,9 +81,11 @@ export default function MyRecipesContent() {
         </div>
 
         {recipes.length === 0 ? (
-                      <div className="text-center py-12">
+          <div className="text-center py-12">
             <div className="text-6xl mb-4">👨‍🍳</div>
-            <h3 className="text-xl font-semibold text-text mb-2">No recipes yet</h3>
+            <h3 className="text-xl font-semibold text-text mb-2">
+              No recipes yet
+            </h3>
             <p className="text-text/70 mb-6">
               Start cooking with Raimy to create your first recipe!
             </p>
@@ -107,33 +108,39 @@ export default function MyRecipesContent() {
                     <h3 className="text-xl font-semibold text-text line-clamp-2">
                       {recipe.name}
                     </h3>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      recipe.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                      recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        recipe.difficulty === 'easy'
+                          ? 'bg-green-100 text-green-800'
+                          : recipe.difficulty === 'medium'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                      }`}
+                    >
                       {recipe.difficulty}
                     </span>
                   </div>
-                  
+
                   <p className="text-text/70 text-sm mb-4 line-clamp-3">
                     {recipe.description}
                   </p>
-                  
+
                   <div className="flex items-center justify-between text-sm text-text/60 mb-4">
                     <span>⏱️ {recipe.total_time_minutes} min</span>
                     <span>👥 {recipe.servings} servings</span>
                   </div>
-                  
+
                   <div className="mb-4">
                     <h4 className="font-medium text-text mb-2">Ingredients:</h4>
                     <ul className="text-sm text-text/70 space-y-1">
-                      {recipe.ingredients.slice(0, 3).map((ingredient, index) => (
-                        <li key={index} className="flex items-center">
-                          <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
-                          {ingredient}
-                        </li>
-                      ))}
+                      {recipe.ingredients
+                        .slice(0, 3)
+                        .map((ingredient, index) => (
+                          <li key={index} className="flex items-center">
+                            <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
+                            {ingredient}
+                          </li>
+                        ))}
                       {recipe.ingredients.length > 3 && (
                         <li className="text-text/60 italic">
                           +{recipe.ingredients.length - 3} more ingredients
@@ -141,7 +148,7 @@ export default function MyRecipesContent() {
                       )}
                     </ul>
                   </div>
-                  
+
                   <div className="mb-4">
                     <h4 className="font-medium text-text mb-2">Steps:</h4>
                     <div className="text-sm text-text/70 space-y-1">
@@ -150,7 +157,9 @@ export default function MyRecipesContent() {
                           <span className="bg-primary/20 text-primary text-xs font-medium px-2 py-1 rounded-full mr-2 mt-0.5">
                             {index + 1}
                           </span>
-                          <span className="line-clamp-2">{step.instruction}</span>
+                          <span className="line-clamp-2">
+                            {step.instruction}
+                          </span>
                         </div>
                       ))}
                       {recipe.steps.length > 2 && (
@@ -160,7 +169,7 @@ export default function MyRecipesContent() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-1 mb-4">
                     {recipe.tags.slice(0, 3).map((tag, index) => (
                       <span
@@ -176,7 +185,7 @@ export default function MyRecipesContent() {
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="text-xs text-text/50">
                     Created: {new Date(recipe.created_at).toLocaleDateString()}
                   </div>
@@ -188,4 +197,4 @@ export default function MyRecipesContent() {
       </div>
     </div>
   );
-} 
+}

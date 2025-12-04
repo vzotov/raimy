@@ -1,5 +1,11 @@
-import { useState, FormEvent, KeyboardEvent, useRef, useEffect } from 'react';
 import classNames from 'classnames';
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export interface ChatInputProps {
   onSend: (message: string) => void;
@@ -15,7 +21,7 @@ export interface ChatInputProps {
 export default function ChatInput({
   onSend,
   disabled = false,
-  placeholder = 'Type a message...'
+  placeholder = 'Type a message...',
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -62,7 +68,7 @@ export default function ChatInput({
             'text-text placeholder:text-text/50',
             'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            'max-h-32 overflow-y-auto'
+            'max-h-32 overflow-y-auto',
           )}
           style={{
             minHeight: '48px',
@@ -78,7 +84,7 @@ export default function ChatInput({
             'hover:bg-primary-hover active:bg-primary-pressed',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             'transition-colors duration-150',
-            'flex-shrink-0'
+            'flex-shrink-0',
           )}
         >
           Send

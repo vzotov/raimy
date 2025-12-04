@@ -1,5 +1,8 @@
 import useSWR, { mutate } from 'swr';
-import { mealPlannerSessions, kitchenSessions as kitchenSessionsApi } from '@/lib/api';
+import {
+  kitchenSessions as kitchenSessionsApi,
+  mealPlannerSessions,
+} from '@/lib/api';
 import type { MealPlannerSession } from '@/types/meal-planner-session';
 
 // SWR keys for caching
@@ -12,7 +15,12 @@ export const SESSIONS_KEYS = {
  * Hook for managing meal planner sessions with SWR
  */
 export function useMealPlannerSessions() {
-  const { data, error, isLoading, mutate: revalidate } = useSWR(
+  const {
+    data,
+    error,
+    isLoading,
+    mutate: revalidate,
+  } = useSWR(
     SESSIONS_KEYS.mealPlanner,
     async () => {
       const response = await mealPlannerSessions.list('meal-planner');
@@ -27,7 +35,7 @@ export function useMealPlannerSessions() {
       revalidateOnReconnect: true,
       // Keep previous data while revalidating
       keepPreviousData: true,
-    }
+    },
   );
 
   const createSession = async () => {
@@ -40,8 +48,11 @@ export function useMealPlannerSessions() {
       // Optimistically update cache
       await mutate(
         SESSIONS_KEYS.mealPlanner,
-        (current: MealPlannerSession[] = []) => [response.data!.session, ...current],
-        false
+        (current: MealPlannerSession[] = []) => [
+          response.data!.session,
+          ...current,
+        ],
+        false,
       );
       // Revalidate to ensure consistency
       revalidate();
@@ -65,9 +76,9 @@ export function useMealPlannerSessions() {
         current.map((session) =>
           session.id === sessionId
             ? { ...session, session_name: newName }
-            : session
+            : session,
         ),
-      false
+      false,
     );
 
     return response.data;
@@ -84,7 +95,7 @@ export function useMealPlannerSessions() {
       SESSIONS_KEYS.mealPlanner,
       (current: MealPlannerSession[] = []) =>
         current.filter((session) => session.id !== sessionId),
-      false
+      false,
     );
 
     return response.data;
@@ -105,7 +116,12 @@ export function useMealPlannerSessions() {
  * Hook for managing kitchen sessions with SWR
  */
 export function useKitchenSessions() {
-  const { data, error, isLoading, mutate: revalidate } = useSWR(
+  const {
+    data,
+    error,
+    isLoading,
+    mutate: revalidate,
+  } = useSWR(
     SESSIONS_KEYS.kitchen,
     async () => {
       const response = await kitchenSessionsApi.list();
@@ -118,7 +134,7 @@ export function useKitchenSessions() {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       keepPreviousData: true,
-    }
+    },
   );
 
   const createSession = async () => {
@@ -131,8 +147,11 @@ export function useKitchenSessions() {
       // Optimistically update cache
       await mutate(
         SESSIONS_KEYS.kitchen,
-        (current: MealPlannerSession[] = []) => [response.data!.session, ...current],
-        false
+        (current: MealPlannerSession[] = []) => [
+          response.data!.session,
+          ...current,
+        ],
+        false,
       );
       revalidate();
       return response.data.session;
@@ -155,9 +174,9 @@ export function useKitchenSessions() {
         current.map((session) =>
           session.id === sessionId
             ? { ...session, session_name: newName }
-            : session
+            : session,
         ),
-      false
+      false,
     );
 
     return response.data;
@@ -174,7 +193,7 @@ export function useKitchenSessions() {
       SESSIONS_KEYS.kitchen,
       (current: MealPlannerSession[] = []) =>
         current.filter((session) => session.id !== sessionId),
-      false
+      false,
     );
 
     return response.data;
@@ -197,9 +216,12 @@ export function useKitchenSessions() {
 export function updateSessionNameInCache(
   sessionId: string,
   sessionName: string,
-  sessionType: 'meal-planner' | 'kitchen'
+  sessionType: 'meal-planner' | 'kitchen',
 ) {
-  const key = sessionType === 'kitchen' ? SESSIONS_KEYS.kitchen : SESSIONS_KEYS.mealPlanner;
+  const key =
+    sessionType === 'kitchen'
+      ? SESSIONS_KEYS.kitchen
+      : SESSIONS_KEYS.mealPlanner;
 
   mutate(
     key,
@@ -207,8 +229,8 @@ export function updateSessionNameInCache(
       current.map((session) =>
         session.id === sessionId
           ? { ...session, session_name: sessionName }
-          : session
+          : session,
       ),
-    false
+    false,
   );
 }

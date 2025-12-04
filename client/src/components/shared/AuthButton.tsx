@@ -1,16 +1,12 @@
 'use client';
-import { useAuth } from '@/hooks/useAuth';
 import classNames from 'classnames';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AuthButton() {
   const { user, loading, isAuthenticated, login, logout } = useAuth();
 
   if (loading) {
-    return (
-      <div className="px-4 py-2 rounded text-text/60">
-        Loading...
-      </div>
-    );
+    return <div className="px-4 py-2 rounded text-text/60">Loading...</div>;
   }
 
   if (isAuthenticated && user) {

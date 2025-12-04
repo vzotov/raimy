@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useKitchenSessions } from '@/hooks/useSessions';
 import SectionHeader from './SectionHeader';
 import SessionList from './SessionList';
@@ -10,7 +10,9 @@ interface KitchenMenuSectionProps {
   onMenuClose: () => void;
 }
 
-export default function KitchenMenuSection({ onMenuClose }: KitchenMenuSectionProps) {
+export default function KitchenMenuSection({
+  onMenuClose,
+}: KitchenMenuSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);

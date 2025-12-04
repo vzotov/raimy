@@ -1,14 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import classNames from 'classnames';
-import AuthButton from '@/components/shared/AuthButton';
-import ThemeSelector from '@/components/shared/ThemeSelector';
-import Logo from '@/components/shared/Logo';
+import Link from 'next/link';
 import { XIcon } from '@/components/icons';
-import { useAuth } from '@/hooks/useAuth';
+import AuthButton from '@/components/shared/AuthButton';
+import Logo from '@/components/shared/Logo';
 import KitchenMenuSection from '@/components/shared/menu/KitchenMenuSection';
 import MealPlannerMenuSection from '@/components/shared/menu/MealPlannerMenuSection';
+import ThemeSelector from '@/components/shared/ThemeSelector';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MainMenuProps {
   isOpen: boolean;
@@ -74,7 +74,9 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
       {/* Overlay for menu on mobile */}
       {isOpen && (
         <div
-          className={classNames('fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden transition-opacity duration-300')}
+          className={classNames(
+            'fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden transition-opacity duration-300',
+          )}
           onClick={onClose}
         />
       )}

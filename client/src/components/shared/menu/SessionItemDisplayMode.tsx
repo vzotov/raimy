@@ -1,6 +1,6 @@
 'use client';
 
-import { MealPlannerSession } from '@/types/meal-planner-session';
+import type { MealPlannerSession } from '@/types/meal-planner-session';
 
 interface SessionItemDisplayModeProps {
   session: MealPlannerSession;

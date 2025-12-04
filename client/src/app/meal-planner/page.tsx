@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { mealPlannerSessions } from '@/lib/api';
 import classNames from 'classnames';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { mealPlannerSessions } from '@/lib/api';
 
 export default function MealPlannerPage() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function MealPlannerPage() {
               className={classNames(
                 'w-full px-4 py-3 bg-transparent text-text resize-none',
                 'focus:outline-none placeholder:text-text/40',
-                'min-h-[120px]'
+                'min-h-[120px]',
               )}
               autoFocus
             />
@@ -77,7 +77,7 @@ export default function MealPlannerPage() {
                       message && !isCreating,
                     'bg-accent/20 text-text/30 cursor-not-allowed':
                       !message || isCreating,
-                  }
+                  },
                 )}
               >
                 {isCreating ? 'Creating...' : 'Start Chat'}
@@ -113,7 +113,7 @@ export default function MealPlannerPage() {
                   'text-sm text-text/70',
                   {
                     'cursor-not-allowed opacity-50': isCreating,
-                  }
+                  },
                 )}
               >
                 {example}

@@ -1,8 +1,8 @@
 'use client';
 
+import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import classNames from 'classnames';
 import { useKitchenSessions } from '@/hooks/useSessions';
 
 export default function KitchenPage() {
@@ -45,7 +45,7 @@ export default function KitchenPage() {
             {
               'bg-primary text-white hover:bg-primary/90': !isCreating,
               'bg-accent/20 text-text/30 cursor-not-allowed': isCreating,
-            }
+            },
           )}
         >
           {isCreating ? 'Starting...' : 'Start Cooking'}

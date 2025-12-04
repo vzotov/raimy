@@ -1,20 +1,25 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useWebSocket, ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
+import classNames from 'classnames';
+import { useCallback, useState } from 'react';
 import Chat from '@/components/shared/chat/Chat';
-import { ChatMessage } from '@/hooks/useChatMessages';
-import { SessionMessage } from '@/types/meal-planner-session';
+import IngredientList, {
+  type Ingredient,
+} from '@/components/shared/IngredientList';
+import TimerList, { type Timer } from '@/components/shared/TimerList';
+import type { ChatMessage } from '@/hooks/useChatMessages';
+import { updateSessionNameInCache } from '@/hooks/useSessions';
 import {
+  useWebSocket,
+  type ChatMessage as WebSocketMessage,
+} from '@/hooks/useWebSocket';
+import type {
+  IngredientsContent,
   MessageContent,
   RecipeNameContent,
-  IngredientsContent,
-  TimerContent
+  TimerContent,
 } from '@/types/chat-message-types';
-import IngredientList, { Ingredient } from '@/components/shared/IngredientList';
-import TimerList, { Timer } from '@/components/shared/TimerList';
-import classNames from 'classnames';
-import { updateSessionNameInCache } from '@/hooks/useSessions';
+import type { SessionMessage } from '@/types/meal-planner-session';
 
 interface KitchenChatProps {
   sessionId: string;
@@ -35,12 +40,13 @@ export default function KitchenChat({
       id: `msg-${index}`,
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
-      timestamp: new Date(msg.created_at),
-    }))
+      timestamp: new Date(msg.timestamp),
+    })),
   );
 
   // Kitchen-specific state
-  const [ingredients, setIngredients] = useState<Ingredient[]>(initialIngredients);
+  const [ingredients, setIngredients] =
+    useState<Ingredient[]>(initialIngredients);
   const [timers, setTimers] = useState<Timer[]>([]);
   const [recipeName, setRecipeName] = useState<string>('');
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
@@ -55,7 +61,7 @@ export default function KitchenChat({
 
       // Route based on content type (application layer)
       switch (content.type) {
-        case 'text':
+        case 'text': {
           // Handle text messages with streaming support
           const textContent = content as MessageContent;
           const messageId = wsMessage.message_id || `agent-${Date.now()}`;
@@ -91,8 +97,9 @@ export default function KitchenChat({
             setAgentStatus(null);
           }
           break;
+        }
 
-        case 'recipe':
+        case 'recipe': {
           // Add to chat history
           const recipeMessage: ChatMessage = {
             id: wsMessage.message_id || `agent-${Date.now()}`,
@@ -102,33 +109,45 @@ export default function KitchenChat({
           };
           setMessages((prev) => [...prev, recipeMessage]);
           break;
+        }
 
-        case 'recipe_name':
+        case 'recipe_name': {
           // Update recipe name state
           const recipeNameContent = content as RecipeNameContent;
           if (recipeNameContent.name) {
             setRecipeName(recipeNameContent.name);
             // Update sessions list cache so the sidebar shows updated name
-            updateSessionNameInCache(sessionId, recipeNameContent.name, 'kitchen');
+            updateSessionNameInCache(
+              sessionId,
+              recipeNameContent.name,
+              'kitchen',
+            );
           }
           break;
+        }
 
-        case 'ingredients':
+        case 'ingredients': {
           // Update ingredients state
           const ingredientsContent = content as IngredientsContent;
           if (ingredientsContent.action === 'set' && ingredientsContent.items) {
             setIngredients(ingredientsContent.items);
-          } else if (ingredientsContent.action === 'update' && ingredientsContent.items) {
+          } else if (
+            ingredientsContent.action === 'update' &&
+            ingredientsContent.items
+          ) {
             setIngredients((prev) =>
               prev.map((ing) => {
-                const update = ingredientsContent.items?.find((u) => u.name === ing.name);
+                const update = ingredientsContent.items?.find(
+                  (u) => u.name === ing.name,
+                );
                 return update ? { ...ing, ...update } : ing;
-              })
+              }),
             );
           }
           break;
+        }
 
-        case 'timer':
+        case 'timer': {
           // Add timer to state
           const timerContent = content as TimerContent;
           if (timerContent.duration && timerContent.label) {
@@ -141,6 +160,7 @@ export default function KitchenChat({
             setTimers((prev) => [...prev, newTimer]);
           }
           break;
+        }
       }
     }
 
@@ -197,7 +217,7 @@ export default function KitchenChat({
       // Send via WebSocket
       sendMessage(content);
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   return (
@@ -222,16 +242,14 @@ export default function KitchenChat({
                 })}
               />
               <span className="text-xs text-text/60">
-                {error
-                  ? 'Error'
-                  : isConnected
-                    ? 'Connected'
-                    : 'Connecting...'}
+                {error ? 'Error' : isConnected ? 'Connected' : 'Connecting...'}
               </span>
             </div>
           </div>
           {error && (
-            <p className="text-xs text-red-500 mt-1">Connection error: {error}</p>
+            <p className="text-xs text-red-500 mt-1">
+              Connection error: {error}
+            </p>
           )}
         </div>
 
@@ -252,7 +270,9 @@ export default function KitchenChat({
           {/* Ingredient List */}
           {ingredients.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-text mb-3">Ingredients</h2>
+              <h2 className="text-lg font-semibold text-text mb-3">
+                Ingredients
+              </h2>
               <IngredientList ingredients={ingredients} />
             </div>
           )}

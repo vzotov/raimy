@@ -3,7 +3,7 @@
  * Supports multiple message types with type-safe content.
  */
 
-import { BaseIngredient } from './ingredient';
+import type { BaseIngredient } from './ingredient';
 
 /**
  * Chat ingredient extends base with additional meal planning fields

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useMealPlannerSessions } from '@/hooks/useSessions';
 import SectionHeader from './SectionHeader';
 import SessionList from './SessionList';
@@ -11,16 +11,15 @@ interface MealPlannerMenuSectionProps {
   onMenuClose: () => void;
 }
 
-export default function MealPlannerMenuSection({ onMenuClose }: MealPlannerMenuSectionProps) {
+export default function MealPlannerMenuSection({
+  onMenuClose,
+}: MealPlannerMenuSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const {
-    sessions,
-    updateSessionName,
-    deleteSession,
-  } = useMealPlannerSessions();
+  const { sessions, updateSessionName, deleteSession } =
+    useMealPlannerSessions();
 
   // Auto-expand when on a meal planner page
   useEffect(() => {

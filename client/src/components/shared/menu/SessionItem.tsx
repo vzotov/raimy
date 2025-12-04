@@ -1,9 +1,9 @@
 'use client';
 
 import classNames from 'classnames';
-import { MealPlannerSession } from '@/types/meal-planner-session';
-import SessionItemEditMode from './SessionItemEditMode';
+import type { MealPlannerSession } from '@/types/meal-planner-session';
 import SessionItemDisplayMode from './SessionItemDisplayMode';
+import SessionItemEditMode from './SessionItemEditMode';
 
 interface SessionItemProps {
   session: MealPlannerSession;
@@ -33,13 +33,10 @@ export default function SessionItem({
   return (
     <div
       key={session.id}
-      className={classNames(
-        'group relative rounded-lg transition-colors',
-        {
-          'bg-accent/30': isActive,
-          'hover:bg-accent/10': !isActive && !isEditing,
-        }
-      )}
+      className={classNames('group relative rounded-lg transition-colors', {
+        'bg-accent/30': isActive,
+        'hover:bg-accent/10': !isActive && !isEditing,
+      })}
     >
       {isEditing ? (
         <SessionItemEditMode

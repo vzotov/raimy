@@ -1,25 +1,29 @@
 'use client';
 import useSWR from 'swr';
-import { AuthResponse } from '@/types/auth';
+import type { AuthResponse } from '@/types/auth';
 
 const authFetcher = async (url: string): Promise<AuthResponse> => {
   const response = await fetch(`${url}`, {
     credentials: 'include',
   });
-  
+
   if (!response.ok) {
     throw new Error('Auth request failed');
   }
-  
+
   return response.json();
 };
 
 export function useAuth() {
-  const { data, error, isLoading, mutate } = useSWR<AuthResponse>('/auth/me', authFetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-    dedupingInterval: 60000, // 1 minute
-  });
+  const { data, error, isLoading, mutate } = useSWR<AuthResponse>(
+    '/auth/me',
+    authFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000, // 1 minute
+    },
+  );
 
   const user = data?.authenticated ? data.user : null;
   const isAuthenticated = data?.authenticated || false;
@@ -33,7 +37,7 @@ export function useAuth() {
       method: 'GET',
       credentials: 'include',
     });
-    
+
     if (response.ok) {
       window.location.reload();
     } else {
@@ -50,4 +54,4 @@ export function useAuth() {
     logout,
     refresh: () => mutate(),
   };
-} 
+}

@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function proxy(request: NextRequest) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -35,9 +35,5 @@ export async function proxy(request: NextRequest) {
 
 // Specify which routes should be protected
 export const config = {
-  matcher: [
-    '/kitchen/:path*',
-    '/meal-planner/:path*',
-    '/myrecipes/:path*',
-  ],
+  matcher: ['/kitchen/:path*', '/meal-planner/:path*', '/myrecipes/:path*'],
 };

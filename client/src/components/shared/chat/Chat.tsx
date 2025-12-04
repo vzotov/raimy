@@ -1,13 +1,11 @@
 'use client';
 
-import ChatMessages from './ChatMessages';
-import ChatInput from './ChatInput';
 import { useCallback, useState } from 'react';
-import { ChatMessage } from '@/hooks/useChatMessages';
+import type { ChatMessage } from '@/hooks/useChatMessages';
+import ChatInput from './ChatInput';
+import ChatMessages from './ChatMessages';
 
 export interface ChatProps {
-  showDebugPanel?: boolean;
-  debugMessages?: ChatMessage[];
   sessionId?: string;
   messages?: ChatMessage[];
   onSendMessage?: (message: string) => void;
@@ -21,17 +19,12 @@ export interface ChatProps {
  * Supports debug mode for testing message types without LLM.
  */
 export default function Chat({
-  showDebugPanel = false,
-  debugMessages = [],
   messages = [],
   onSendMessage,
   isConnected = false,
   agentStatus = null,
 }: ChatProps) {
   const [isSending, setIsSending] = useState(false);
-
-  // Use debug messages if debug panel is shown, otherwise use regular messages
-  const displayMessages = showDebugPanel ? debugMessages : messages;
 
   const handleSend = useCallback(
     async (message: string) => {
@@ -47,14 +40,14 @@ export default function Chat({
         setTimeout(() => setIsSending(false), 500);
       }
     },
-    [onSendMessage]
+    [onSendMessage],
   );
 
   const isDisabled = !isConnected || isSending;
 
   return (
     <div className="flex flex-col h-full">
-      <ChatMessages messages={displayMessages} agentStatus={agentStatus} />
+      <ChatMessages messages={messages} agentStatus={agentStatus} />
       <ChatInput
         onSend={handleSend}
         disabled={isDisabled}

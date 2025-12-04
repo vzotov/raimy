@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { AuthResponse } from '@/types/auth';
+import type { AuthResponse } from '@/types/auth';
 
 export async function getServerAuth(): Promise<AuthResponse> {
   try {

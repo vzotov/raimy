@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
-import Chat from '@/components/shared/chat/Chat';
-import { ChatMessage } from '@/hooks/useChatMessages';
-import { SessionMessage } from '@/types/meal-planner-session';
-import { MessageContent } from '@/types/chat-message-types';
 import classNames from 'classnames';
+import { useCallback, useState } from 'react';
+import Chat from '@/components/shared/chat/Chat';
+import type { ChatMessage } from '@/hooks/useChatMessages';
+import {
+  useWebSocket,
+  type ChatMessage as WebSocketMessage,
+} from '@/hooks/useWebSocket';
+import type { MessageContent } from '@/types/chat-message-types';
+import type { SessionMessage } from '@/types/meal-planner-session';
 
 interface MealPlannerChatProps {
   sessionId: string;
@@ -26,9 +28,9 @@ export default function MealPlannerChat({
     initialMessages.map((msg, index) => ({
       id: `msg-${index}`,
       role: msg.role as 'user' | 'assistant',
-      content: msg.content,  // Already MessageContent from backend
-      timestamp: new Date(msg.created_at),
-    }))
+      content: msg.content, // Already MessageContent from backend
+      timestamp: new Date(msg.timestamp),
+    })),
   );
 
   // Memoize WebSocket callbacks to prevent reconnections
@@ -124,7 +126,7 @@ export default function MealPlannerChat({
       // Send via WebSocket
       sendMessage(content);
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   return (
@@ -145,11 +147,7 @@ export default function MealPlannerChat({
               })}
             />
             <span className="text-xs text-text/60">
-              {error
-                ? 'Error'
-                : isConnected
-                  ? 'Connected'
-                  : 'Connecting...'}
+              {error ? 'Error' : isConnected ? 'Connected' : 'Connecting...'}
             </span>
           </div>
         </div>

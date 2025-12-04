@@ -4,8 +4,8 @@
  * Manages WebSocket connection to the backend chat service
  * with automatic reconnection and message handling.
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { MessageContent } from '@/types/chat-message-types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MessageContent } from '@/types/chat-message-types';
 
 export interface ChatMessage {
   type: 'user_message' | 'agent_message' | 'system';
@@ -50,7 +50,9 @@ export function useWebSocket({
     try {
       // Build WebSocket URL (authentication via cookies)
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsHost = process.env.NEXT_PUBLIC_WS_HOST || window.location.host.replace(':3000', ':8000');
+      const wsHost =
+        process.env.NEXT_PUBLIC_WS_HOST ||
+        window.location.host.replace(':3000', ':8000');
       const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/${sessionId}`;
 
       console.log('📡 Connecting to WebSocket:', wsUrl);
@@ -99,7 +101,15 @@ export function useWebSocket({
       console.error('❌ Failed to create WebSocket:', err);
       setError('Failed to create WebSocket connection');
     }
-  }, [sessionId, onMessage, onError, onConnect, onDisconnect, autoReconnect, reconnectInterval]);
+  }, [
+    sessionId,
+    onMessage,
+    onError,
+    onConnect,
+    onDisconnect,
+    autoReconnect,
+    reconnectInterval,
+  ]);
 
   const disconnect = useCallback(() => {
     shouldReconnect.current = false;
@@ -123,26 +133,23 @@ export function useWebSocket({
     connect();
   }, [connect, disconnect]);
 
-  const sendMessage = useCallback(
-    (content: string) => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        const message: ChatMessage = {
-          type: 'user_message',
-          content: {
-            type: 'text',
-            content: content
-          },
-        };
+  const sendMessage = useCallback((content: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const message: ChatMessage = {
+        type: 'user_message',
+        content: {
+          type: 'text',
+          content: content,
+        },
+      };
 
-        console.log('📤 Sending message:', message);
-        wsRef.current.send(JSON.stringify(message));
-      } else {
-        console.error('❌ WebSocket not connected. Cannot send message.');
-        setError('WebSocket not connected');
-      }
-    },
-    []
-  );
+      console.log('📤 Sending message:', message);
+      wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.error('❌ WebSocket not connected. Cannot send message.');
+      setError('WebSocket not connected');
+    }
+  }, []);
 
   // Connect on mount
   useEffect(() => {

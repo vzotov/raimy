@@ -1,4 +1,4 @@
-import { MessageContent } from '@/types/chat-message-types';
+import type { MessageContent } from '@/types/chat-message-types';
 import IngredientList from './IngredientList';
 import RecipeCard from './RecipeCard';
 
@@ -16,7 +16,10 @@ export interface MessageRendererProps {
  * 2. Create a component for the type
  * 3. Add a case to the switch statement below
  */
-export default function MessageRenderer({ content, isUser = false }: MessageRendererProps) {
+export default function MessageRenderer({
+  content,
+  isUser = false,
+}: MessageRendererProps) {
   switch (content.type) {
     case 'text':
       return (
@@ -35,20 +38,11 @@ export default function MessageRenderer({ content, isUser = false }: MessageRend
       );
 
     case 'recipe':
-      return (
-        <RecipeCard
-          recipe={content}
-          isUser={isUser}
-        />
-      );
+      return <RecipeCard recipe={content} isUser={isUser} />;
 
     default:
       // TypeScript exhaustiveness check - if we miss a case, this will error
       console.error('Unknown message content type:', content);
-      return (
-        <p className="text-sm text-red-500">
-          Unknown message type
-        </p>
-      );
+      return <p className="text-sm text-red-500">Unknown message type</p>;
   }
 }

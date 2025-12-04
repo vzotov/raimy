@@ -86,10 +86,6 @@ export default function MealPlannerChat({
         case 'connected':
           console.log('✅', systemContent.message);
           break;
-        case 'complete':
-          // Streaming is complete - could trigger UI updates if needed
-          console.log('✅ Streaming complete');
-          break;
         case 'error':
           console.error('❌', systemContent.message);
           break;

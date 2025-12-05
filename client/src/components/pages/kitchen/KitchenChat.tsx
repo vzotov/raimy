@@ -32,20 +32,10 @@ export default function KitchenChat({
     initialIngredients,
   });
 
-  const handleConnect = useCallback(() => {
-    console.log('[KitchenChat] WebSocket connected');
-  }, []);
-
-  const handleDisconnect = useCallback(() => {
-    console.log('[KitchenChat] WebSocket disconnected');
-  }, []);
-
   // WebSocket connection
   const { isConnected, error, sendMessage } = useWebSocket({
     sessionId,
     onMessage: handleMessage,
-    onConnect: handleConnect,
-    onDisconnect: handleDisconnect,
   });
 
   // Handle sending messages

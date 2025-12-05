@@ -1,10 +1,10 @@
 import type { Dispatch } from 'react';
 import { updateSessionNameInCache } from '@/hooks/useSessions';
-import type { RecipeNameContent } from '@/types/chat-message-types';
+import type { SessionNameContent } from '@/types/chat-message-types';
 import type { KitchenMessageAction } from './types';
 
 export function handleRecipeNameMessage(
-  content: RecipeNameContent,
+  content: SessionNameContent,
   dispatch: Dispatch<KitchenMessageAction>,
   sessionId: string,
 ): void {

@@ -1,5 +1,4 @@
 export { handleIngredientsMessage } from './ingredientsHandler';
-export { handleRecipeMessage } from './recipeHandler';
 export { handleRecipeNameMessage } from './recipeNameHandler';
 export { handleRecipeUpdateMessage } from './recipeUpdateHandler';
 export { handleSystemMessage } from './systemHandler';

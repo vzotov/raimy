@@ -78,12 +78,12 @@ async def get_service_token() -> Optional[str]:
         return None
 
 
-@mcp.tool()
+@mcp.tool(tags={"kitchen"})
 async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
     """
     Set the complete ingredients list for the current recipe.
 
-    ⚠️ CALL EXACTLY ONCE per cooking session, immediately after send_recipe_name.
+    ⚠️ CALL EXACTLY ONCE per cooking session, immediately after set_session_name.
     DO NOT call again if you've already set ingredients in this conversation.
     Use update_ingredients() for any changes after initial setup.
 
@@ -146,7 +146,7 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(tags={"kitchen"})
 async def update_ingredients(ingredients: List[dict], session_id: str) -> dict:
     """
     Update specific ingredients in the current recipe.
@@ -217,7 +217,7 @@ async def update_ingredients(ingredients: List[dict], session_id: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(tags={"kitchen"})
 async def set_timer(duration: int, label: str, session_id: str) -> dict:
     """
     Set a cooking timer with a descriptive label.
@@ -268,25 +268,29 @@ async def set_timer(duration: int, label: str, session_id: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
-async def send_recipe_name(recipe_name: str, session_id: str) -> dict:
+@mcp.tool(tags={"kitchen", "meal-planner"})
+async def set_session_name(session_name: str, session_id: str) -> dict:
     """
-    Display the recipe name to the user.
+    Set/display the session name for kitchen or meal planner sessions.
 
-    ⚠️ CALL EXACTLY ONCE per cooking session when recipe is first selected.
-    DO NOT call again if you've already sent the recipe name in this conversation.
+    Use this to show the user what they're working on - a recipe name in kitchen mode,
+    or a meal plan name in meal planner mode.
+
+    ⚠️ CALL EXACTLY ONCE per session when the topic/recipe is first established.
+    DO NOT call again if you've already set the session name in this conversation.
 
     Args:
-        recipe_name: Name of the recipe being prepared
+        session_name: Name of the session (recipe name or meal plan name)
         session_id: Session ID for WebSocket routing (injected automatically by agent)
 
     Returns:
         dict: Success status and message
 
     Example:
-        send_recipe_name("Spaghetti Carbonara")
+        set_session_name("Spaghetti Carbonara")
+        set_session_name("Weekly Meal Plan")
     """
-    print(f"🔧 MCP TOOL: send_recipe_name('{recipe_name}', session={session_id})")
+    print(f"🔧 MCP TOOL: set_session_name('{session_name}', session={session_id})")
 
     try:
         # Publish to Redis
@@ -295,23 +299,23 @@ async def send_recipe_name(recipe_name: str, session_id: str) -> dict:
             {
                 "type": "agent_message",
                 "content": {
-                    "type": "recipe_name",
-                    "name": recipe_name
+                    "type": "session_name",
+                    "name": session_name
                 }
             }
         )
 
-        print(f"✅ send_recipe_name: Recipe name sent: {recipe_name}")
+        print(f"✅ set_session_name: Session name set: {session_name}")
         return {
             "success": True,
-            "message": f"Recipe name sent: {recipe_name}"
+            "message": f"Session name set: {session_name}"
         }
     except Exception as e:
-        print(f"❌ send_recipe_name error: {str(e)}")
+        print(f"❌ set_session_name error: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(tags={"meal-planner"})
 async def set_recipe_metadata(
     session_id: str,
     name: str,
@@ -373,7 +377,7 @@ async def set_recipe_metadata(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(tags={"meal-planner"})
 async def set_recipe_ingredients(
     session_id: str,
     ingredients: List[dict],
@@ -429,7 +433,7 @@ async def set_recipe_ingredients(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(tags={"meal-planner"})
 async def set_recipe_steps(
     session_id: str,
     steps: List[str],
@@ -474,7 +478,7 @@ async def set_recipe_steps(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(tags={"meal-planner"})
 async def save_recipe(
     name: str,
     ingredients: List[str],

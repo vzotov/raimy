@@ -6,10 +6,7 @@ import Chat from '@/components/shared/chat/Chat';
 import RecipeDocument from '@/components/shared/RecipeDocument';
 import type { ChatMessage } from '@/hooks/useChatMessages';
 import { useMealPlannerRecipe } from '@/hooks/useMealPlannerRecipe';
-import {
-  useWebSocket,
-  type ChatMessage as WebSocketMessage,
-} from '@/hooks/useWebSocket';
+import { useWebSocket, type ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import { handleRecipeUpdateMessage } from '@/lib/messageHandlers';
 import type { MessageContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/meal-planner-session';
@@ -37,8 +34,7 @@ export default function MealPlannerChat({
   );
 
   // Recipe state management
-  const { recipe, isVisible, applyRecipeUpdate, toggleVisibility } =
-    useMealPlannerRecipe();
+  const { recipe, isVisible, applyRecipeUpdate, toggleVisibility } = useMealPlannerRecipe();
 
   // Memoize WebSocket callbacks to prevent reconnections
   const handleMessage = useCallback(
@@ -54,8 +50,20 @@ export default function MealPlannerChat({
           return;
         }
 
+        // Handle session_name - set the recipe name in sidebar (don't add to chat)
+        if (content.type === 'session_name') {
+          // Initialize recipe with name if not already initialized
+          if (!recipe) {
+            applyRecipeUpdate({
+              type: 'recipe_update',
+              action: 'set_metadata',
+              name: content.name,
+            });
+          }
+          return;
+        }
+
         // Handle MessageContent types (text, ingredients, recipe)
-        // Meal planner doesn't handle tool responses like recipe_name, timer, etc.
         if (content.type === 'text') {
           // Handle text messages with streaming support
           const messageId = wsMessage.message_id || `agent-${Date.now()}`;
@@ -148,17 +156,17 @@ export default function MealPlannerChat({
   return (
     <div className="flex h-screen w-full">
       {/* Main chat area */}
-      <div className="flex flex-col flex-1 max-w-7xl mx-auto w-full">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-accent/20">
+        <div className="border-b border-accent/20 p-4">
           <h1 className="text-2xl font-bold text-text">{sessionName}</h1>
-          <div className="flex items-center gap-4 mt-2">
+          <div className="mt-2 flex items-center gap-4">
             <p className="text-sm text-text/70">
               {messages.length} message{messages.length !== 1 ? 's' : ''}
             </p>
             <div className="flex items-center gap-2">
               <div
-                className={classNames('w-2 h-2 rounded-full', {
+                className={classNames('h-2 w-2 rounded-full', {
                   'bg-green-500': isConnected,
                   'bg-yellow-500': !isConnected && !error,
                   'bg-red-500': error,
@@ -169,33 +177,19 @@ export default function MealPlannerChat({
               </span>
             </div>
           </div>
-          {error && (
-            <p className="text-xs text-red-500 mt-1">
-              Connection error: {error}
-            </p>
-          )}
+          {error && <p className="mt-1 text-xs text-red-500">Connection error: {error}</p>}
         </div>
 
         {/* Chat */}
         <div className="flex-1 overflow-hidden">
-          <Chat
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isConnected={isConnected}
-          />
+          <Chat messages={messages} onSendMessage={handleSendMessage} isConnected={isConnected} />
         </div>
       </div>
 
       {/* Recipe sidebar (desktop) / Expandable panel (mobile) */}
-      {recipe && (
-        <div className="w-full md:w-96 border-l border-accent/20">
-          <RecipeDocument
-            recipe={recipe}
-            isVisible={isVisible}
-            onToggle={toggleVisibility}
-          />
-        </div>
-      )}
+      <div className="w-full border-l border-accent/20 md:w-96">
+        <RecipeDocument recipe={recipe} isVisible={isVisible} onToggle={toggleVisibility} />
+      </div>
     </div>
   );
 }

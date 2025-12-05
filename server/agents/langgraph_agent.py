@@ -131,11 +131,10 @@ class LangGraphAgent:
             User-friendly status message
         """
         status_messages = {
-            "save_recipe": "saving recipe",
             "set_ingredients": "gathering ingredients",
-            "update_ingredients": "updating ingredients",
+            "update_ingredients": "thinking",
             "set_timer": "setting timer",
-            "send_recipe_name": "preparing recipe"
+            "set_session_name": "preparing recipe"
         }
         return status_messages.get(tool_name, f"using {tool_name}")
 

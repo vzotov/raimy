@@ -25,8 +25,8 @@ export type IngredientsContent = {
   action: 'set' | 'update';
 };
 
-export type RecipeNameContent = {
-  type: 'recipe_name';
+export type SessionNameContent = {
+  type: 'session_name';
   name: string;
 };
 
@@ -51,40 +51,36 @@ export type RecipeContent = {
 };
 
 /**
- * Unified recipe update type - handles both full recipe and incremental updates
- * Used in meal planner for live recipe editing
+ * Recipe update messages from agent MCP tools
+ * Three separate actions for bulk updates
  */
-export type RecipeUpdateContent = {
+export type RecipeMetadataUpdate = {
   type: 'recipe_update';
-  action:
-    | 'set'
-    | 'update_metadata'
-    | 'set_metadata' // NEW: Replace all metadata
-    | 'set_ingredients' // NEW: Replace all ingredients
-    | 'set_steps' // NEW: Replace all steps
-    | 'add_ingredient'
-    | 'remove_ingredient'
-    | 'update_ingredient'
-    | 'add_step'
-    | 'remove_step'
-    | 'update_step';
-  recipe_id?: string;
-  // Full recipe fields (for 'set' action) - all optional
-  name?: string;
+  action: 'set_metadata';
+  name: string;
   description?: string;
   difficulty?: string;
-  total_time_minutes?: number; // Keep for backward compat
-  total_time?: string; // NEW: String-based time
-  servings?: number | string; // Support both for backward compat
+  total_time?: string;
+  servings?: number | string;
   tags?: string[];
-  ingredients?: ChatIngredient[];
-  steps?: RecipeStep[] | string[]; // NEW: Support simple string steps
-  // Incremental update fields (for other actions)
-  ingredient?: ChatIngredient;
-  ingredient_index?: number;
-  step?: RecipeStep;
-  step_number?: number;
 };
+
+export type RecipeIngredientsUpdate = {
+  type: 'recipe_update';
+  action: 'set_ingredients';
+  ingredients: ChatIngredient[];
+};
+
+export type RecipeStepsUpdate = {
+  type: 'recipe_update';
+  action: 'set_steps';
+  steps: string[];
+};
+
+export type RecipeUpdateContent =
+  | RecipeMetadataUpdate
+  | RecipeIngredientsUpdate
+  | RecipeStepsUpdate;
 
 export type TimerContent = {
   type: 'timer';
@@ -102,7 +98,7 @@ export type SystemContent = {
 export type MessageContent =
   | TextContent
   | IngredientsContent
-  | RecipeNameContent
+  | SessionNameContent
   | RecipeContent
   | RecipeUpdateContent
   | TimerContent

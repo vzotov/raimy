@@ -4,7 +4,6 @@ import type { ChatMessage } from '@/hooks/useChatMessages';
 import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import {
   handleIngredientsMessage,
-  handleRecipeMessage,
   handleRecipeNameMessage,
   handleSystemMessage,
   handleTextMessage,
@@ -97,12 +96,15 @@ export function useKitchenMessageHandler({
 }: UseKitchenMessageHandlerParams) {
   // Convert initial messages to ChatMessage format
   const convertedMessages: ChatMessage[] = initialMessages.map(
-    (msg, index) => ({
-      id: `msg-${index}`,
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-      timestamp: new Date(msg.timestamp),
-    }),
+    (msg, index) => {
+      const timestamp = new Date(msg.timestamp);
+      return ({
+        id: `msg-${timestamp.getTime()}`,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        timestamp,
+      })
+    },
   );
 
   const [state, dispatch] = useReducer(kitchenMessageReducer, {
@@ -128,11 +130,7 @@ export function useKitchenMessageHandler({
             handleTextMessage(content, messageId, dispatch);
             break;
 
-          case 'recipe':
-            handleRecipeMessage(content, messageId, dispatch);
-            break;
-
-          case 'recipe_name':
+          case 'session_name':
             handleRecipeNameMessage(content, dispatch, sessionId);
             break;
 

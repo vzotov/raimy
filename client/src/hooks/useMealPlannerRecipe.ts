@@ -8,12 +8,10 @@ import type {
 
 interface RecipeState {
   recipe: RecipeContent | null;
-  isVisible: boolean; // For mobile expandable panel
 }
 
 type RecipeAction =
   | { type: 'SET_RECIPE'; payload: RecipeContent }
-  | { type: 'TOGGLE_VISIBILITY' }
   | { type: 'CLEAR_RECIPE' };
 
 /**
@@ -50,12 +48,6 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
         recipe: action.payload,
       };
 
-    case 'TOGGLE_VISIBILITY':
-      return {
-        ...state,
-        isVisible: !state.isVisible,
-      };
-
     case 'CLEAR_RECIPE':
       return {
         ...state,
@@ -70,7 +62,6 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
 export function useMealPlannerRecipe(initialRecipe?: RecipeContent) {
   const [state, dispatch] = useReducer(recipeReducer, {
     recipe: initialRecipe || null,
-    isVisible: false,
   });
 
   const applyRecipeUpdate = useCallback(
@@ -141,12 +132,7 @@ export function useMealPlannerRecipe(initialRecipe?: RecipeContent) {
 
   return {
     recipe: state.recipe,
-    isVisible: state.isVisible,
     applyRecipeUpdate,
-    toggleVisibility: useCallback(
-      () => dispatch({ type: 'TOGGLE_VISIBILITY' }),
-      [dispatch],
-    ),
     clearRecipe: useCallback(
       () => dispatch({ type: 'CLEAR_RECIPE' }),
       [dispatch],

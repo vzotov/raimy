@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { useChatState } from '@/hooks/useChatState';
 import { useMealPlannerRecipe } from '@/hooks/useMealPlannerRecipe';
 import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
-import { handleRecipeUpdateMessage } from '@/lib/messageHandlers';
 import type { RecipeContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/meal-planner-session';
 
@@ -52,12 +51,12 @@ export function useMealPlannerState({
 				switch (content.type) {
 					case 'recipe_update':
 						// Don't add to messages, just update recipe state
-						handleRecipeUpdateMessage(content, applyRecipeUpdate);
+            applyRecipeUpdate(content);
 						return; // Handled, don't delegate
 
 					case 'session_name':
 						// Initialize recipe with name if needed, then delegate to base
-						if (!recipe && content.name) {
+						if (content.name) {
 							applyRecipeUpdate({
 								type: 'recipe_update',
 								action: 'set_metadata',
@@ -69,14 +68,16 @@ export function useMealPlannerState({
 
 					// Let base handle: text, ingredients, recipe messages
 					default:
+            // Delegate to base chat handler
+            handleChatMessage(wsMessage);
 						break;
 				}
-			}
-
-			// Delegate to base chat handler
-			handleChatMessage(wsMessage);
+			} else {
+        // Delegate to base chat handler
+        handleChatMessage(wsMessage);
+      }
 		},
-		[handleChatMessage, applyRecipeUpdate, recipe],
+		[handleChatMessage, applyRecipeUpdate],
 	);
 
 	const addMessage = useCallback(

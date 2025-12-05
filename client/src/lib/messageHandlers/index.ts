@@ -10,6 +10,3 @@ export { handleIngredientsMessage } from './ingredientsHandler';
 export { handleTimerMessage } from './timerHandler';
 export { kitchenMessageReducer } from './kitchenReducer';
 export type { KitchenMessageAction, KitchenMessageState } from './types';
-
-// Meal planner-specific handlers
-export { handleRecipeUpdateMessage } from './recipeUpdateHandler';

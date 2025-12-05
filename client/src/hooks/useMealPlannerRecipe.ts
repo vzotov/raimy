@@ -12,6 +12,9 @@ interface RecipeState {
 
 type RecipeAction =
   | { type: 'SET_RECIPE'; payload: RecipeContent }
+  | { type: 'SET_METADATA'; payload: { name: string; description?: string; difficulty?: string; total_time_minutes?: number; servings?: number; tags?: string[] } }
+  | { type: 'SET_INGREDIENTS'; payload: ChatIngredient[] }
+  | { type: 'SET_STEPS'; payload: RecipeStep[] }
   | { type: 'CLEAR_RECIPE' };
 
 /**
@@ -48,6 +51,51 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
         recipe: action.payload,
       };
 
+    case 'SET_METADATA': {
+      // Initialize or update recipe with metadata
+      const newRecipe: RecipeContent = {
+        type: 'recipe',
+        recipe_id: state.recipe?.recipe_id || '',
+        name: action.payload.name,
+        description: action.payload.description,
+        difficulty: action.payload.difficulty,
+        total_time_minutes: action.payload.total_time_minutes,
+        servings: action.payload.servings,
+        tags: action.payload.tags || [],
+        ingredients: state.recipe?.ingredients || [],
+        steps: state.recipe?.steps || [],
+      };
+      return { ...state, recipe: newRecipe };
+    }
+
+    case 'SET_INGREDIENTS': {
+      if (!state.recipe) {
+        // No recipe yet, just ignore ingredients
+        return state;
+      }
+      return {
+        ...state,
+        recipe: {
+          ...state.recipe,
+          ingredients: action.payload,
+        },
+      };
+    }
+
+    case 'SET_STEPS': {
+      if (!state.recipe) {
+        // No recipe yet, just ignore steps
+        return state;
+      }
+      return {
+        ...state,
+        recipe: {
+          ...state.recipe,
+          steps: action.payload,
+        },
+      };
+    }
+
     case 'CLEAR_RECIPE':
       return {
         ...state,
@@ -67,67 +115,47 @@ export function useMealPlannerRecipe(initialRecipe?: RecipeContent) {
   const applyRecipeUpdate = useCallback(
     (update: RecipeUpdateContent) => {
       switch (update.action) {
-        case 'set_metadata': {
-          // Initialize or update recipe with metadata
-          const newRecipe: RecipeContent = {
-            type: 'recipe',
-            recipe_id: state.recipe?.recipe_id || '',
-            name: update.name,
-            description: update.description,
-            difficulty: update.difficulty,
-            total_time_minutes:
-              typeof update.total_time === 'string'
-                ? parseTimeString(update.total_time)
-                : undefined,
-            servings:
-              typeof update.servings === 'string'
-                ? parseInt(update.servings, 10) || undefined
-                : update.servings,
-            tags: update.tags || [],
-            ingredients: state.recipe?.ingredients || [],
-            steps: state.recipe?.steps || [],
-          };
-          dispatch({ type: 'SET_RECIPE', payload: newRecipe });
-          break;
-        }
-
-        case 'set_ingredients': {
-          if (!state.recipe) {
-            // No recipe yet, just ignore ingredients
-            // (agent should send set_metadata first)
-            break;
-          }
+        case 'set_metadata':
           dispatch({
-            type: 'SET_RECIPE',
+            type: 'SET_METADATA',
             payload: {
-              ...state.recipe,
-              ingredients: update.ingredients,
+              name: update.name,
+              description: update.description,
+              difficulty: update.difficulty,
+              total_time_minutes:
+                typeof update.total_time === 'string'
+                  ? parseTimeString(update.total_time)
+                  : undefined,
+              servings:
+                typeof update.servings === 'string'
+                  ? parseInt(update.servings, 10) || undefined
+                  : update.servings,
+              tags: update.tags,
             },
           });
           break;
-        }
+
+        case 'set_ingredients':
+          dispatch({
+            type: 'SET_INGREDIENTS',
+            payload: update.ingredients,
+          });
+          break;
 
         case 'set_steps': {
-          if (!state.recipe) {
-            // No recipe yet, just ignore steps
-            break;
-          }
           const formattedSteps: RecipeStep[] = update.steps.map((step, index) => ({
             step_number: index + 1,
             instruction: step,
           }));
           dispatch({
-            type: 'SET_RECIPE',
-            payload: {
-              ...state.recipe,
-              steps: formattedSteps,
-            },
+            type: 'SET_STEPS',
+            payload: formattedSteps,
           });
           break;
         }
       }
     },
-    [dispatch, state.recipe],
+    [dispatch],
   );
 
   return {

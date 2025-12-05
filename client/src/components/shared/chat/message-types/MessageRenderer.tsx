@@ -40,6 +40,11 @@ export default function MessageRenderer({
     case 'recipe':
       return <RecipeCard recipe={content} isUser={isUser} />;
 
+    case 'recipe_update':
+      // recipe_update messages are not rendered in chat - they only update the sidebar
+      // They are handled separately in MealPlannerChat
+      return null;
+
     default:
       // TypeScript exhaustiveness check - if we miss a case, this will error
       console.error('Unknown message content type:', content);

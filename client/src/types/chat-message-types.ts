@@ -50,6 +50,42 @@ export type RecipeContent = {
   tags?: string[];
 };
 
+/**
+ * Unified recipe update type - handles both full recipe and incremental updates
+ * Used in meal planner for live recipe editing
+ */
+export type RecipeUpdateContent = {
+  type: 'recipe_update';
+  action:
+    | 'set'
+    | 'update_metadata'
+    | 'set_metadata' // NEW: Replace all metadata
+    | 'set_ingredients' // NEW: Replace all ingredients
+    | 'set_steps' // NEW: Replace all steps
+    | 'add_ingredient'
+    | 'remove_ingredient'
+    | 'update_ingredient'
+    | 'add_step'
+    | 'remove_step'
+    | 'update_step';
+  recipe_id?: string;
+  // Full recipe fields (for 'set' action) - all optional
+  name?: string;
+  description?: string;
+  difficulty?: string;
+  total_time_minutes?: number; // Keep for backward compat
+  total_time?: string; // NEW: String-based time
+  servings?: number | string; // Support both for backward compat
+  tags?: string[];
+  ingredients?: ChatIngredient[];
+  steps?: RecipeStep[] | string[]; // NEW: Support simple string steps
+  // Incremental update fields (for other actions)
+  ingredient?: ChatIngredient;
+  ingredient_index?: number;
+  step?: RecipeStep;
+  step_number?: number;
+};
+
 export type TimerContent = {
   type: 'timer';
   duration: number;
@@ -68,5 +104,6 @@ export type MessageContent =
   | IngredientsContent
   | RecipeNameContent
   | RecipeContent
+  | RecipeUpdateContent
   | TimerContent
   | SystemContent;

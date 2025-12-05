@@ -312,6 +312,169 @@ async def send_recipe_name(recipe_name: str, session_id: str) -> dict:
 
 
 @mcp.tool()
+async def set_recipe_metadata(
+    session_id: str,
+    name: str,
+    description: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    total_time: Optional[str] = None,
+    servings: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+) -> dict:
+    """
+    Set or update recipe metadata in the meal planner sidebar.
+
+    Use this to initialize a recipe or update its properties. This replaces
+    ALL metadata fields, so include all values you want to keep.
+
+    Args:
+        name: Recipe name (REQUIRED)
+        description: Recipe description
+        difficulty: Difficulty level (string: 'easy', 'medium', or 'hard')
+        total_time: Total cooking time (string: '30 minutes', '1 hour', etc.)
+        servings: Number of servings (string: '4', '4-6 people', etc.)
+        tags: List of tags (e.g., ['italian', 'pasta', 'quick'])
+        session_id: Session ID (auto-injected)
+
+    Example:
+        set_recipe_metadata(
+            name='Pasta Carbonara',
+            description='Classic Italian pasta dish',
+            difficulty='medium',
+            total_time='30 minutes',
+            servings='4',
+            tags=['italian', 'pasta']
+        )
+    """
+    print(f"🔧 MCP TOOL: set_recipe_metadata(name='{name}', session={session_id})")
+
+    try:
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_metadata",
+                    "name": name,
+                    "description": description,
+                    "difficulty": difficulty,
+                    "total_time": total_time,
+                    "servings": servings,
+                    "tags": tags or [],
+                }
+            }
+        )
+
+        print(f"✅ set_recipe_metadata: Updated metadata for '{name}'")
+        return {"success": True, "message": f"Recipe metadata updated: {name}"}
+    except Exception as e:
+        print(f"❌ set_recipe_metadata error: {str(e)}")
+        return {"success": False, "message": f"Error: {str(e)}"}
+
+
+@mcp.tool()
+async def set_recipe_ingredients(
+    session_id: str,
+    ingredients: List[dict],
+) -> dict:
+    """
+    Set the complete ingredients list for the meal planner recipe.
+
+    This REPLACES the entire ingredients list. To add or modify ingredients,
+    send the full updated list including existing items.
+
+    Args:
+        ingredients: Complete list of ingredients (use same structure as set_ingredients tool)
+                    Each ingredient MUST have:
+                      - name (str, REQUIRED)
+                      - At least ONE of: amount (str) OR unit (str)
+                    Optional fields:
+                      - notes (str)
+        session_id: Session ID (auto-injected)
+
+    Example:
+        set_recipe_ingredients([
+            {"name": "spaghetti", "amount": "400", "unit": "g"},
+            {"name": "eggs", "amount": "4"},
+            {"name": "salt", "unit": "to taste"},
+            {"name": "parmesan", "amount": "100", "unit": "g"}
+        ])
+    """
+    print(f"🔧 MCP TOOL: set_recipe_ingredients({len(ingredients)} items, session={session_id})")
+
+    try:
+        # Clean ingredients - remove None values
+        ingredients_clean = [
+            {k: v for k, v in ing.items() if v is not None}
+            for ing in ingredients
+        ]
+
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_ingredients",
+                    "ingredients": ingredients_clean,
+                }
+            }
+        )
+
+        print(f"✅ set_recipe_ingredients: Set {len(ingredients)} ingredients")
+        return {"success": True, "message": f"Set {len(ingredients)} ingredients"}
+    except Exception as e:
+        print(f"❌ set_recipe_ingredients error: {str(e)}")
+        return {"success": False, "message": f"Error: {str(e)}"}
+
+
+@mcp.tool()
+async def set_recipe_steps(
+    session_id: str,
+    steps: List[str],
+) -> dict:
+    """
+    Set the complete cooking steps for the meal planner recipe.
+
+    This REPLACES the entire steps list. To add or modify steps,
+    send the full updated list including existing items.
+
+    Args:
+        steps: Complete list of cooking step instructions (just strings, no step numbers)
+        session_id: Session ID (auto-injected)
+
+    Example:
+        set_recipe_steps([
+            "Boil pasta in salted water for 10 minutes",
+            "Meanwhile, mix eggs with grated parmesan cheese",
+            "Drain pasta and immediately combine with egg mixture",
+            "Serve hot with black pepper"
+        ])
+    """
+    print(f"🔧 MCP TOOL: set_recipe_steps({len(steps)} steps, session={session_id})")
+
+    try:
+        await redis_client.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_steps",
+                    "steps": steps,
+                }
+            }
+        )
+
+        print(f"✅ set_recipe_steps: Set {len(steps)} steps")
+        return {"success": True, "message": f"Set {len(steps)} steps"}
+    except Exception as e:
+        print(f"❌ set_recipe_steps error: {str(e)}")
+        return {"success": False, "message": f"Error: {str(e)}"}
+
+
+@mcp.tool()
 async def save_recipe(
     name: str,
     ingredients: List[str],

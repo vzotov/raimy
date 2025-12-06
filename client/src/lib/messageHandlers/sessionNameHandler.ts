@@ -7,16 +7,16 @@ import type { ChatAction } from './chatTypes';
  * Handle session_name messages - shared across all chat types
  */
 export function handleSessionNameMessage(
-	content: SessionNameContent,
-	dispatch: Dispatch<ChatAction>,
-	sessionId: string,
-	sessionType: 'meal-planner' | 'kitchen',
+  content: SessionNameContent,
+  dispatch: Dispatch<ChatAction>,
+  sessionId: string,
+  sessionType: 'meal-planner' | 'kitchen',
 ): void {
-	if (content.name) {
-		// Update session name in local state
-		dispatch({ type: 'SET_SESSION_NAME', payload: content.name });
+  if (content.name) {
+    // Update session name in local state
+    dispatch({ type: 'SET_SESSION_NAME', payload: content.name });
 
-		// Update sessions list cache so the sidebar shows updated name
-		updateSessionNameInCache(sessionId, content.name, sessionType);
-	}
+    // Update sessions list cache so the sidebar shows updated name
+    updateSessionNameInCache(sessionId, content.name, sessionType);
+  }
 }

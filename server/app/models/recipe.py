@@ -25,7 +25,7 @@ class Recipe(Base, TimestampMixin):
     # Relationships
     user = relationship("User", back_populates="recipes")
     steps = relationship("RecipeStep", back_populates="recipe", cascade="all, delete-orphan", order_by="RecipeStep.step_number")
-    meal_planner_session = relationship("MealPlannerSession")
+    meal_planner_session = relationship("MealPlannerSession", foreign_keys=[meal_planner_session_id])
 
     def __repr__(self):
         return f"<Recipe(id='{self.id}', name='{self.name}', user_id='{self.user_id}')>"

@@ -6,24 +6,30 @@ import Chat from '@/components/shared/chat/Chat';
 import RecipeDocument from '@/components/shared/RecipeDocument';
 import { useMealPlannerState } from '@/hooks/useMealPlannerState';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import type { RecipeContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/meal-planner-session';
 
 interface MealPlannerChatProps {
   sessionId: string;
   sessionName: string;
   initialMessages?: SessionMessage[];
+  initialRecipe?: RecipeContent | null;
 }
 
 export default function MealPlannerChat({
   sessionId,
   sessionName,
   initialMessages = [],
+  initialRecipe,
 }: MealPlannerChatProps) {
   // Use composed state hook
   const { state, handleMessage, addMessage } = useMealPlannerState({
     sessionId,
     initialMessages,
+    initialRecipe,
   });
+
+  console.log('[MealPlannerChat] State:', initialRecipe);
 
   // UI-specific state (moved from hook)
   const [isRecipeVisible, setIsRecipeVisible] = useState(false);
@@ -54,7 +60,8 @@ export default function MealPlannerChat({
           </h1>
           <div className="mt-2 flex items-center gap-4">
             <p className="text-sm text-text/70">
-              {state.messages.length} message{state.messages.length !== 1 ? 's' : ''}
+              {state.messages.length} message
+              {state.messages.length !== 1 ? 's' : ''}
             </p>
             <div className="flex items-center gap-2">
               <div
@@ -69,7 +76,11 @@ export default function MealPlannerChat({
               </span>
             </div>
           </div>
-          {error && <p className="mt-1 text-xs text-red-500">Connection error: {error}</p>}
+          {error && (
+            <p className="mt-1 text-xs text-red-500">
+              Connection error: {error}
+            </p>
+          )}
         </div>
 
         {/* Chat */}

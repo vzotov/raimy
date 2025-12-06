@@ -174,9 +174,9 @@ export default function RecipeCard({
               Instructions
             </h4>
             <div className="space-y-3">
-              {recipe.steps.map((step) => (
+              {recipe.steps.map((step, index) => (
                 <div
-                  key={step.step_number}
+                  key={index}
                   className={classNames('flex gap-3 p-3 rounded-lg', {
                     'bg-white/5': isUser,
                     'bg-accent/5': !isUser,
@@ -192,7 +192,7 @@ export default function RecipeCard({
                       },
                     )}
                   >
-                    {step.step_number}
+                    {index}
                   </div>
 
                   {/* Step content */}

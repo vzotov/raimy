@@ -37,6 +37,7 @@ export default async function MealPlannerSessionPage({
         sessionId={session.id}
         sessionName={session.session_name}
         initialMessages={session.messages || []}
+        initialRecipe={session.recipe}
       />
     );
   } catch (error) {

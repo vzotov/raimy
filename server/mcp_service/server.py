@@ -491,7 +491,7 @@ async def save_recipe(
     total_time_minutes: Optional[int] = None,
     difficulty: Optional[str] = "medium",
     servings: Optional[int] = 4,
-    tags: Optional[List[str]] = None
+    tags: Optional[str] = None
 ) -> dict:
     """
     Save a complete recipe to the database with structured data.
@@ -509,7 +509,7 @@ async def save_recipe(
         total_time_minutes: Total time to prepare and cook
         difficulty: Recipe difficulty: "easy", "medium", or "hard"
         servings: Number of servings
-        tags: Optional list of tags (e.g., ["italian", "pasta", "quick"])
+        tags: Comma-separated tags (e.g., 'italian, pasta, quick')
 
     Returns:
         dict: Success status, recipe ID, full recipe data for UI display, and message
@@ -523,13 +523,17 @@ async def save_recipe(
                 {"instruction": "Fry bacon until crispy", "duration_minutes": 5}
             ],
             difficulty="easy",
-            total_time_minutes=20
+            total_time_minutes=20,
+            tags="italian, pasta, quick"
         )
     """
     print(f"🔧 MCP TOOL: save_recipe(name='{name}', session_id='{session_id}')")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
+
+        # Parse comma-separated tags into array
+        tags_array = [tag.strip() for tag in tags.split(',')] if tags else ["ai-created", "meal-planner"]
 
         # Build recipe data
         recipe_data_obj = {
@@ -540,7 +544,7 @@ async def save_recipe(
             "total_time_minutes": total_time_minutes,
             "difficulty": difficulty,
             "servings": servings,
-            "tags": tags or ["ai-created", "meal-planner"],
+            "tags": tags_array,
             "meal_planner_session_id": session_id  # Link to conversation
         }
 

@@ -96,6 +96,13 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
         # Save to PostgreSQL
         recipe_id = await database_service.save_recipe(recipe)
 
+        # Update session's recipe_id FK to link saved recipe
+        if recipe_request.meal_planner_session_id:
+            await database_service.update_session_recipe_id(
+                session_id=recipe_request.meal_planner_session_id,
+                recipe_id=recipe_id
+            )
+
         return {
             "message": "Recipe saved successfully",
             "recipe_id": recipe_id,

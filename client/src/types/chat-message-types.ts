@@ -31,7 +31,6 @@ export type SessionNameContent = {
 };
 
 export type RecipeStep = {
-  step_number: number;
   instruction: string;
   duration_minutes?: number;
   ingredients?: string[];

@@ -12,7 +12,17 @@ interface RecipeState {
 
 type RecipeAction =
   | { type: 'SET_RECIPE'; payload: RecipeContent }
-  | { type: 'SET_METADATA'; payload: { name: string; description?: string; difficulty?: string; total_time_minutes?: number; servings?: number; tags?: string[] } }
+  | {
+      type: 'SET_METADATA';
+      payload: {
+        name: string;
+        description?: string;
+        difficulty?: string;
+        total_time_minutes?: number;
+        servings?: number;
+        tags?: string[];
+      };
+    }
   | { type: 'SET_INGREDIENTS'; payload: ChatIngredient[] }
   | { type: 'SET_STEPS'; payload: RecipeStep[] }
   | { type: 'CLEAR_RECIPE' };
@@ -107,7 +117,7 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
   }
 }
 
-export function useMealPlannerRecipe(initialRecipe?: RecipeContent) {
+export function useMealPlannerRecipe(initialRecipe?: RecipeContent | null) {
   const [state, dispatch] = useReducer(recipeReducer, {
     recipe: initialRecipe || null,
   });
@@ -143,8 +153,7 @@ export function useMealPlannerRecipe(initialRecipe?: RecipeContent) {
           break;
 
         case 'set_steps': {
-          const formattedSteps: RecipeStep[] = update.steps.map((step, index) => ({
-            step_number: index + 1,
+          const formattedSteps: RecipeStep[] = update.steps.map((step) => ({
             instruction: step,
           }));
           dispatch({

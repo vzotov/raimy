@@ -364,6 +364,58 @@ async def websocket_chat_endpoint(
                             action=action
                         )
 
+                    # Check if this is a recipe_update message
+                    if redis_client.is_agent_message(message, "recipe_update"):
+                        content = message["content"]
+                        action = content.get("action")
+
+                        logger.info(f"📝 Detected recipe_update: action={action}")
+
+                        # Cancel any pending recipe save task
+                        if hasattr(redis_listener, "_recipe_save_task") and redis_listener._recipe_save_task:
+                            redis_listener._recipe_save_task.cancel()
+
+                        # Schedule debounced save (2 seconds)
+                        async def save_recipe_debounced():
+                            try:
+                                await asyncio.sleep(2.0)
+
+                                # Extract update data by action
+                                update_data = {}
+                                if action == "set_metadata":
+                                    update_data = {
+                                        "name": content.get("name"),
+                                        "description": content.get("description"),
+                                        "difficulty": content.get("difficulty"),
+                                        "total_time": content.get("total_time"),
+                                        "servings": content.get("servings"),
+                                        "tags": content.get("tags"),
+                                    }
+                                elif action == "set_ingredients":
+                                    update_data = {"ingredients": content.get("ingredients", [])}
+                                elif action == "set_steps":
+                                    # Convert steps to RecipeStep objects
+                                    steps_data = content.get("steps", [])
+                                    steps_objects = []
+                                    for step in steps_data:
+                                        if isinstance(step, str):
+                                            # Plain string - convert to object
+                                            steps_objects.append({"instruction": step})
+                                        elif isinstance(step, dict):
+                                            # Already an object - preserve all fields (instruction, duration_minutes, ingredients)
+                                            steps_objects.append(step)
+                                    update_data = {"steps": steps_objects}
+
+                                await database_service.save_or_update_recipe(
+                                    session_id=session_id,
+                                    action=action,
+                                    **update_data
+                                )
+                            except asyncio.CancelledError:
+                                logger.debug("Recipe save cancelled (new update received)")
+
+                        redis_listener._recipe_save_task = asyncio.create_task(save_recipe_debounced())
+
                     # Check if this is a recipe_name message
                     if redis_client.is_agent_message(message, "recipe_name"):
                         content = message["content"]

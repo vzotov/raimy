@@ -354,6 +354,8 @@ class DatabaseService:
                     "session_type": session.session_type,
                     "room_name": session.room_name,
                     "ingredients": session.ingredients or [],
+                    "recipe": session.recipe or None,
+                    "recipe_id": str(session.recipe_id) if session.recipe_id else None,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -501,6 +503,99 @@ class DatabaseService:
             except Exception as e:
                 await db.rollback()
                 logger.error(f"❌ Error saving/updating ingredients for session {session_id}: {e}", exc_info=True)
+                return False
+
+    async def save_or_update_recipe(
+        self,
+        session_id: str,
+        action: str,  # "set_metadata", "set_ingredients", "set_steps"
+        **update_data
+    ) -> bool:
+        """Save or update recipe data on session with action-based merging."""
+        logger.info(f"📝 save_or_update_recipe: session={session_id}, action={action}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession)
+                    .where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                # Get existing recipe or initialize empty
+                recipe = session.recipe or {}
+
+                # Merge based on action type
+                if action == "set_metadata":
+                    # Update metadata fields
+                    if "name" in update_data:
+                        recipe["name"] = update_data["name"]
+                    if "description" in update_data:
+                        recipe["description"] = update_data["description"]
+                    if "difficulty" in update_data:
+                        recipe["difficulty"] = update_data["difficulty"]
+                    if "total_time" in update_data:
+                        recipe["total_time"] = update_data["total_time"]
+                    if "servings" in update_data:
+                        recipe["servings"] = update_data["servings"]
+                    if "tags" in update_data:
+                        recipe["tags"] = update_data["tags"]
+
+                elif action == "set_ingredients":
+                    # Replace entire ingredients array
+                    recipe["ingredients"] = update_data.get("ingredients", [])
+
+                elif action == "set_steps":
+                    # Replace entire steps array
+                    recipe["steps"] = update_data.get("steps", [])
+
+                session.recipe = recipe
+                flag_modified(session, "recipe")
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"💾 Recipe updated: action={action}, recipe={recipe}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error updating recipe: {e}", exc_info=True)
+                return False
+
+    async def update_session_recipe_id(
+        self,
+        session_id: str,
+        recipe_id: str
+    ) -> bool:
+        """Update session's recipe_id FK when recipe is saved."""
+        logger.info(f"🔗 update_session_recipe_id: session={session_id}, recipe_id={recipe_id}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(MealPlannerSession)
+                    .where(MealPlannerSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.recipe_id = recipe_id
+                session.updated_at = datetime.utcnow()
+                await db.commit()
+
+                logger.info(f"✅ Session recipe_id updated: {recipe_id}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error updating recipe_id: {e}", exc_info=True)
                 return False
 
 # Global instance

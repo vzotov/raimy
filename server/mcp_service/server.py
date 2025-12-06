@@ -323,7 +323,7 @@ async def set_recipe_metadata(
     difficulty: Optional[str] = None,
     total_time: Optional[str] = None,
     servings: Optional[str] = None,
-    tags: Optional[List[str]] = None,
+    tags: Optional[str] = None,
 ) -> dict:
     """
     Set or update recipe metadata in the meal planner sidebar.
@@ -337,7 +337,7 @@ async def set_recipe_metadata(
         difficulty: Difficulty level (string: 'easy', 'medium', or 'hard')
         total_time: Total cooking time (string: '30 minutes', '1 hour', etc.)
         servings: Number of servings (string: '4', '4-6 people', etc.)
-        tags: List of tags (e.g., ['italian', 'pasta', 'quick'])
+        tags: Comma-separated tags (e.g., 'italian, pasta, quick')
         session_id: Session ID (auto-injected)
 
     Example:
@@ -347,12 +347,15 @@ async def set_recipe_metadata(
             difficulty='medium',
             total_time='30 minutes',
             servings='4',
-            tags=['italian', 'pasta']
+            tags='italian, pasta'
         )
     """
     print(f"🔧 MCP TOOL: set_recipe_metadata(name='{name}', session={session_id})")
 
     try:
+        # Parse comma-separated tags into array
+        tags_array = [tag.strip() for tag in tags.split(',')] if tags else []
+
         await redis_client.publish(
             f"session:{session_id}",
             {
@@ -365,7 +368,7 @@ async def set_recipe_metadata(
                     "difficulty": difficulty,
                     "total_time": total_time,
                     "servings": servings,
-                    "tags": tags or [],
+                    "tags": tags_array,
                 }
             }
         )

@@ -416,18 +416,18 @@ async def websocket_chat_endpoint(
 
                         redis_listener._recipe_save_task = asyncio.create_task(save_recipe_debounced())
 
-                    # Check if this is a recipe_name message
-                    if redis_client.is_agent_message(message, "recipe_name"):
+                    # Check if this is a session_name message
+                    if redis_client.is_agent_message(message, "session_name"):
                         content = message["content"]
-                        recipe_name = content.get("name")
+                        session_name = content.get("name")
 
-                        if recipe_name:
-                            logger.info(f"📝 Detected recipe_name message: {recipe_name}")
+                        if session_name:
+                            logger.info(f"📝 Detected session_name message: {session_name}")
 
                             # Persist session name to database
                             await database_service.update_session_name(
                                 session_id=session_id,
-                                session_name=recipe_name
+                                session_name=session_name
                             )
 
                     # Try to forward to WebSocket, but don't fail if disconnected

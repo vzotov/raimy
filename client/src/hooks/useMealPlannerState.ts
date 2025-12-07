@@ -54,18 +54,6 @@ export function useMealPlannerState({
             applyRecipeUpdate(content);
             return; // Handled, don't delegate
 
-          case 'session_name':
-            // Initialize recipe with name if needed, then delegate to base
-            if (content.name) {
-              applyRecipeUpdate({
-                type: 'recipe_update',
-                action: 'set_metadata',
-                name: content.name,
-              });
-            }
-            // Fall through to delegate - base handler will update sessionName
-            break;
-
           // Let base handle: text, ingredients, recipe messages
           default:
             // Delegate to base chat handler

@@ -53,6 +53,7 @@ async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depend
     try:
         # Get all recipes for now (showing agent-created recipes)
         # TODO: Add proper user filtering if needed
+        logger.info(f"Getting recipes for user: {current_user['email']} with user_id param: {user_id}")
         recipes = await database_service.get_recipes()
 
         return {
@@ -72,10 +73,8 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
         steps = []
         for i, step_data in enumerate(recipe_request.steps):
             step = RecipeStepModel(
-                step_number=i + 1,
                 instruction=step_data.get("instruction", ""),
-                duration_minutes=step_data.get("duration_minutes"),
-                ingredients=step_data.get("ingredients")
+                duration=step_data.get("duration"),
             )
             steps.append(step)
 
@@ -92,6 +91,8 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
             user_id=current_user["email"],  # Always use current user
             meal_planner_session_id=recipe_request.meal_planner_session_id  # Link to session
         )
+
+        logger.info(f"Saving recipe for user: {current_user['email']} with session ID: {recipe_request.meal_planner_session_id}")
 
         # Save to PostgreSQL
         recipe_id = await database_service.save_recipe(recipe)

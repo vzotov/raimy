@@ -5,27 +5,34 @@ import logging
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import desc
+from sqlalchemy import desc, delete
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
-from .models import User, Recipe, RecipeStep, Session, MealPlannerSession, MealPlannerMessage
+from .models import User, Recipe, Session, MealPlannerSession, MealPlannerMessage
 import uuid
 
 logger = logging.getLogger(__name__)
 
-# Pydantic models for API compatibility with existing Firebase service
+# Pydantic models for API - match JSON structure exactly
+class RecipeIngredientModel(BaseModel):
+    """Ingredient: {"name": "eggs", "amount": "4", "unit": null, "notes": "optional"}"""
+    name: str
+    amount: Optional[str] = None
+    unit: Optional[str] = None
+    notes: Optional[str] = None
+
 class RecipeStepModel(BaseModel):
-    step_number: int
+    """Step: {"instruction": "Boil water", "duration": 10}"""
     instruction: str
-    duration_minutes: Optional[int] = None
-    ingredients: Optional[List[str]] = None
+    duration: Optional[int] = None  # Duration in minutes
 
 class RecipeModel(BaseModel):
+    """Recipe model matching database JSON structure"""
     id: Optional[str] = None
     name: str
     description: Optional[str] = None
-    ingredients: List[str]
+    ingredients: List[RecipeIngredientModel]
     steps: List[RecipeStepModel]
     total_time_minutes: Optional[int] = None
     difficulty: Optional[str] = None
@@ -41,56 +48,86 @@ class DatabaseService:
         pass
 
     async def save_recipe(self, recipe: RecipeModel) -> str:
-        """Save a recipe to PostgreSQL"""
+        """Save or update a recipe in PostgreSQL (create if no ID, update if ID exists)"""
+        logger.info(f"🟢 DB SERVICE: save_recipe called with recipe.id={recipe.id}, name='{recipe.name}'")
+
         async with AsyncSessionLocal() as db:
             try:
-                # Create Recipe object
-                db_recipe = Recipe(
-                    name=recipe.name,
-                    description=recipe.description,
-                    ingredients=recipe.ingredients,
-                    total_time_minutes=recipe.total_time_minutes,
-                    difficulty=recipe.difficulty,
-                    servings=recipe.servings,
-                    tags=recipe.tags or [],
-                    user_id=recipe.user_id,
-                    meal_planner_session_id=recipe.meal_planner_session_id
-                )
+                # Convert Pydantic models to JSON dicts
+                ingredients_json = [ing.model_dump() for ing in recipe.ingredients]
+                steps_json = [step.model_dump() for step in recipe.steps]
 
-                db.add(db_recipe)
-                await db.flush()  # Get the recipe ID
-
-                # Create RecipeStep objects
-                for step_data in recipe.steps:
-                    db_step = RecipeStep(
-                        recipe_id=db_recipe.id,
-                        step_number=step_data.step_number,
-                        instruction=step_data.instruction,
-                        duration_minutes=step_data.duration_minutes,
-                        ingredients=step_data.ingredients or []
+                if recipe.id:
+                    # Update existing recipe
+                    logger.info(f"🔄 DB: Updating existing recipe with ID: {recipe.id}")
+                    result = await db.execute(
+                        select(Recipe).where(Recipe.id == recipe.id)
                     )
-                    db.add(db_step)
+                    db_recipe = result.scalar_one_or_none()
 
-                await db.commit()
-                return str(db_recipe.id)
+                    if not db_recipe:
+                        logger.error(f"❌ DB: Recipe {recipe.id} not found for update")
+                        raise Exception(f"Recipe {recipe.id} not found for update")
+
+                    logger.info(f"✅ DB: Found existing recipe, updating all fields")
+
+                    # Update all fields including JSON columns
+                    db_recipe.name = recipe.name
+                    db_recipe.description = recipe.description
+                    db_recipe.ingredients = ingredients_json
+                    db_recipe.steps = steps_json
+                    db_recipe.total_time_minutes = recipe.total_time_minutes
+                    db_recipe.difficulty = recipe.difficulty
+                    db_recipe.servings = recipe.servings
+                    db_recipe.tags = recipe.tags or []
+
+                    # Mark JSON fields as modified
+                    flag_modified(db_recipe, "ingredients")
+                    flag_modified(db_recipe, "steps")
+
+                    await db.commit()
+                    logger.info(f"✅ DB: Recipe {db_recipe.id} updated successfully")
+                    return str(db_recipe.id)
+
+                else:
+                    # Create new recipe
+                    logger.info(f"➕ DB: Creating new recipe '{recipe.name}'")
+                    db_recipe = Recipe(
+                        name=recipe.name,
+                        description=recipe.description,
+                        ingredients=ingredients_json,
+                        steps=steps_json,
+                        total_time_minutes=recipe.total_time_minutes,
+                        difficulty=recipe.difficulty,
+                        servings=recipe.servings,
+                        tags=recipe.tags or [],
+                        user_id=recipe.user_id,
+                        meal_planner_session_id=recipe.meal_planner_session_id
+                    )
+
+                    db.add(db_recipe)
+                    await db.commit()
+                    await db.refresh(db_recipe)  # Get the recipe ID and timestamps
+                    logger.info(f"✅ DB: Recipe {db_recipe.id} saved successfully with {len(steps_json)} steps")
+                    return str(db_recipe.id)
 
             except Exception as e:
                 await db.rollback()
+                logger.error(f"❌ DB: Failed to save recipe: {str(e)}", exc_info=True)
                 raise Exception(f"Failed to save recipe: {str(e)}")
 
     async def get_recipes(self) -> List[Dict[str, Any]]:
         """Get all recipes from PostgreSQL"""
         async with AsyncSessionLocal() as db:
             try:
-                # Query all recipes with their steps
+                # Query all recipes (ingredients and steps are JSON columns)
                 result = await db.execute(
                     select(Recipe)
-                    .options(selectinload(Recipe.steps))
                     .order_by(desc(Recipe.created_at))
                 )
                 recipes = result.scalars().all()
 
-                # Convert to dict format compatible with existing API
+                # Convert to dict format
                 recipe_list = []
                 for recipe in recipes:
                     recipe_dict = {
@@ -98,6 +135,7 @@ class DatabaseService:
                         "name": recipe.name,
                         "description": recipe.description,
                         "ingredients": recipe.ingredients,
+                        "steps": recipe.steps,
                         "total_time_minutes": recipe.total_time_minutes,
                         "difficulty": recipe.difficulty,
                         "servings": recipe.servings,
@@ -105,38 +143,28 @@ class DatabaseService:
                         "user_id": recipe.user_id,
                         "created_at": recipe.created_at,
                         "updated_at": recipe.updated_at,
-                        "steps": [
-                            {
-                                "step_number": step.step_number,
-                                "instruction": step.instruction,
-                                "duration_minutes": step.duration_minutes,
-                                "ingredients": step.ingredients
-                            }
-                            for step in sorted(recipe.steps, key=lambda x: x.step_number)
-                        ]
                     }
                     recipe_list.append(recipe_dict)
 
                 return recipe_list
 
             except Exception as e:
-                print(f"Error getting recipes: {e}")
+                logger.error(f"Error getting recipes: {e}", exc_info=True)
                 return []
 
     async def get_recipes_by_user(self, user_id: str) -> List[Dict[str, Any]]:
         """Get recipes for a specific user from PostgreSQL"""
         async with AsyncSessionLocal() as db:
             try:
-                # Query recipes by user_id with their steps
+                # Query recipes by user_id (ingredients and steps are JSON columns)
                 result = await db.execute(
                     select(Recipe)
-                    .options(selectinload(Recipe.steps))
                     .where(Recipe.user_id == user_id)
                     .order_by(desc(Recipe.created_at))
                 )
                 recipes = result.scalars().all()
 
-                # Convert to dict format compatible with existing API
+                # Convert to dict format
                 recipe_list = []
                 for recipe in recipes:
                     recipe_dict = {
@@ -144,6 +172,7 @@ class DatabaseService:
                         "name": recipe.name,
                         "description": recipe.description,
                         "ingredients": recipe.ingredients,
+                        "steps": recipe.steps,
                         "total_time_minutes": recipe.total_time_minutes,
                         "difficulty": recipe.difficulty,
                         "servings": recipe.servings,
@@ -151,22 +180,13 @@ class DatabaseService:
                         "user_id": recipe.user_id,
                         "created_at": recipe.created_at,
                         "updated_at": recipe.updated_at,
-                        "steps": [
-                            {
-                                "step_number": step.step_number,
-                                "instruction": step.instruction,
-                                "duration_minutes": step.duration_minutes,
-                                "ingredients": step.ingredients
-                            }
-                            for step in sorted(recipe.steps, key=lambda x: x.step_number)
-                        ]
                     }
                     recipe_list.append(recipe_dict)
 
                 return recipe_list
 
             except Exception as e:
-                print(f"Error getting recipes for user {user_id}: {e}")
+                logger.error(f"Error getting recipes for user {user_id}: {e}", exc_info=True)
                 return []
 
     async def save_user(self, user_data: Dict[str, Any]) -> bool:
@@ -513,6 +533,7 @@ class DatabaseService:
     ) -> bool:
         """Save or update recipe data on session with action-based merging."""
         logger.info(f"📝 save_or_update_recipe: session={session_id}, action={action}")
+        logger.info(f"📝 save_or_update_recipe: update_data={update_data}")
 
         async with AsyncSessionLocal() as db:
             try:

@@ -7,10 +7,14 @@ import sys
 from typing import List, Optional
 import aiohttp
 from fastmcp import FastMCP
+import logging
 
 # Add server directory to path to import core modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from core.redis_client import get_redis_client
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # Initialize FastMCP server
 mcp = FastMCP("Raimy Cooking Assistant")
@@ -439,7 +443,7 @@ async def set_recipe_ingredients(
 @mcp.tool(tags={"meal-planner"})
 async def set_recipe_steps(
     session_id: str,
-    steps: List[str],
+    steps: List[dict],
 ) -> dict:
     """
     Set the complete cooking steps for the meal planner recipe.
@@ -448,20 +452,40 @@ async def set_recipe_steps(
     send the full updated list including existing items.
 
     Args:
-        steps: Complete list of cooking step instructions (just strings, no step numbers)
+        steps: Complete list of cooking steps. Each step must have:
+               - instruction (str, REQUIRED): The step instruction
+               - duration (int, OPTIONAL): Duration in minutes for this step
         session_id: Session ID (auto-injected)
 
     Example:
         set_recipe_steps([
-            "Boil pasta in salted water for 10 minutes",
-            "Meanwhile, mix eggs with grated parmesan cheese",
-            "Drain pasta and immediately combine with egg mixture",
-            "Serve hot with black pepper"
+            {"instruction": "Boil pasta in salted water", "duration": 10},
+            {"instruction": "Mix eggs with grated parmesan cheese", "duration": 2},
+            {"instruction": "Drain pasta and combine with egg mixture", "duration": 1},
+            {"instruction": "Serve hot with black pepper"}
         ])
     """
-    print(f"🔧 MCP TOOL: set_recipe_steps({len(steps)} steps, session={session_id})")
+    logger.info(f"🔧 MCP TOOL: set_recipe_steps({len(steps)} steps, session={session_id})")
 
     try:
+        # Validate step format
+        normalized_steps = []
+        for i, step in enumerate(steps):
+            if isinstance(step, str):
+                # Legacy format: convert string to dict
+                normalized_steps.append({"instruction": step})
+                logger.warning(f"Step {i+1}: Converted legacy string format to dict")
+            elif isinstance(step, dict):
+                if "instruction" not in step:
+                    raise ValueError(f"Step {i+1} missing required 'instruction' field")
+                # Normalize to only include instruction and duration
+                normalized_step = {"instruction": step["instruction"]}
+                if "duration" in step and step["duration"] is not None:
+                    normalized_step["duration"] = step["duration"]
+                normalized_steps.append(normalized_step)
+            else:
+                raise ValueError(f"Step {i+1} has invalid format: {type(step)}")
+
         await redis_client.publish(
             f"session:{session_id}",
             {
@@ -469,84 +493,52 @@ async def set_recipe_steps(
                 "content": {
                     "type": "recipe_update",
                     "action": "set_steps",
-                    "steps": steps,
+                    "steps": normalized_steps,
                 }
             }
         )
 
-        print(f"✅ set_recipe_steps: Set {len(steps)} steps")
-        return {"success": True, "message": f"Set {len(steps)} steps"}
+        logger.info(f"✅ set_recipe_steps: Set {len(normalized_steps)} steps")
+        return {"success": True, "message": f"Set {len(normalized_steps)} steps"}
     except Exception as e:
-        print(f"❌ set_recipe_steps error: {str(e)}")
+        logger.error(f"❌ set_recipe_steps error: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
 @mcp.tool(tags={"meal-planner"})
-async def save_recipe(
-    name: str,
-    ingredients: List[str],
-    steps: List[dict],
-    session_id: str,
-    description: Optional[str] = None,
-    total_time_minutes: Optional[int] = None,
-    difficulty: Optional[str] = "medium",
-    servings: Optional[int] = 4,
-    tags: Optional[str] = None
-) -> dict:
+async def save_recipe(session_id: str) -> dict:
     """
-    Save a complete recipe to the database with structured data.
+    Save the current recipe to the user's recipe collection.
 
-    Use this after having a conversation with the user where they described a recipe.
-    Extract the structured information from the conversation before calling this.
+    The recipe data is read from the session (which you've been building using
+    set_recipe_metadata, set_recipe_ingredients, and set_recipe_steps).
+
+    WORKFLOW:
+    1. Build recipe using the 3 recipe tools (metadata, ingredients, steps)
+    2. ASK user: "Would you like me to save this recipe to your collection?"
+    3. If yes, call this tool with just the session_id
+    4. When user asks to save, ONLY call this tool - don't update recipe in same turn
+
+    IMPORTANT: Can be called multiple times to update a saved recipe after edits.
 
     Args:
-        name: Recipe name (e.g., "Spaghetti Carbonara")
-        ingredients: List of ingredient strings (e.g., ["200g pasta", "100g bacon", "2 eggs"])
-        steps: List of step dicts with 'instruction' and optional 'duration_minutes' and 'ingredients'
-               Example: [{"instruction": "Boil pasta", "duration_minutes": 10}, ...]
-        session_id: The meal planner session ID where this recipe was created
-        description: Optional recipe description or story
-        total_time_minutes: Total time to prepare and cook
-        difficulty: Recipe difficulty: "easy", "medium", or "hard"
-        servings: Number of servings
-        tags: Comma-separated tags (e.g., 'italian, pasta, quick')
+        session_id: Session ID (injected automatically by agent)
 
     Returns:
-        dict: Success status, recipe ID, full recipe data for UI display, and message
+        dict: Success status, recipe_id, and saved recipe data
 
     Example:
-        save_recipe(
-            name="Spaghetti Carbonara",
-            ingredients=["200g spaghetti", "100g bacon", "2 eggs"],
-            steps=[
-                {"instruction": "Boil pasta for 10 minutes", "duration_minutes": 10},
-                {"instruction": "Fry bacon until crispy", "duration_minutes": 5}
-            ],
-            difficulty="easy",
-            total_time_minutes=20,
-            tags="italian, pasta, quick"
-        )
+        # After building recipe with set_recipe_* tools:
+        result = save_recipe(session_id="abc-123")
+        # Returns: {"success": True, "recipe_id": "xyz", "recipe": {...}}
     """
-    print(f"🔧 MCP TOOL: save_recipe(name='{name}', session_id='{session_id}')")
+    logger.info(f"🔧 MCP TOOL: save_recipe called with session_id='{session_id}'")
 
     try:
         api_url = os.getenv("API_URL", "http://raimy-api:8000")
+        endpoint = f"{api_url}/api/meal-planner-sessions/{session_id}/save-recipe"
 
-        # Parse comma-separated tags into array
-        tags_array = [tag.strip() for tag in tags.split(',')] if tags else ["ai-created", "meal-planner"]
-
-        # Build recipe data
-        recipe_data_obj = {
-            "name": name,
-            "description": description or f"A delicious {name} recipe created during a conversation.",
-            "ingredients": ingredients,
-            "steps": steps,
-            "total_time_minutes": total_time_minutes,
-            "difficulty": difficulty,
-            "servings": servings,
-            "tags": tags_array,
-            "meal_planner_session_id": session_id  # Link to conversation
-        }
+        logger.info(f"📡 MCP: Preparing to POST to {endpoint}")
 
         # Get service authentication
         auth_token = await get_service_token()
@@ -554,38 +546,39 @@ async def save_recipe(
 
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
+            logger.info(f"🔑 MCP: Service token obtained, length={len(auth_token)}")
         else:
-            print("⚠️  WARNING: No service token - recipe save may fail")
+            logger.warning("⚠️  MCP: No service token - recipe save may fail")
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{api_url}/api/recipes",
-                json=recipe_data_obj,
-                headers=headers
-            ) as response:
+            logger.info(f"🚀 MCP: Sending POST request to {endpoint}")
+            async with session.post(endpoint, headers=headers) as response:
+                logger.info(f"📥 MCP: Received response with status={response.status}")
+
                 if response.status == 200:
                     result = await response.json()
                     recipe_id = result.get("recipe_id")
-                    print(f"✅ save_recipe: Recipe '{name}' saved with ID {recipe_id}")
+                    recipe_data = result.get("recipe", {})
 
-                    # Return full recipe data for creating a structured message
+                    logger.info(f"✅ MCP: Recipe saved successfully with ID: {recipe_id}")
+
                     return {
                         "success": True,
                         "recipe_id": recipe_id,
-                        "message": f"Recipe '{name}' saved successfully!",
-                        "recipe": recipe_data_obj | {"recipe_id": recipe_id}  # Merge recipe_id into data
+                        "recipe": recipe_data,
+                        "message": f"Recipe '{recipe_data.get('name')}' saved successfully!"
                     }
                 else:
-                    error_data = await response.json()
-                    error_msg = error_data.get('detail', 'Unknown error')
-                    print(f"❌ save_recipe failed: {error_msg}")
+                    error_text = await response.text()
+                    logger.error(f"❌ MCP: save_recipe failed with status {response.status}: {error_text}")
                     return {
                         "success": False,
-                        "message": f"Failed to save recipe: {error_msg}"
+                        "message": f"Failed to save recipe: {error_text}"
                     }
+
     except Exception as e:
-        print(f"❌ save_recipe error: {str(e)}")
-        return {"success": False, "message": f"Error saving recipe: {str(e)}"}
+        logger.error(f"❌ MCP: save_recipe exception: {str(e)}", exc_info=True)
+        return {"success": False, "message": f"Error: {str(e)}"}
 
 
 # NOTE: generate_session_name tool removed - was using deprecated LiveKit plugin

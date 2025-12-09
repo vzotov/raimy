@@ -5,12 +5,24 @@ import { useEffect, useState } from 'react';
 import { get } from '@/lib/api';
 import CreateFakeRecipeButton from './CreateFakeRecipeButton';
 
+interface RecipeIngredient {
+  name: string;
+  amount?: string;
+  unit?: string;
+  notes?: string;
+}
+
+interface RecipeStep {
+  instruction: string;
+  duration?: number;
+}
+
 interface Recipe {
   id: string;
   name: string;
   description: string;
-  ingredients: string[];
-  steps: Array<{ instruction: string; duration_minutes: number }>;
+  ingredients: RecipeIngredient[];
+  steps: RecipeStep[];
   total_time_minutes: number;
   difficulty: string;
   servings: number;
@@ -138,7 +150,9 @@ export default function MyRecipesContent() {
                         .map((ingredient, index) => (
                           <li key={index} className="flex items-center">
                             <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
-                            {ingredient}
+                            {ingredient.amount && `${ingredient.amount} `}
+                            {ingredient.unit && `${ingredient.unit} `}
+                            {ingredient.name}
                           </li>
                         ))}
                       {recipe.ingredients.length > 3 && (

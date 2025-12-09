@@ -205,7 +205,7 @@ export default function RecipeCard({
                     >
                       {step.instruction}
                     </p>
-                    {step.duration_minutes && (
+                    {step.duration && (
                       <div
                         className={classNames(
                           'flex items-center gap-1 mt-1 text-xs',
@@ -228,7 +228,7 @@ export default function RecipeCard({
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <span>{step.duration_minutes} min</span>
+                        <span>{step.duration} min</span>
                       </div>
                     )}
                   </div>

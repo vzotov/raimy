@@ -153,12 +153,9 @@ export function useMealPlannerRecipe(initialRecipe?: RecipeContent | null) {
           break;
 
         case 'set_steps': {
-          const formattedSteps: RecipeStep[] = update.steps.map((step) => ({
-            instruction: step,
-          }));
           dispatch({
             type: 'SET_STEPS',
-            payload: formattedSteps,
+            payload: update.steps,
           });
           break;
         }

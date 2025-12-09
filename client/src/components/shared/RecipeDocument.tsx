@@ -138,9 +138,9 @@ export default function RecipeDocument({
                     <p className="text-text/80 leading-relaxed">
                       {step.instruction}
                     </p>
-                    {step.duration_minutes && (
+                    {step.duration && (
                       <p className="text-text/60 text-sm mt-1">
-                        ⏱️ {step.duration_minutes} min
+                        ⏱️ {step.duration} min
                       </p>
                     )}
                   </div>

@@ -81,6 +81,17 @@ services:
       retries: 3
       start_period: 10s
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@raimy.internal
+      PGADMIN_DEFAULT_PASSWORD: NU#YR@&hjd2
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+
   raimy-api:
     build: .
     ports:

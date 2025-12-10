@@ -48,12 +48,12 @@ async def create_session(
 ):
     """Create a new meal planner session"""
     try:
-        initial_message = request.initial_message if request else None
         session_type = request.session_type if request else "meal-planner"
+        recipe_id = request.recipe_id if request else None
         session = await database_service.create_meal_planner_session(
             current_user["email"],
-            initial_message,
-            session_type
+            session_type,
+            recipe_id
         )
 
         return {

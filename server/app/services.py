@@ -253,10 +253,10 @@ class DatabaseService:
     async def create_meal_planner_session(
         self,
         user_id: str,
-        initial_message: str = None,
-        session_type: str = "meal-planner"
+        session_type: str = "meal-planner",
+        recipe_id: str = None
     ) -> Dict[str, Any]:
-        """Create a new meal planner session with optional initial message"""
+        """Create a new meal planner session"""
         async with AsyncSessionLocal() as db:
             try:
                 session_id = uuid.uuid4()
@@ -268,28 +268,10 @@ class DatabaseService:
                     user_id=user_id,
                     session_name="Untitled Session",
                     session_type=session_type,
-                    room_name=room_name
+                    room_name=room_name,
+                    recipe_id=recipe_id
                 )
                 db.add(new_session)
-                await db.flush()  # Flush to get the session ID for FK reference
-
-                # Create initial message if provided
-                message_data = []
-                if initial_message:
-                    initial_msg = MealPlannerMessage(
-                        session_id=session_id,
-                        role="user",
-                        content=initial_message
-                    )
-                    db.add(initial_msg)
-                    await db.flush()  # Flush to get created_at timestamp
-
-                    message_data.append({
-                        "role": initial_msg.role,
-                        "content": initial_msg.content,
-                        "timestamp": initial_msg.created_at.isoformat()
-                    })
-
                 await db.commit()
 
                 return {
@@ -298,7 +280,7 @@ class DatabaseService:
                     "session_name": "Untitled Session",
                     "session_type": session_type,
                     "room_name": room_name,
-                    "messages": message_data,
+                    "messages": [],
                     "created_at": new_session.created_at.isoformat(),
                     "updated_at": new_session.updated_at.isoformat()
                 }

@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -16,6 +17,9 @@ from agents.langgraph_agent import LangGraphAgent  # type: ignore
 from agents.mcp_tools import load_mcp_tools_for_langchain  # type: ignore
 
 load_dotenv()
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # Cache of agent instances by session type
 agent_instances: Dict[str, LangGraphAgent] = {}
@@ -35,7 +39,7 @@ async def get_agent(session_type: str = "meal-planner") -> LangGraphAgent:
 
     # Validate session_type and default to meal-planner if unknown
     if session_type not in {"kitchen", "meal-planner"}:
-        print(f"⚠️  Unknown session_type '{session_type}', defaulting to 'meal-planner'")
+        logger.warning(f"⚠️  Unknown session_type '{session_type}', defaulting to 'meal-planner'")
         session_type = "meal-planner"
 
     # Return cached instance if exists
@@ -43,13 +47,13 @@ async def get_agent(session_type: str = "meal-planner") -> LangGraphAgent:
         return agent_instances[session_type]
 
     # Create new agent instance with filtered tools
-    print(f"🔄 Creating new agent instance for session_type='{session_type}'")
+    logger.info(f"🔄 Creating new agent instance for session_type='{session_type}'")
     mcp_tools = await load_mcp_tools_for_langchain(session_type=session_type)
 
     agent = LangGraphAgent(mcp_tools=mcp_tools)
     agent_instances[session_type] = agent
 
-    print(f"✅ Initialized LangGraph agent for '{session_type}' with {len(mcp_tools)} tools")
+    logger.info(f"✅ Initialized LangGraph agent for '{session_type}' with {len(mcp_tools)} tools")
     return agent
 
 
@@ -216,9 +220,7 @@ async def agent_chat(request: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in agent_chat: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error in agent_chat: {e}", exc_info=True)
 
         # Publish error to Redis so UI knows
         try:
@@ -235,7 +237,7 @@ async def agent_chat(request: ChatRequest):
                 }
             )
         except Exception as redis_error:
-            print(f"Failed to publish error to Redis: {redis_error}")
+            logger.error(f"Failed to publish error to Redis: {redis_error}")
 
         raise HTTPException(status_code=500, detail=str(e))
 

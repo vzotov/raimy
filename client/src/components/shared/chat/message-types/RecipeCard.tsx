@@ -192,7 +192,7 @@ export default function RecipeCard({
                       },
                     )}
                   >
-                    {index}
+                    {index + 1}
                   </div>
 
                   {/* Step content */}

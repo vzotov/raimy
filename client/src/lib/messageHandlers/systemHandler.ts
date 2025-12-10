@@ -1,10 +1,10 @@
 import type { Dispatch } from 'react';
 import type { SystemContent } from '@/types/chat-message-types';
-import type { KitchenMessageAction } from './types';
+import type { ChatAction } from './chatTypes';
 
 export function handleSystemMessage(
   content: SystemContent,
-  dispatch: Dispatch<KitchenMessageAction>,
+  dispatch: Dispatch<ChatAction>,
 ): void {
   switch (content.type) {
     case 'connected':

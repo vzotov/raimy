@@ -25,16 +25,14 @@ export type IngredientsContent = {
   action: 'set' | 'update';
 };
 
-export type RecipeNameContent = {
-  type: 'recipe_name';
+export type SessionNameContent = {
+  type: 'session_name';
   name: string;
 };
 
 export type RecipeStep = {
-  step_number: number;
   instruction: string;
-  duration_minutes?: number;
-  ingredients?: string[];
+  duration?: number;
 };
 
 export type RecipeContent = {
@@ -49,6 +47,38 @@ export type RecipeContent = {
   servings?: number;
   tags?: string[];
 };
+
+/**
+ * Recipe update messages from agent MCP tools
+ * Three separate actions for bulk updates
+ */
+export type RecipeMetadataUpdate = {
+  type: 'recipe_update';
+  action: 'set_metadata';
+  name: string;
+  description?: string;
+  difficulty?: string;
+  total_time?: string;
+  servings?: number | string;
+  tags?: string[];
+};
+
+export type RecipeIngredientsUpdate = {
+  type: 'recipe_update';
+  action: 'set_ingredients';
+  ingredients: ChatIngredient[];
+};
+
+export type RecipeStepsUpdate = {
+  type: 'recipe_update';
+  action: 'set_steps';
+  steps: RecipeStep[];
+};
+
+export type RecipeUpdateContent =
+  | RecipeMetadataUpdate
+  | RecipeIngredientsUpdate
+  | RecipeStepsUpdate;
 
 export type TimerContent = {
   type: 'timer';
@@ -66,7 +96,8 @@ export type SystemContent = {
 export type MessageContent =
   | TextContent
   | IngredientsContent
-  | RecipeNameContent
+  | SessionNameContent
   | RecipeContent
+  | RecipeUpdateContent
   | TimerContent
   | SystemContent;

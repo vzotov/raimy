@@ -3,165 +3,103 @@
 import classNames from 'classnames';
 import { useCallback, useState } from 'react';
 import Chat from '@/components/shared/chat/Chat';
-import type { ChatMessage } from '@/hooks/useChatMessages';
-import {
-  useWebSocket,
-  type ChatMessage as WebSocketMessage,
-} from '@/hooks/useWebSocket';
-import type { MessageContent } from '@/types/chat-message-types';
+import RecipeDocument from '@/components/shared/RecipeDocument';
+import { useMealPlannerState } from '@/hooks/useMealPlannerState';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import type { RecipeContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/meal-planner-session';
 
 interface MealPlannerChatProps {
   sessionId: string;
   sessionName: string;
   initialMessages?: SessionMessage[];
+  initialRecipe?: RecipeContent | null;
 }
 
 export default function MealPlannerChat({
   sessionId,
   sessionName,
   initialMessages = [],
+  initialRecipe,
 }: MealPlannerChatProps) {
-  // Convert initial messages to ChatMessage format
-  // Messages from DB are already structured - no parsing needed
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    initialMessages.map((msg, index) => ({
-      id: `msg-${index}`,
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content, // Already MessageContent from backend
-      timestamp: new Date(msg.timestamp),
-    })),
-  );
+  // Use composed state hook
+  const { state, handleMessage, addMessage } = useMealPlannerState({
+    sessionId,
+    initialMessages,
+    initialRecipe,
+  });
 
-  // Memoize WebSocket callbacks to prevent reconnections
-  const handleMessage = useCallback((wsMessage: WebSocketMessage) => {
-    console.log('[MealPlannerChat] Received:', wsMessage);
+  console.log('[MealPlannerChat] State:', initialRecipe);
 
-    if (wsMessage.type === 'agent_message' && wsMessage.content) {
-      const content = wsMessage.content;
-      // Handle MessageContent types (text, ingredients, recipe)
-      // Meal planner doesn't handle tool responses like recipe_name, timer, etc.
-      if (content.type === 'text') {
-        // Handle text messages with streaming support
-        const messageId = wsMessage.message_id || `agent-${Date.now()}`;
-
-        setMessages((prev) => {
-          const existingIndex = prev.findIndex((m) => m.id === messageId);
-
-          if (existingIndex >= 0) {
-            // Update existing message with new content
-            const updated = [...prev];
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              content: content as MessageContent,
-            };
-            return updated;
-          } else {
-            // Create new message
-            return [
-              ...prev,
-              {
-                id: messageId,
-                role: 'assistant',
-                content: content as MessageContent,
-                timestamp: new Date(),
-              },
-            ];
-          }
-        });
-      } else if (content.type === 'ingredients' || content.type === 'recipe') {
-        // Add ingredients and recipe messages normally (no streaming)
-        const newMessage: ChatMessage = {
-          id: wsMessage.message_id || `agent-${Date.now()}`,
-          role: 'assistant',
-          content: content as MessageContent,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, newMessage]);
-      }
-    }
-
-    // Handle system messages (log for now, could show toasts/banners)
-    if (wsMessage.type === 'system' && wsMessage.content) {
-      const systemContent = wsMessage.content;
-      switch (systemContent.type) {
-        case 'connected':
-          console.log('✅', systemContent.message);
-          break;
-        case 'error':
-          console.error('❌', systemContent.message);
-          break;
-      }
-    }
-  }, []);
-
-  const handleConnect = useCallback(() => {
-    console.log('[MealPlannerChat] WebSocket connected');
-  }, []);
-
-  const handleDisconnect = useCallback(() => {
-    console.log('[MealPlannerChat] WebSocket disconnected');
-  }, []);
+  // UI-specific state (moved from hook)
+  const [isRecipeVisible, setIsRecipeVisible] = useState(false);
 
   // WebSocket connection
   const { isConnected, error, sendMessage } = useWebSocket({
     sessionId,
     onMessage: handleMessage,
-    onConnect: handleConnect,
-    onDisconnect: handleDisconnect,
   });
 
   // Handle sending messages
   const handleSendMessage = useCallback(
     (content: string) => {
-      // Add user message optimistically
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-
-      // Send via WebSocket
+      addMessage(content);
       sendMessage(content);
     },
-    [sendMessage],
+    [addMessage, sendMessage],
   );
 
   return (
-    <div className="flex flex-col h-screen max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="p-4 border-b border-accent/20">
-        <h1 className="text-2xl font-bold text-text">{sessionName}</h1>
-        <div className="flex items-center gap-4 mt-2">
-          <p className="text-sm text-text/70">
-            {messages.length} message{messages.length !== 1 ? 's' : ''}
-          </p>
-          <div className="flex items-center gap-2">
-            <div
-              className={classNames('w-2 h-2 rounded-full', {
-                'bg-green-500': isConnected,
-                'bg-yellow-500': !isConnected && !error,
-                'bg-red-500': error,
-              })}
-            />
-            <span className="text-xs text-text/60">
-              {error ? 'Error' : isConnected ? 'Connected' : 'Connecting...'}
-            </span>
+    <div className="flex h-screen w-full">
+      {/* Main chat area */}
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
+        {/* Header */}
+        <div className="border-b border-accent/20 p-4">
+          <h1 className="text-2xl font-bold text-text">
+            {state.sessionName || sessionName}
+          </h1>
+          <div className="mt-2 flex items-center gap-4">
+            <p className="text-sm text-text/70">
+              {state.messages.length} message
+              {state.messages.length !== 1 ? 's' : ''}
+            </p>
+            <div className="flex items-center gap-2">
+              <div
+                className={classNames('h-2 w-2 rounded-full', {
+                  'bg-green-500': isConnected,
+                  'bg-yellow-500': !isConnected && !error,
+                  'bg-red-500': error,
+                })}
+              />
+              <span className="text-xs text-text/60">
+                {error ? 'Error' : isConnected ? 'Connected' : 'Connecting...'}
+              </span>
+            </div>
           </div>
+          {error && (
+            <p className="mt-1 text-xs text-red-500">
+              Connection error: {error}
+            </p>
+          )}
         </div>
-        {error && (
-          <p className="text-xs text-red-500 mt-1">Connection error: {error}</p>
-        )}
+
+        {/* Chat */}
+        <div className="flex-1 overflow-hidden">
+          <Chat
+            messages={state.messages}
+            onSendMessage={handleSendMessage}
+            isConnected={isConnected}
+            agentStatus={state.agentStatus}
+          />
+        </div>
       </div>
 
-      {/* Chat */}
-      <div className="flex-1 overflow-hidden">
-        <Chat
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          isConnected={isConnected}
+      {/* Recipe sidebar (desktop) / Expandable panel (mobile) */}
+      <div className="w-full border-l border-accent/20 md:w-96">
+        <RecipeDocument
+          recipe={state.recipe}
+          isVisible={isRecipeVisible}
+          onToggle={() => setIsRecipeVisible(!isRecipeVisible)}
         />
       </div>
     </div>

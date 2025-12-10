@@ -6,21 +6,26 @@ to LangChain tool format for use with the LangGraph agent.
 """
 import os
 import json
+import logging
 import httpx
 from typing import List, Dict, Any, Optional, Callable
 from langchain_core.tools import Tool, StructuredTool
 from pydantic import BaseModel, Field, create_model
 
+# Initialize logger
+logger = logging.getLogger(__name__)
 
-async def fetch_mcp_tools(mcp_url: str) -> List[Dict[str, Any]]:
+
+async def fetch_mcp_tools(mcp_url: str, session_type: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Fetch tools from MCP server via HTTP
+    Fetch tools from MCP server via HTTP and filter by session_type tags
 
     Args:
         mcp_url: URL of the MCP server
+        session_type: Optional session type to filter tools ("kitchen" or "meal-planner")
 
     Returns:
-        List of tool definitions from MCP server
+        List of tool definitions from MCP server, filtered by session_type if provided
     """
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
@@ -53,32 +58,60 @@ async def fetch_mcp_tools(mcp_url: str) -> List[Dict[str, Any]]:
                                 try:
                                     result = json.loads(json_data)
                                     tools = result.get("result", {}).get("tools", [])
-                                    print(f"✅ Fetched {len(tools)} tools from MCP server")
-                                    return tools
+
+                                    # Client-side filtering by session type
+                                    if session_type:
+                                        filtered_tools = []
+                                        for tool in tools:
+                                            # Tags are in _meta._fastmcp.tags for FastMCP tools
+                                            tool_tags = tool.get("_meta", {}).get("_fastmcp", {}).get("tags", [])
+                                            # Include tool if session_type is in the tool's tags
+                                            if session_type in tool_tags:
+                                                filtered_tools.append(tool)
+
+                                        logger.info(f"✅ Filtered {len(tools)} tools → {len(filtered_tools)} for session_type='{session_type}'")
+                                        return filtered_tools
+                                    else:
+                                        logger.info(f"✅ Fetched {len(tools)} tools from MCP server (no filtering)")
+                                        return tools
                                 except json.JSONDecodeError as e:
-                                    print(f"❌ JSON parse error: {e}")
-                                    print(f"   Data: {json_data[:100]}...")
+                                    logger.error(f"❌ JSON parse error: {e}")
+                                    logger.error(f"   Data: {json_data[:100]}...")
                                     return []
                 else:
                     # Try parsing as plain JSON (fallback)
                     try:
                         result = response.json()
                         tools = result.get("result", {}).get("tools", [])
-                        print(f"✅ Fetched {len(tools)} tools from MCP server")
-                        return tools
+
+                        # Client-side filtering by session type
+                        if session_type:
+                            filtered_tools = []
+                            for tool in tools:
+                                # Tags are in _meta._fastmcp.tags for FastMCP tools
+                                tool_tags = tool.get("_meta", {}).get("_fastmcp", {}).get("tags", [])
+                                # Include tool if session_type is in the tool's tags
+                                if session_type in tool_tags:
+                                    filtered_tools.append(tool)
+
+                            logger.info(f"✅ Filtered {len(tools)} tools → {len(filtered_tools)} for session_type='{session_type}'")
+                            return filtered_tools
+                        else:
+                            logger.info(f"✅ Fetched {len(tools)} tools from MCP server (no filtering)")
+                            return tools
                     except Exception as e:
-                        print(f"❌ Could not parse as JSON: {e}")
-                        print(f"   Response: {response_text[:200]}...")
+                        logger.error(f"❌ Could not parse as JSON: {e}")
+                        logger.error(f"   Response: {response_text[:200]}...")
                         return []
 
-                print("❌ Could not parse MCP response")
+                logger.error("❌ Could not parse MCP response")
                 return []
             else:
-                print(f"❌ Failed to fetch MCP tools: HTTP {response.status_code}")
+                logger.error(f"❌ Failed to fetch MCP tools: HTTP {response.status_code}")
                 return []
 
     except Exception as e:
-        print(f"❌ Error fetching MCP tools: {e}")
+        logger.error(f"❌ Error fetching MCP tools: {e}")
         return []
 
 
@@ -253,22 +286,24 @@ def convert_mcp_tools_to_langchain(
             )
 
             langchain_tools.append(langchain_tool)
-            print(f"✅ Converted MCP tool: {tool_name}")
+            logger.info(f"✅ Converted MCP tool: {tool_name}")
 
         except Exception as e:
-            print(f"❌ Failed to convert tool {tool_name}: {e}")
+            logger.error(f"❌ Failed to convert tool {tool_name}: {e}")
 
     return langchain_tools
 
 
 async def load_mcp_tools_for_langchain(
-    mcp_url: Optional[str] = None
+    mcp_url: Optional[str] = None,
+    session_type: Optional[str] = None
 ) -> List[StructuredTool]:
     """
-    Load and convert MCP tools for use with LangChain
+    Load and convert MCP tools for use with LangChain, filtered by session type
 
     Args:
         mcp_url: MCP server URL (defaults to environment variable)
+        session_type: Session type to filter tools ("kitchen" or "meal-planner")
 
     Returns:
         List of LangChain StructuredTool instances
@@ -276,17 +311,17 @@ async def load_mcp_tools_for_langchain(
     if mcp_url is None:
         mcp_url = os.getenv("MCP_SERVER_URL", "http://mcp-service:8002/mcp")
 
-    print(f"🔄 Loading MCP tools from {mcp_url}")
+    logger.info(f"🔄 Loading MCP tools from {mcp_url} for session_type='{session_type}'")
 
-    # Fetch tools from MCP server
-    mcp_tools = await fetch_mcp_tools(mcp_url)
+    # Fetch tools from MCP server with session_type filtering
+    mcp_tools = await fetch_mcp_tools(mcp_url, session_type=session_type)
 
     if not mcp_tools:
-        print("⚠️  No MCP tools loaded")
+        logger.warning("⚠️  No MCP tools loaded")
         return []
 
     # Convert to LangChain format
     langchain_tools = convert_mcp_tools_to_langchain(mcp_tools, mcp_url)
 
-    print(f"✅ Loaded {len(langchain_tools)} LangChain tools from MCP")
+    logger.info(f"✅ Loaded {len(langchain_tools)} LangChain tools from MCP")
     return langchain_tools

@@ -23,7 +23,7 @@ export default function ChatMessages({
   }, [messages, agentStatus]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col justify-end">
+    <div className="flex-1 overflow-y-auto px-4 py-4">
       {messages.length === 0 ? (
         <div className="flex items-center justify-center flex-1">
           <p className="text-text/50 text-sm">

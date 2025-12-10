@@ -7,8 +7,7 @@ import IngredientList, {
   type Ingredient,
 } from '@/components/shared/IngredientList';
 import TimerList from '@/components/shared/TimerList';
-import type { ChatMessage } from '@/hooks/useChatMessages';
-import { useKitchenMessageHandler } from '@/hooks/useKitchenMessageHandler';
+import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SessionMessage } from '@/types/meal-planner-session';
 
@@ -26,39 +25,23 @@ export default function KitchenChat({
   initialIngredients = [],
 }: KitchenChatProps) {
   // Use the custom hook for message handling and state management
-  const { state, handleMessage, addMessage } = useKitchenMessageHandler({
+  const { state, handleMessage, addMessage } = useKitchenState({
     sessionId,
     initialMessages,
     initialIngredients,
   });
 
-  const handleConnect = useCallback(() => {
-    console.log('[KitchenChat] WebSocket connected');
-  }, []);
-
-  const handleDisconnect = useCallback(() => {
-    console.log('[KitchenChat] WebSocket disconnected');
-  }, []);
-
   // WebSocket connection
   const { isConnected, error, sendMessage } = useWebSocket({
     sessionId,
     onMessage: handleMessage,
-    onConnect: handleConnect,
-    onDisconnect: handleDisconnect,
   });
 
   // Handle sending messages
   const handleSendMessage = useCallback(
     (content: string) => {
       // Add user message optimistically
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content,
-        timestamp: new Date(),
-      };
-      addMessage(userMessage);
+      addMessage(content);
 
       // Send via WebSocket
       sendMessage(content);
@@ -73,7 +56,7 @@ export default function KitchenChat({
         {/* Header */}
         <div className="p-4 border-b border-accent/20">
           <h1 className="text-2xl font-bold text-text">
-            {state.recipeName || sessionName}
+            {state.sessionName || sessionName}
           </h1>
           <div className="flex items-center gap-4 mt-2">
             <p className="text-sm text-text/70">

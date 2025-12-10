@@ -35,8 +35,8 @@ class SaveRecipeRequest(BaseModel):
             "description": "Classic Italian pasta dish",
             "ingredients": ["pasta", "eggs", "bacon", "cheese"],
             "steps": [
-                {"instruction": "Boil pasta", "duration_minutes": 10, "ingredients": ["pasta"]},
-                {"instruction": "Cook bacon", "duration_minutes": 5, "ingredients": ["bacon"]}
+                {"instruction": "Boil pasta", "duration": 10},
+                {"instruction": "Cook bacon", "duration": 5}
             ],
             "total_time_minutes": 30,
             "difficulty": "Easy",

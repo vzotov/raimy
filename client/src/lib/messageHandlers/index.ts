@@ -1,6 +1,10 @@
+// Base chat handlers
+export { chatReducer } from './chatReducer';
+export type { ChatAction, ChatState } from './chatTypes';
+// Kitchen-specific handlers
 export { handleIngredientsMessage } from './ingredientsHandler';
-export { handleRecipeMessage } from './recipeHandler';
-export { handleRecipeNameMessage } from './recipeNameHandler';
+export { kitchenMessageReducer } from './kitchenReducer';
+export { handleSessionNameMessage } from './sessionNameHandler';
 export { handleSystemMessage } from './systemHandler';
 export { handleTextMessage } from './textHandler';
 export { handleTimerMessage } from './timerHandler';

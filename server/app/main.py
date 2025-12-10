@@ -364,18 +364,69 @@ async def websocket_chat_endpoint(
                             action=action
                         )
 
-                    # Check if this is a recipe_name message
-                    if redis_client.is_agent_message(message, "recipe_name"):
+                    # Check if this is a recipe_update message
+                    if redis_client.is_agent_message(message, "recipe_update"):
                         content = message["content"]
-                        recipe_name = content.get("name")
+                        action = content.get("action")
 
-                        if recipe_name:
-                            logger.info(f"📝 Detected recipe_name message: {recipe_name}")
+                        logger.info(f"📝 Detected recipe_update: action={action}")
+
+                        # IMMEDIATELY extract and convert update_data
+                        update_data = {}
+                        if action == "set_metadata":
+                            update_data = {
+                                "name": content.get("name"),
+                                "description": content.get("description"),
+                                "difficulty": content.get("difficulty"),
+                                "total_time": content.get("total_time"),
+                                "servings": content.get("servings"),
+                                "tags": content.get("tags"),
+                            }
+                        elif action == "set_ingredients":
+                            update_data = {"ingredients": content.get("ingredients", [])}
+                        elif action == "set_steps":
+                            # Steps already normalized by MCP tool to {instruction, duration?}
+                            steps_data = content.get("steps", [])
+                            update_data = {"steps": steps_data}
+
+                        # Debug logging
+                        logger.info(f"📦 Extracted update_data: keys={list(update_data.keys())}")
+                        if action == "set_steps":
+                            logger.info(f"📦 Steps count: {len(update_data.get('steps', []))}")
+                            logger.info(f"📦 Steps data: {update_data.get('steps', [])}")
+
+                        # Cancel any pending recipe save task
+                        if hasattr(redis_listener, "_recipe_save_task") and redis_listener._recipe_save_task:
+                            redis_listener._recipe_save_task.cancel()
+
+                        # Schedule debounced save (2 seconds)
+                        # Use default parameters to capture values (not references)
+                        async def save_recipe_debounced(action=action, update_data=update_data):
+                            try:
+                                await asyncio.sleep(2.0)
+
+                                await database_service.save_or_update_recipe(
+                                    session_id=session_id,
+                                    action=action,
+                                    **update_data
+                                )
+                            except asyncio.CancelledError:
+                                logger.debug("Recipe save cancelled (new update received)")
+
+                        redis_listener._recipe_save_task = asyncio.create_task(save_recipe_debounced())
+
+                    # Check if this is a session_name message
+                    if redis_client.is_agent_message(message, "session_name"):
+                        content = message["content"]
+                        session_name = content.get("name")
+
+                        if session_name:
+                            logger.info(f"📝 Detected session_name message: {session_name}")
 
                             # Persist session name to database
                             await database_service.update_session_name(
                                 session_id=session_id,
-                                session_name=recipe_name
+                                session_name=session_name
                             )
 
                     # Try to forward to WebSocket, but don't fail if disconnected

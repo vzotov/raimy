@@ -6,6 +6,7 @@ chat messages with tool calling capabilities.
 """
 import os
 import sys
+import logging
 import uuid
 from typing import List, Dict, Annotated, TypedDict, Optional
 
@@ -17,6 +18,9 @@ from langchain_openai import ChatOpenAI
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from core.redis_client import get_redis_client
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 # Define the state schema for the agent
@@ -131,11 +135,10 @@ class LangGraphAgent:
             User-friendly status message
         """
         status_messages = {
-            "save_recipe": "saving recipe",
             "set_ingredients": "gathering ingredients",
-            "update_ingredients": "updating ingredients",
+            "update_ingredients": "thinking",
             "set_timer": "setting timer",
-            "send_recipe_name": "preparing recipe"
+            "set_session_name": "preparing recipe"
         }
         return status_messages.get(tool_name, f"using {tool_name}")
 
@@ -159,7 +162,7 @@ class LangGraphAgent:
                 tool_args = tool_call.get("args", {})
                 tool_id = tool_call.get("id", "")
 
-                print(f"🔧 Tool call: {tool_name}, args before injection: {tool_args}")
+                logger.debug(f"🔧 Tool call: {tool_name}, args before injection: {tool_args}")
 
                 # Publish status based on tool name
                 status_message = self._get_tool_status_message(tool_name)
@@ -170,14 +173,14 @@ class LangGraphAgent:
                         status_message
                     )
                 except Exception as e:
-                    print(f"❌ Failed to publish tool status (non-fatal): {e}")
+                    logger.warning(f"❌ Failed to publish tool status (non-fatal): {e}")
 
                 # Always override session_id with the actual session from state
                 # The LLM might provide example values from tool docs, so we need to replace them
                 if "session_id" in state:
                     original_session = tool_args.get("session_id", "not provided")
                     tool_args["session_id"] = state["session_id"]
-                    print(f"✅ Overrode session_id: '{original_session}' → '{state['session_id']}'")
+                    logger.debug(f"✅ Overrode session_id: '{original_session}' → '{state['session_id']}'")
 
                 # Find the tool in our tool list
                 tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
@@ -292,7 +295,7 @@ class LangGraphAgent:
                                 status_msg
                             )
                         except Exception as e:
-                            print(f"❌ Failed to publish tool status (non-fatal): {e}")
+                            logger.warning(f"❌ Failed to publish tool status (non-fatal): {e}")
 
             # Filter for LLM-generated content from call_llm node
             if node_name == "call_llm" and isinstance(msg, AIMessage):
@@ -317,7 +320,7 @@ class LangGraphAgent:
                                 message_id
                             )
                         except Exception as e:
-                            print(f"❌ Redis publish failed (non-fatal): {e}")
+                            logger.warning(f"❌ Redis publish failed (non-fatal): {e}")
 
                         # Reset buffer
                         current_chunk_buffer = ""
@@ -332,7 +335,7 @@ class LangGraphAgent:
                     message_id
                 )
             except Exception as e:
-                print(f"❌ Redis publish failed (non-fatal): {e}")
+                logger.warning(f"❌ Redis publish failed (non-fatal): {e}")
 
         # Send completion signal to clear thinking status
         try:
@@ -342,7 +345,7 @@ class LangGraphAgent:
                 None
             )
         except Exception as e:
-            print(f"❌ Failed to publish completion signal (non-fatal): {e}")
+            logger.warning(f"❌ Failed to publish completion signal (non-fatal): {e}")
 
         # Combine accumulated content
         final_text = "".join(accumulated_content)
@@ -358,7 +361,7 @@ class LangGraphAgent:
                         if tool_result.get("success") and "recipe" in tool_result:
                             saved_recipes.append(tool_result["recipe"])
                     except Exception as e:
-                        print(f"Error parsing save_recipe result: {e}")
+                        logger.error(f"Error parsing save_recipe result: {e}")
 
         response_text = final_text or "I apologize, I couldn't generate a response."
 

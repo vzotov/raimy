@@ -457,7 +457,7 @@ async def websocket_chat_endpoint(
                 if session_type == "kitchen":
                     greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
                 else:
-                    greeting = "Hi! I'm Raimy, your meal planning assistant. What would you like to plan for meals?"
+                    greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
 
                 # Save greeting to database
                 try:

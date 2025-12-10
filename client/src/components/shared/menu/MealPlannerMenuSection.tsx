@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useMealPlannerSessions } from '@/hooks/useSessions';
@@ -18,7 +17,7 @@ export default function MealPlannerMenuSection({
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { sessions, updateSessionName, deleteSession } =
+  const { sessions, updateSessionName, deleteSession, createSession } =
     useMealPlannerSessions();
 
   // Auto-expand when on a meal planner page
@@ -27,6 +26,19 @@ export default function MealPlannerMenuSection({
       setIsExpanded(true);
     }
   }, [pathname]);
+
+  const handleCreateRecipe = async () => {
+    try {
+      const session = await createSession();
+
+      if (session?.id) {
+        router.push(`/meal-planner/${session.id}`);
+        onMenuClose();
+      }
+    } catch (err) {
+      console.error('Error creating meal planner session:', err);
+    }
+  };
 
   const handleDelete = async (sessionId: string) => {
     if (!confirm('Are you sure you want to delete this session?')) {
@@ -51,20 +63,19 @@ export default function MealPlannerMenuSection({
   return (
     <div>
       <SectionHeader
-        title="Meal Planner"
+        title="Recipe Creator"
         isExpanded={isExpanded}
         onToggle={() => setIsExpanded(!isExpanded)}
       />
 
       {isExpanded && (
         <div className="mt-1 ml-4 space-y-1">
-          <Link
-            href="/meal-planner"
-            className="block px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
-            onClick={onMenuClose}
+          <button
+            onClick={handleCreateRecipe}
+            className="w-full text-left px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
           >
-            + New Meal Plan
-          </Link>
+            + New Recipe
+          </button>
 
           <SessionList
             sessions={sessions}

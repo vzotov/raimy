@@ -1,6 +1,6 @@
 import type { MessageContent } from '@/types/chat-message-types';
 import IngredientList from './IngredientList';
-import RecipeCard from './RecipeCard';
+import RecipeMessage from './RecipeMessage';
 
 export interface MessageRendererProps {
   content: MessageContent;
@@ -38,7 +38,7 @@ export default function MessageRenderer({
       );
 
     case 'recipe':
-      return <RecipeCard recipe={content} isUser={isUser} />;
+      return <RecipeMessage recipe={content} isUser={isUser} />;
 
     case 'recipe_update':
       // recipe_update messages are not rendered in chat - they only update the sidebar

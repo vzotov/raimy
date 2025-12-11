@@ -151,6 +151,25 @@ class RedisClient:
             }
         )
 
+    async def send_recipe_save_request(self, session_id: str):
+        """
+        Send a recipe save request message to a session.
+        This triggers the API service to save the session's recipe to the Recipe table.
+
+        Args:
+            session_id: Session ID
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "save_recipe"
+                }
+            }
+        )
+
     def is_agent_message(self, message: dict, content_type: str = None) -> bool:
         """
         Check if a message is an agent message, optionally with specific content type

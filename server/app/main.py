@@ -395,25 +395,56 @@ async def websocket_chat_endpoint(
                             logger.info(f"📦 Steps count: {len(update_data.get('steps', []))}")
                             logger.info(f"📦 Steps data: {update_data.get('steps', [])}")
 
-                        # Cancel any pending recipe save task
-                        if hasattr(redis_listener, "_recipe_save_task") and redis_listener._recipe_save_task:
-                            redis_listener._recipe_save_task.cancel()
-
-                        # Schedule debounced save (2 seconds)
-                        # Use default parameters to capture values (not references)
-                        async def save_recipe_debounced(action=action, update_data=update_data):
+                        # Handle save_recipe action - immediate save (no debouncing)
+                        if action == "save_recipe":
                             try:
-                                await asyncio.sleep(2.0)
+                                logger.info(f"💾 save_recipe action: Saving recipe to Recipe table")
+                                result = await database_service.save_recipe_from_session_data(session_id)
 
-                                await database_service.save_or_update_recipe(
-                                    session_id=session_id,
-                                    action=action,
-                                    **update_data
-                                )
-                            except asyncio.CancelledError:
-                                logger.debug("Recipe save cancelled (new update received)")
+                                # Send success message via WebSocket
+                                await websocket.send_json({
+                                    "type": "system",
+                                    "content": {
+                                        "type": "recipe_saved",
+                                        "recipe_id": result["recipe_id"],
+                                        "message": f"Recipe '{result['recipe']['name']}' saved successfully!"
+                                    }
+                                })
+                                logger.info(f"✅ Recipe saved: {result['recipe_id']}")
+                            except Exception as e:
+                                # Send error message via WebSocket
+                                logger.error(f"❌ Failed to save recipe: {e}")
+                                try:
+                                    await websocket.send_json({
+                                        "type": "system",
+                                        "content": {
+                                            "type": "error",
+                                            "message": f"Failed to save recipe: {str(e)}"
+                                        }
+                                    })
+                                except:
+                                    pass  # WebSocket might be disconnected
+                        else:
+                            # Other recipe_update actions: set_metadata, set_ingredients, set_steps
+                            # Cancel any pending recipe save task
+                            if hasattr(redis_listener, "_recipe_save_task") and redis_listener._recipe_save_task:
+                                redis_listener._recipe_save_task.cancel()
 
-                        redis_listener._recipe_save_task = asyncio.create_task(save_recipe_debounced())
+                            # Schedule debounced save (2 seconds)
+                            # Use default parameters to capture values (not references)
+                            async def save_recipe_debounced(action=action, update_data=update_data):
+                                try:
+                                    await asyncio.sleep(2.0)
+
+                                    await database_service.save_or_update_recipe(
+                                        session_id=session_id,
+                                        action=action,
+                                        **update_data
+                                    )
+                                except asyncio.CancelledError:
+                                    logger.debug("Recipe save cancelled (new update received)")
+
+                            redis_listener._recipe_save_task = asyncio.create_task(save_recipe_debounced())
 
                     # Check if this is a session_name message
                     if redis_client.is_agent_message(message, "session_name"):

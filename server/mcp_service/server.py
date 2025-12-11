@@ -325,8 +325,8 @@ async def set_recipe_metadata(
     name: str,
     description: Optional[str] = None,
     difficulty: Optional[str] = None,
-    total_time: Optional[str] = None,
-    servings: Optional[str] = None,
+    total_time_minutes: Optional[int] = None,
+    servings: Optional[int] = None,
     tags: Optional[str] = None,
 ) -> dict:
     """
@@ -339,8 +339,8 @@ async def set_recipe_metadata(
         name: Recipe name (REQUIRED)
         description: Recipe description
         difficulty: Difficulty level (string: 'easy', 'medium', or 'hard')
-        total_time: Total cooking time (string: '30 minutes', '1 hour', etc.)
-        servings: Number of servings (string: '4', '4-6 people', etc.)
+        total_time_minutes: Total cooking time in minutes (integer: 30, 60, 90, etc.)
+        servings: Number of servings (integer: 4, 6, 8, etc.)
         tags: Comma-separated tags (e.g., 'italian, pasta, quick')
         session_id: Session ID (auto-injected)
 
@@ -349,8 +349,8 @@ async def set_recipe_metadata(
             name='Pasta Carbonara',
             description='Classic Italian pasta dish',
             difficulty='medium',
-            total_time='30 minutes',
-            servings='4',
+            total_time_minutes=30,
+            servings=4,
             tags='italian, pasta'
         )
     """
@@ -370,7 +370,7 @@ async def set_recipe_metadata(
                     "name": name,
                     "description": description,
                     "difficulty": difficulty,
-                    "total_time": total_time,
+                    "total_time_minutes": total_time_minutes,
                     "servings": servings,
                     "tags": tags_array,
                 }
@@ -525,57 +525,23 @@ async def save_recipe(session_id: str) -> dict:
         session_id: Session ID (injected automatically by agent)
 
     Returns:
-        dict: Success status, recipe_id, and saved recipe data
+        dict: Success status and message
 
     Example:
         # After building recipe with set_recipe_* tools:
         result = save_recipe(session_id="abc-123")
-        # Returns: {"success": True, "recipe_id": "xyz", "recipe": {...}}
+        # Returns: {"success": True, "message": "Recipe save initiated..."}
     """
     logger.info(f"🔧 MCP TOOL: save_recipe called with session_id='{session_id}'")
 
     try:
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
-        endpoint = f"{api_url}/api/meal-planner-sessions/{session_id}/save-recipe"
+        await redis_client.send_recipe_save_request(session_id)
+        logger.info(f"✅ Recipe save request published to Redis")
 
-        logger.info(f"📡 MCP: Preparing to POST to {endpoint}")
-
-        # Get service authentication
-        auth_token = await get_service_token()
-        headers = {}
-
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
-            logger.info(f"🔑 MCP: Service token obtained, length={len(auth_token)}")
-        else:
-            logger.warning("⚠️  MCP: No service token - recipe save may fail")
-
-        async with aiohttp.ClientSession() as session:
-            logger.info(f"🚀 MCP: Sending POST request to {endpoint}")
-            async with session.post(endpoint, headers=headers) as response:
-                logger.info(f"📥 MCP: Received response with status={response.status}")
-
-                if response.status == 200:
-                    result = await response.json()
-                    recipe_id = result.get("recipe_id")
-                    recipe_data = result.get("recipe", {})
-
-                    logger.info(f"✅ MCP: Recipe saved successfully with ID: {recipe_id}")
-
-                    return {
-                        "success": True,
-                        "recipe_id": recipe_id,
-                        "recipe": recipe_data,
-                        "message": f"Recipe '{recipe_data.get('name')}' saved successfully!"
-                    }
-                else:
-                    error_text = await response.text()
-                    logger.error(f"❌ MCP: save_recipe failed with status {response.status}: {error_text}")
-                    return {
-                        "success": False,
-                        "message": f"Failed to save recipe: {error_text}"
-                    }
-
+        return {
+            "success": True,
+            "message": "Recipe save initiated. You'll receive confirmation shortly."
+        }
     except Exception as e:
         logger.error(f"❌ MCP: save_recipe exception: {str(e)}", exc_info=True)
         return {"success": False, "message": f"Error: {str(e)}"}

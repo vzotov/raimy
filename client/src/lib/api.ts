@@ -35,6 +35,11 @@ async function apiRequest<T = unknown>(
     const data = await response.json();
 
     if (!response.ok) {
+      // Redirect to root page on unauthorized
+      if (response.status === 401) {
+        window.location.href = '/';
+      }
+
       return {
         error: data.detail || 'An error occurred',
         status: response.status,

@@ -342,133 +342,125 @@ async def websocket_chat_endpoint(
             """Background task to listen for Redis messages and forward to WebSocket"""
             try:
                 async for message in redis_client.subscribe(f"session:{session_id}"):
-                    # Debug: log message structure
+                    # Extract message type and content
                     msg_type = message.get("type")
-                    content = message.get("content")
+                    content = message.get("content", {})
                     content_type = content.get("type") if isinstance(content, dict) else None
-                    print(f"🔍 [REDIS_LISTENER] Redis message: type={msg_type}, content_type={content_type}")
-                    logger.info(f"🔍 Redis message: type={msg_type}, content_type={content_type}, has_content={content is not None}")
 
-                    # Check if this is an ingredients message
-                    if redis_client.is_agent_message(message, "ingredients"):
-                        content = message["content"]
-                        action = content.get("action", "set")
-                        items = content.get("items", [])
+                    logger.info(f"🔍 Redis message: type={msg_type}, content_type={content_type}")
 
-                        logger.info(f"🥘 Detected ingredients message: action={action}, items={len(items)}")
+                    # Route message to appropriate handler based on content type
+                    if msg_type == "agent_message" and content_type:
+                        match content_type:
+                            # action from Kitchen agent
+                            case "ingredients":
+                                await handle_ingredients_message(content)
 
-                        # Persist to session.ingredients field
-                        await database_service.save_or_update_ingredients(
-                            session_id=session_id,
-                            ingredients=items,
-                            action=action
-                        )
+                            case "recipe_update":
+                                await handle_recipe_update_message(content)
 
-                    # Check if this is a recipe_update message
-                    if redis_client.is_agent_message(message, "recipe_update"):
-                        content = message["content"]
-                        action = content.get("action")
+                            case "session_name":
+                                await handle_session_name_message(content)
 
-                        logger.info(f"📝 Detected recipe_update: action={action}")
+                            case _:
+                                # timer, text - UI only, just forward
+                                logger.info(f"{msg_type} passed through")
+                                pass
 
-                        # IMMEDIATELY extract and convert update_data
-                        update_data = {}
-                        if action == "set_metadata":
-                            update_data = {
-                                "name": content.get("name"),
-                                "description": content.get("description"),
-                                "difficulty": content.get("difficulty"),
-                                "total_time": content.get("total_time"),
-                                "servings": content.get("servings"),
-                                "tags": content.get("tags"),
-                            }
-                        elif action == "set_ingredients":
-                            update_data = {"ingredients": content.get("ingredients", [])}
-                        elif action == "set_steps":
-                            # Steps already normalized by MCP tool to {instruction, duration?}
-                            steps_data = content.get("steps", [])
-                            update_data = {"steps": steps_data}
-
-                        # Debug logging
-                        logger.info(f"📦 Extracted update_data: keys={list(update_data.keys())}")
-                        if action == "set_steps":
-                            logger.info(f"📦 Steps count: {len(update_data.get('steps', []))}")
-                            logger.info(f"📦 Steps data: {update_data.get('steps', [])}")
-
-                        # Handle save_recipe action - immediate save (no debouncing)
-                        if action == "save_recipe":
-                            try:
-                                logger.info(f"💾 save_recipe action: Saving recipe to Recipe table")
-                                result = await database_service.save_recipe_from_session_data(session_id)
-
-                                # Send success message via WebSocket
-                                await websocket.send_json({
-                                    "type": "system",
-                                    "content": {
-                                        "type": "recipe_saved",
-                                        "recipe_id": result["recipe_id"],
-                                        "message": f"Recipe '{result['recipe']['name']}' saved successfully!"
-                                    }
-                                })
-                                logger.info(f"✅ Recipe saved: {result['recipe_id']}")
-                            except Exception as e:
-                                # Send error message via WebSocket
-                                logger.error(f"❌ Failed to save recipe: {e}")
-                                try:
-                                    await websocket.send_json({
-                                        "type": "system",
-                                        "content": {
-                                            "type": "error",
-                                            "message": f"Failed to save recipe: {str(e)}"
-                                        }
-                                    })
-                                except:
-                                    pass  # WebSocket might be disconnected
-                        else:
-                            # Other recipe_update actions: set_metadata, set_ingredients, set_steps
-                            # Cancel any pending recipe save task
-                            if hasattr(redis_listener, "_recipe_save_task") and redis_listener._recipe_save_task:
-                                redis_listener._recipe_save_task.cancel()
-
-                            # Schedule debounced save (2 seconds)
-                            # Use default parameters to capture values (not references)
-                            async def save_recipe_debounced(action=action, update_data=update_data):
-                                try:
-                                    await asyncio.sleep(2.0)
-
-                                    await database_service.save_or_update_recipe(
-                                        session_id=session_id,
-                                        action=action,
-                                        **update_data
-                                    )
-                                except asyncio.CancelledError:
-                                    logger.debug("Recipe save cancelled (new update received)")
-
-                            redis_listener._recipe_save_task = asyncio.create_task(save_recipe_debounced())
-
-                    # Check if this is a session_name message
-                    if redis_client.is_agent_message(message, "session_name"):
-                        content = message["content"]
-                        session_name = content.get("name")
-
-                        if session_name:
-                            logger.info(f"📝 Detected session_name message: {session_name}")
-
-                            # Persist session name to database
-                            await database_service.update_session_name(
-                                session_id=session_id,
-                                session_name=session_name
-                            )
-
-                    # Try to forward to WebSocket, but don't fail if disconnected
+                    # Always forward message to WebSocket for UI
                     try:
                         await websocket.send_json(message)
-                    except Exception as ws_error:
-                        # WebSocket disconnected - that's ok, DB save already happened
-                        logger.debug(f"WebSocket send failed (client likely disconnected): {ws_error}")
-                        # Continue processing next message
+                    except Exception as e:
+                        logger.warning(f"Failed to send WebSocket message (connection may be closed): {e}")
+
             except Exception as e:
-                logger.error(f"Redis listener error for session {session_id}: {e}")
+                logger.error(f"Redis listener error: {e}", exc_info=True)
+
+        async def handle_ingredients_message(content: dict):
+            """Handle ingredients message - save to session.ingredients"""
+            action = content.get("action", "set")
+            items = content.get("items", [])
+            logger.info(f"🥘 Ingredients: action={action}, count={len(items)}")
+
+            await database_service.save_or_update_ingredients(
+                session_id=session_id,
+                ingredients=items,
+                action=action
+            )
+
+        async def handle_recipe_update_message(content: dict):
+            """Handle recipe_update message - save to session.recipe or Recipe table"""
+            action = content.get("action")
+            logger.info(f"📝 Recipe update: action={action}")
+
+            match action:
+                case "save_recipe":
+                    # Immediate save to Recipe table (no debouncing)
+                    try:
+                        logger.info(f"💾 Saving recipe to Recipe table")
+                        result = await database_service.save_recipe_from_session_data(session_id)
+
+                        # Send success message
+                        await websocket.send_json({
+                            "type": "system",
+                            "content": {
+                                "type": "recipe_saved",
+                                "recipe_id": result["recipe_id"],
+                                "message": f"Recipe '{result['recipe']['name']}' saved successfully!"
+                            }
+                        })
+                        logger.info(f"✅ Recipe saved: {result['recipe_id']}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to save recipe: {e}")
+                        try:
+                            await websocket.send_json({
+                                "type": "system",
+                                "content": {
+                                    "type": "error",
+                                    "message": f"Failed to save recipe: {str(e)}"
+                                }
+                            })
+                        except:
+                            pass  # WebSocket might be disconnected
+
+                case "set_metadata":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_metadata",
+                        name=content.get("name"),
+                        description=content.get("description"),
+                        difficulty=content.get("difficulty"),
+                        total_time_minutes=content.get("total_time_minutes"),
+                        servings=content.get("servings"),
+                        tags=content.get("tags"),
+                    )
+
+                case "set_ingredients":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_ingredients",
+                        ingredients=content.get("ingredients", [])
+                    )
+
+                case "set_steps":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_steps",
+                        steps=content.get("steps", [])
+                    )
+
+        async def handle_session_name_message(content: dict):
+            """Handle session_name message - save to session.session_name"""
+            session_name = content.get("name")
+            if session_name:
+                logger.info(f"📝 Session name: {session_name}")
+                await database_service.update_session_name(
+                    session_id=session_id,
+                    session_name=session_name
+                )
 
         # Start Redis listener as background task
         redis_task = asyncio.create_task(redis_listener())

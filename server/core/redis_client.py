@@ -170,6 +170,146 @@ class RedisClient:
             }
         )
 
+    async def send_ingredients_message(self, session_id: str, items: list, action: str = "set"):
+        """
+        Send ingredients message to update session ingredients.
+
+        Args:
+            session_id: Session ID
+            items: List of ingredient dictionaries
+            action: "set" or "update"
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "ingredients",
+                    "items": items,
+                    "action": action
+                }
+            }
+        )
+
+    async def send_timer_message(self, session_id: str, duration: int, label: str):
+        """
+        Send timer message to set a cooking timer.
+
+        Args:
+            session_id: Session ID
+            duration: Duration in seconds
+            label: Timer label
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "timer",
+                    "duration": duration,
+                    "label": label
+                }
+            }
+        )
+
+    async def send_session_name_message(self, session_id: str, name: str):
+        """
+        Send session name message to update session name.
+
+        Args:
+            session_id: Session ID
+            name: Session name
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "session_name",
+                    "name": name
+                }
+            }
+        )
+
+    async def send_recipe_metadata_message(
+        self,
+        session_id: str,
+        name: str = None,
+        description: str = None,
+        difficulty: str = None,
+        total_time_minutes: int = None,
+        servings: int = None,
+        tags: list = None
+    ):
+        """
+        Send recipe metadata message to update session.recipe.
+
+        Args:
+            session_id: Session ID
+            name: Recipe name
+            description: Recipe description
+            difficulty: Difficulty level
+            total_time_minutes: Total time in minutes
+            servings: Number of servings
+            tags: List of tags
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_metadata",
+                    "name": name,
+                    "description": description,
+                    "difficulty": difficulty,
+                    "total_time_minutes": total_time_minutes,
+                    "servings": servings,
+                    "tags": tags
+                }
+            }
+        )
+
+    async def send_recipe_ingredients_message(self, session_id: str, ingredients: list):
+        """
+        Send recipe ingredients message to update session.recipe.
+
+        Args:
+            session_id: Session ID
+            ingredients: List of ingredient dictionaries
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_ingredients",
+                    "ingredients": ingredients
+                }
+            }
+        )
+
+    async def send_recipe_steps_message(self, session_id: str, steps: list):
+        """
+        Send recipe steps message to update session.recipe.
+
+        Args:
+            session_id: Session ID
+            steps: List of step dictionaries
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_steps",
+                    "steps": steps
+                }
+            }
+        )
+
     def is_agent_message(self, message: dict, content_type: str = None) -> bool:
         """
         Check if a message is an agent message, optionally with specific content type

@@ -127,17 +127,11 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
             for ing in ingredients
         ]
 
-        # Publish to Redis instead of HTTP call
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "ingredients",
-                    "items": ingredients_clean,
-                    "action": "set"
-                }
-            }
+        # Publish to Redis using helper method
+        await redis_client.send_ingredients_message(
+            session_id,
+            ingredients_clean,
+            action="set"
         )
 
         print(f"✅ set_ingredients: Set {len(ingredients)} ingredients")
@@ -198,17 +192,11 @@ async def update_ingredients(ingredients: List[dict], session_id: str) -> dict:
             for ing in ingredients
         ]
 
-        # Publish to Redis
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "ingredients",
-                    "items": ingredients_clean,
-                    "action": "update"
-                }
-            }
+        # Publish to Redis using helper method
+        await redis_client.send_ingredients_message(
+            session_id,
+            ingredients_clean,
+            action="update"
         )
 
         print(f"✅ update_ingredients: Updated {len(ingredients)} ingredients")
@@ -249,18 +237,8 @@ async def set_timer(duration: int, label: str, session_id: str) -> dict:
     print(f"🔧 MCP TOOL: set_timer({duration}s, '{label}', session={session_id})")
 
     try:
-        # Publish to Redis
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "timer",
-                    "duration": duration,
-                    "label": label
-                }
-            }
-        )
+        # Publish to Redis using helper method
+        await redis_client.send_timer_message(session_id, duration, label)
 
         print(f"✅ set_timer: Timer set: {duration}s - {label}")
         return {
@@ -297,17 +275,8 @@ async def set_session_name(session_name: str, session_id: str) -> dict:
     print(f"🔧 MCP TOOL: set_session_name('{session_name}', session={session_id})")
 
     try:
-        # Publish to Redis
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "session_name",
-                    "name": session_name
-                }
-            }
-        )
+        # Publish to Redis using helper method
+        await redis_client.send_session_name_message(session_id, session_name)
 
         print(f"✅ set_session_name: Session name set: {session_name}")
         return {
@@ -325,8 +294,8 @@ async def set_recipe_metadata(
     name: str,
     description: Optional[str] = None,
     difficulty: Optional[str] = None,
-    total_time: Optional[str] = None,
-    servings: Optional[str] = None,
+    total_time_minutes: Optional[int] = None,
+    servings: Optional[int] = None,
     tags: Optional[str] = None,
 ) -> dict:
     """
@@ -339,8 +308,8 @@ async def set_recipe_metadata(
         name: Recipe name (REQUIRED)
         description: Recipe description
         difficulty: Difficulty level (string: 'easy', 'medium', or 'hard')
-        total_time: Total cooking time (string: '30 minutes', '1 hour', etc.)
-        servings: Number of servings (string: '4', '4-6 people', etc.)
+        total_time_minutes: Total cooking time in minutes (integer: 30, 60, 90, etc.)
+        servings: Number of servings (integer: 4, 6, 8, etc.)
         tags: Comma-separated tags (e.g., 'italian, pasta, quick')
         session_id: Session ID (auto-injected)
 
@@ -349,8 +318,8 @@ async def set_recipe_metadata(
             name='Pasta Carbonara',
             description='Classic Italian pasta dish',
             difficulty='medium',
-            total_time='30 minutes',
-            servings='4',
+            total_time_minutes=30,
+            servings=4,
             tags='italian, pasta'
         )
     """
@@ -360,21 +329,14 @@ async def set_recipe_metadata(
         # Parse comma-separated tags into array
         tags_array = [tag.strip() for tag in tags.split(',')] if tags else []
 
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "recipe_update",
-                    "action": "set_metadata",
-                    "name": name,
-                    "description": description,
-                    "difficulty": difficulty,
-                    "total_time": total_time,
-                    "servings": servings,
-                    "tags": tags_array,
-                }
-            }
+        await redis_client.send_recipe_metadata_message(
+            session_id,
+            name=name,
+            description=description,
+            difficulty=difficulty,
+            total_time_minutes=total_time_minutes,
+            servings=servings,
+            tags=tags_array
         )
 
         print(f"✅ set_recipe_metadata: Updated metadata for '{name}'")
@@ -421,17 +383,7 @@ async def set_recipe_ingredients(
             for ing in ingredients
         ]
 
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "recipe_update",
-                    "action": "set_ingredients",
-                    "ingredients": ingredients_clean,
-                }
-            }
-        )
+        await redis_client.send_recipe_ingredients_message(session_id, ingredients_clean)
 
         print(f"✅ set_recipe_ingredients: Set {len(ingredients)} ingredients")
         return {"success": True, "message": f"Set {len(ingredients)} ingredients"}
@@ -486,17 +438,7 @@ async def set_recipe_steps(
             else:
                 raise ValueError(f"Step {i+1} has invalid format: {type(step)}")
 
-        await redis_client.publish(
-            f"session:{session_id}",
-            {
-                "type": "agent_message",
-                "content": {
-                    "type": "recipe_update",
-                    "action": "set_steps",
-                    "steps": normalized_steps,
-                }
-            }
-        )
+        await redis_client.send_recipe_steps_message(session_id, normalized_steps)
 
         logger.info(f"✅ set_recipe_steps: Set {len(normalized_steps)} steps")
         return {"success": True, "message": f"Set {len(normalized_steps)} steps"}
@@ -513,11 +455,15 @@ async def save_recipe(session_id: str) -> dict:
     The recipe data is read from the session (which you've been building using
     set_recipe_metadata, set_recipe_ingredients, and set_recipe_steps).
 
+    CRITICAL RULES:
+    - NEVER call set_recipe_metadata, set_recipe_ingredients, or set_recipe_steps in the same turn as save_recipe
+    - ONLY call save_recipe by itself - do not combine with other recipe tools
+    - If you need to update the recipe, do it in a separate turn BEFORE asking to save
+
     WORKFLOW:
-    1. Build recipe using the 3 recipe tools (metadata, ingredients, steps)
+    1. Build recipe using the 3 recipe tools (metadata, ingredients, steps) - separate turn
     2. ASK user: "Would you like me to save this recipe to your collection?"
-    3. If yes, call this tool with just the session_id
-    4. When user asks to save, ONLY call this tool - don't update recipe in same turn
+    3. If yes, call ONLY save_recipe (no other tools in this turn)
 
     IMPORTANT: Can be called multiple times to update a saved recipe after edits.
 
@@ -525,57 +471,25 @@ async def save_recipe(session_id: str) -> dict:
         session_id: Session ID (injected automatically by agent)
 
     Returns:
-        dict: Success status, recipe_id, and saved recipe data
+        dict: Success status and message
 
-    Example:
-        # After building recipe with set_recipe_* tools:
-        result = save_recipe(session_id="abc-123")
-        # Returns: {"success": True, "recipe_id": "xyz", "recipe": {...}}
+    Example - CORRECT:
+        Turn 1: set_recipe_metadata(...), set_recipe_ingredients(...), set_recipe_steps(...)
+        Turn 2: save_recipe(session_id="abc-123")  # ONLY this tool, nothing else
+
+    Example - WRONG:
+        set_recipe_metadata(...) + save_recipe(...)  # ❌ DON'T DO THIS
     """
     logger.info(f"🔧 MCP TOOL: save_recipe called with session_id='{session_id}'")
 
     try:
-        api_url = os.getenv("API_URL", "http://raimy-api:8000")
-        endpoint = f"{api_url}/api/meal-planner-sessions/{session_id}/save-recipe"
+        await redis_client.send_recipe_save_request(session_id)
+        logger.info(f"✅ Recipe save request published to Redis")
 
-        logger.info(f"📡 MCP: Preparing to POST to {endpoint}")
-
-        # Get service authentication
-        auth_token = await get_service_token()
-        headers = {}
-
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
-            logger.info(f"🔑 MCP: Service token obtained, length={len(auth_token)}")
-        else:
-            logger.warning("⚠️  MCP: No service token - recipe save may fail")
-
-        async with aiohttp.ClientSession() as session:
-            logger.info(f"🚀 MCP: Sending POST request to {endpoint}")
-            async with session.post(endpoint, headers=headers) as response:
-                logger.info(f"📥 MCP: Received response with status={response.status}")
-
-                if response.status == 200:
-                    result = await response.json()
-                    recipe_id = result.get("recipe_id")
-                    recipe_data = result.get("recipe", {})
-
-                    logger.info(f"✅ MCP: Recipe saved successfully with ID: {recipe_id}")
-
-                    return {
-                        "success": True,
-                        "recipe_id": recipe_id,
-                        "recipe": recipe_data,
-                        "message": f"Recipe '{recipe_data.get('name')}' saved successfully!"
-                    }
-                else:
-                    error_text = await response.text()
-                    logger.error(f"❌ MCP: save_recipe failed with status {response.status}: {error_text}")
-                    return {
-                        "success": False,
-                        "message": f"Failed to save recipe: {error_text}"
-                    }
-
+        return {
+            "success": True,
+            "message": "Recipe save initiated. You'll receive confirmation shortly."
+        }
     except Exception as e:
         logger.error(f"❌ MCP: save_recipe exception: {str(e)}", exc_info=True)
         return {"success": False, "message": f"Error: {str(e)}"}

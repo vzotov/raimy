@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { RecipeContent } from '@/types/chat-message-types';
 import IngredientList from './IngredientList';
 
-export interface RecipeCardProps {
+export interface RecipeMessageProps {
   recipe: RecipeContent;
   isUser?: boolean;
 }
@@ -13,10 +13,10 @@ export interface RecipeCardProps {
  * Shows recipe name, description, ingredients, steps, and metadata.
  * Includes a link to view the full recipe in My Recipes.
  */
-export default function RecipeCard({
+export default function RecipeMessage({
   recipe,
   isUser = false,
-}: RecipeCardProps) {
+}: RecipeMessageProps) {
   const difficultyColors = {
     easy: 'bg-green-500/20 text-green-300',
     medium: 'bg-yellow-500/20 text-yellow-300',

@@ -541,8 +541,8 @@ class DatabaseService:
                         recipe["description"] = update_data["description"]
                     if "difficulty" in update_data:
                         recipe["difficulty"] = update_data["difficulty"]
-                    if "total_time" in update_data:
-                        recipe["total_time"] = update_data["total_time"]
+                    if "total_time_minutes" in update_data:
+                        recipe["total_time_minutes"] = update_data["total_time_minutes"]
                     if "servings" in update_data:
                         recipe["servings"] = update_data["servings"]
                     if "tags" in update_data:
@@ -600,6 +600,97 @@ class DatabaseService:
                 await db.rollback()
                 logger.error(f"❌ Error updating recipe_id: {e}", exc_info=True)
                 return False
+
+    async def save_recipe_from_session_data(self, session_id: str) -> dict:
+        """
+        Save recipe from session.recipe JSON directly to Recipe table.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            dict: {"recipe_id": str, "recipe": dict}
+        """
+        logger.info(f"💾 save_recipe_from_session_data: session={session_id}")
+
+        # Get session data
+        session_data = await self.get_meal_planner_session(session_id)
+        recipe_json = session_data["recipe"]
+        owner_email = session_data["user_id"]
+        existing_recipe_id = session_data.get("recipe_id")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                if existing_recipe_id:
+                    # Update existing recipe
+                    logger.info(f"🔄 Updating recipe {existing_recipe_id}")
+
+                    result = await db.execute(
+                        select(Recipe).where(Recipe.id == existing_recipe_id)
+                    )
+                    db_recipe = result.scalar_one()
+
+                    db_recipe.name = recipe_json.get("name", db_recipe.name)
+                    db_recipe.description = recipe_json.get("description", "")
+                    db_recipe.ingredients = recipe_json.get("ingredients", [])
+                    db_recipe.steps = recipe_json.get("steps", [])
+                    db_recipe.total_time_minutes = recipe_json.get("total_time_minutes")
+                    db_recipe.difficulty = recipe_json.get("difficulty", "medium")
+                    db_recipe.servings = recipe_json.get("servings", 4)
+                    db_recipe.tags = recipe_json.get("tags", [])
+
+                    flag_modified(db_recipe, "ingredients")
+                    flag_modified(db_recipe, "steps")
+
+                    await db.commit()
+                    recipe_id = str(db_recipe.id)
+                else:
+                    # Create new recipe
+                    logger.info(f"➕ Creating new recipe")
+
+                    db_recipe = Recipe(
+                        name=recipe_json.get("name", "Untitled Recipe"),
+                        description=recipe_json.get("description", ""),
+                        ingredients=recipe_json.get("ingredients", []),
+                        steps=recipe_json.get("steps", []),
+                        total_time_minutes=recipe_json.get("total_time_minutes"),
+                        difficulty=recipe_json.get("difficulty", "medium"),
+                        servings=recipe_json.get("servings", 4),
+                        tags=recipe_json.get("tags", []),
+                        user_id=owner_email,
+                        meal_planner_session_id=session_id
+                    )
+
+                    db.add(db_recipe)
+                    await db.commit()
+                    await db.refresh(db_recipe)
+                    recipe_id = str(db_recipe.id)
+
+                    # Link recipe to session
+                    await self.update_session_recipe_id(session_id, recipe_id)
+
+                logger.info(f"✅ Recipe saved: {recipe_id}")
+
+                return {
+                    "recipe_id": recipe_id,
+                    "recipe": {
+                        "id": recipe_id,
+                        "name": db_recipe.name,
+                        "description": db_recipe.description,
+                        "ingredients": db_recipe.ingredients,
+                        "steps": db_recipe.steps,
+                        "total_time_minutes": db_recipe.total_time_minutes,
+                        "difficulty": db_recipe.difficulty,
+                        "servings": db_recipe.servings,
+                        "tags": db_recipe.tags,
+                        "user_id": db_recipe.user_id
+                    }
+                }
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
+                raise
 
 # Global instance
 database_service = DatabaseService()

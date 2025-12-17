@@ -37,8 +37,8 @@ function useSessions(sessionType: SessionType) {
     },
   );
 
-  const createSession = async () => {
-    const response = await mealPlannerSessions.create(sessionType);
+  const createSession = async (recipeId?: string) => {
+    const response = await mealPlannerSessions.create(sessionType, recipeId);
     if (response.error) {
       throw new Error(response.error);
     }

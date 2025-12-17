@@ -29,6 +29,7 @@ class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     session_id: str
     system_prompt: str
+    has_generated_text: bool  # Track if LLM has generated text output
 
 
 class LangGraphAgent:
@@ -78,6 +79,7 @@ class LangGraphAgent:
                     "end": END
                 }
             )
+            # Go back to call_llm after executing tools
             workflow.add_edge("execute_tools", "call_llm")
         else:
             # No tools, just end after LLM call
@@ -104,8 +106,14 @@ class LangGraphAgent:
         # Call LLM
         response = await self.llm.ainvoke(messages)
 
+        # Check if response has text content (not just tool calls)
+        has_text = bool(response.content and response.content.strip())
+
         # Return updated state
-        return {"messages": [response]}
+        return {
+            "messages": [response],
+            "has_generated_text": has_text  # Mark if we've generated text
+        }
 
     def _should_execute_tools(self, state: AgentState) -> str:
         """
@@ -118,6 +126,11 @@ class LangGraphAgent:
             "tools" if tools should be executed, "end" otherwise
         """
         last_message = state["messages"][-1]
+
+        # If we've already generated text output, stop (don't continue loop)
+        # This prevents agent from making more tool calls after giving instruction
+        if state.get("has_generated_text", False):
+            return "end"
 
         # Check if the last message has tool calls
         if hasattr(last_message, "tool_calls") and last_message.tool_calls:
@@ -253,7 +266,8 @@ class LangGraphAgent:
         initial_state: AgentState = {
             "messages": langchain_messages,
             "session_id": session_id,
-            "system_prompt": system_prompt
+            "system_prompt": system_prompt,
+            "has_generated_text": False  # Reset for new turn
         }
 
         # Accumulators for final response

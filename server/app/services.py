@@ -189,6 +189,33 @@ class DatabaseService:
                 logger.error(f"Error getting recipes for user {user_id}: {e}", exc_info=True)
                 return []
 
+    async def get_recipe_by_id(self, recipe_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single recipe by ID from PostgreSQL"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(Recipe).where(Recipe.id == recipe_id)
+                )
+                recipe = result.scalar_one_or_none()
+
+                if not recipe:
+                    return None
+
+                return {
+                    "id": str(recipe.id),
+                    "name": recipe.name,
+                    "description": recipe.description,
+                    "ingredients": recipe.ingredients,
+                    "steps": recipe.steps,
+                    "total_time_minutes": recipe.total_time_minutes,
+                    "difficulty": recipe.difficulty,
+                    "servings": recipe.servings,
+                    "tags": recipe.tags,
+                }
+            except Exception as e:
+                logger.error(f"Error getting recipe {recipe_id}: {e}", exc_info=True)
+                return None
+
     async def save_user(self, user_data: Dict[str, Any]) -> bool:
         """Save or update user data in PostgreSQL"""
         async with AsyncSessionLocal() as db:
@@ -262,14 +289,40 @@ class DatabaseService:
                 session_id = uuid.uuid4()
                 room_name = f"{session_type}-{session_id}"  # Include session type in room name
 
+                # Pre-populate session data from recipe if recipe_id is provided
+                session_name = "Untitled Session"
+                ingredients = None
+
+                if recipe_id:
+                    recipe_data = await self.get_recipe_by_id(recipe_id)
+                    if recipe_data:
+                        session_name = recipe_data.get("name", "Untitled Session")
+                        # Convert recipe ingredients to session ingredients format
+                        recipe_ingredients = recipe_data.get("ingredients", [])
+                        if recipe_ingredients:
+                            ingredients = [
+                                {
+                                    "name": ing.get("name"),
+                                    "amount": ing.get("amount", ""),
+                                    "unit": ing.get("unit", ""),
+                                    "highlighted": False,
+                                    "used": False
+                                }
+                                for ing in recipe_ingredients
+                            ]
+                        logger.info(f"📋 Pre-populated session with recipe '{session_name}' and {len(ingredients) if ingredients else 0} ingredients")
+                    else:
+                        logger.warning(f"⚠️  Recipe {recipe_id} not found during session creation")
+
                 # Create session
                 new_session = MealPlannerSession(
                     id=session_id,
                     user_id=user_id,
-                    session_name="Untitled Session",
+                    session_name=session_name,
                     session_type=session_type,
                     room_name=room_name,
-                    recipe_id=recipe_id
+                    recipe_id=recipe_id,
+                    ingredients=ingredients
                 )
                 db.add(new_session)
                 await db.commit()
@@ -277,7 +330,7 @@ class DatabaseService:
                 return {
                     "id": str(session_id),
                     "user_id": user_id,
-                    "session_name": "Untitled Session",
+                    "session_name": session_name,
                     "session_type": session_type,
                     "room_name": room_name,
                     "messages": [],

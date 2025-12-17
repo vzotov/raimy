@@ -1,3 +1,9 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useKitchenSessions } from '@/hooks/useSessions';
+
 interface RecipeIngredient {
   name: string;
   amount?: string;
@@ -30,6 +36,27 @@ interface RecipeCardProps {
 }
 
 export default function RecipeCard({ recipe }: RecipeCardProps) {
+  const router = useRouter();
+  const { createSession } = useKitchenSessions();
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSendToKitchen = async () => {
+    try {
+      setIsCreating(true);
+      setError(null);
+
+      const session = await createSession(recipe.id);
+
+      if (session) {
+        router.push(`/kitchen/${session.id}`);
+      }
+    } catch (err) {
+      console.error('Error creating kitchen session:', err);
+      setError('Failed to start cooking session. Please try again.');
+      setIsCreating(false);
+    }
+  };
   return (
     <div className="bg-surface rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
       <div className="p-6">
@@ -116,6 +143,30 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
             </span>
           )}
         </div>
+
+        <button
+          onClick={handleSendToKitchen}
+          disabled={isCreating}
+          className="w-full mb-3 px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {isCreating ? (
+            <>
+              <span className="animate-spin">⏳</span>
+              Starting...
+            </>
+          ) : (
+            <>
+              <span>👨‍🍳</span>
+              Send to Kitchen
+            </>
+          )}
+        </button>
+
+        {error && (
+          <div className="mb-3 p-2 bg-red-100 text-red-800 text-sm rounded">
+            {error}
+          </div>
+        )}
 
         <div className="text-xs text-text/50">
           Created: {new Date(recipe.created_at).toLocaleDateString()}

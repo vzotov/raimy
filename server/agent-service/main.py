@@ -25,6 +25,92 @@ logger = logging.getLogger(__name__)
 agent_instances: Dict[str, LangGraphAgent] = {}
 
 
+def format_recipe_context(recipe_data: Dict[str, Any]) -> str:
+    """Format recipe data for system prompt injection"""
+    recipe_name = recipe_data.get("name", "Unknown Recipe")
+    description = recipe_data.get("description", "")
+    ingredients = recipe_data.get("ingredients", [])
+    steps = recipe_data.get("steps", [])
+
+    context = f"""
+────────────────────────────────────────
+RECIPE TO COOK: {recipe_name}
+────────────────────────────────────────
+
+The user has selected this recipe to cook. Guide them through it step-by-step.
+
+**Recipe Name:** {recipe_name}
+"""
+
+    if description:
+        context += f"**Description:** {description}\n"
+
+    context += "\n**Ingredients:**\n"
+    for ing in ingredients:
+        name = ing.get("name", "")
+        amount = ing.get("amount", "")
+        unit = ing.get("unit", "")
+        notes = ing.get("notes", "")
+
+        ing_line = f"- {name}"
+        if amount:
+            ing_line = f"- {amount} {unit} {name}" if unit else f"- {amount} {name}"
+        if notes:
+            ing_line += f" ({notes})"
+        context += ing_line + "\n"
+
+    context += "\n**Cooking Steps (guide through ONE step at a time):**\n"
+    for i, step in enumerate(steps, 1):
+        instruction = step.get("instruction", "")
+        duration = step.get("duration")
+
+        context += f"{i}. {instruction}"
+        if duration:
+            context += f" [TIMER: {duration} minutes]"
+        context += "\n"
+
+    context += f"""
+────────────────────────────────────────
+INSTRUCTIONS:
+────────────────────────────────────────
+⚠️  IMPORTANT: The session name and ingredients are ALREADY SET in the database.
+   DO NOT call set_session_name() or set_ingredients() - this data is already saved.
+
+🔴 CRITICAL: Guide through ONE step at a time. Wait for user confirmation before moving to next step.
+
+**When STARTING a new step:**
+1. Highlight ingredients for THIS step with update_ingredients() (set highlighted=true)
+2. State the instruction clearly and concisely
+3. STOP - do NOT continue, do NOT mark ingredients as used, do NOT move to next step
+4. Wait for user to respond before doing anything else
+
+**When user says "done", "next", or confirms completion:**
+1. Mark previously highlighted ingredients as used with update_ingredients() (set used=true, highlighted=false)
+2. Move to the next step: highlight new ingredients and give instruction
+3. STOP again - wait for user confirmation
+
+**Timer rules:**
+- For passive cooking steps (bake, simmer, rest, chill), use set_timer() tool
+- Do NOT set timers for active steps (whisking, mixing, chopping, etc.)
+
+**Critical stopping rules:**
+- After giving ONE step instruction, STOP completely
+- Do NOT call any more tools until user responds
+- Do NOT combine multiple steps or tool calls in one turn
+- Do NOT mark ingredients as used in the same turn you highlight them
+- Each user message should result in exactly ONE step instruction
+
+**General rules:**
+- Do NOT mention duration in your text - just state the instruction
+- Do NOT add meta-commentary like "Great, step X is done" or "Proceeding to step Y"
+- Just give the next instruction directly when user says they're ready
+
+Start with ONLY the first step, then STOP.
+"""
+
+    return context
+
+
 async def get_agent(session_type: str = "meal-planner") -> LangGraphAgent:
     """
     Get or create LangGraph agent instance for the specified session type
@@ -126,9 +212,28 @@ async def agent_chat(request: ChatRequest):
         # Extract ingredients if present
         ingredients = session_data.get("ingredients", [])
 
+        # Check for recipe_id and load recipe data
+        recipe_id = session_data.get("recipe_id")
+        recipe_data = None
+        recipe_name = None
+
+        if recipe_id:
+            logger.info(f"🍳 Loading recipe {recipe_id} for kitchen session")
+            recipe_data = await database_service.get_recipe_by_id(recipe_id)
+            if recipe_data:
+                recipe_name = recipe_data.get("name")
+                logger.info(f"✅ Loaded recipe: {recipe_name}")
+            else:
+                logger.error(f"❌ Recipe {recipe_id} not found")
+
         # Select appropriate prompt based on session type
         if session_type == "kitchen":
             system_prompt = COOKING_ASSISTANT_PROMPT
+
+            # Add recipe context if recipe_id was provided
+            if recipe_data:
+                recipe_context = format_recipe_context(recipe_data)
+                system_prompt = system_prompt + "\n\n" + recipe_context
 
             # If resuming session with ingredients, add context
             if ingredients:

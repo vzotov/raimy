@@ -476,11 +476,29 @@ async def websocket_chat_endpoint(
 
             # If session has no messages, send static greeting without calling LLM
             if len(messages) == 0:
-                # Select greeting based on session type
-                if session_type == "kitchen":
-                    greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                recipe_id = session_data.get("recipe_id")
+                recipe_name = None
+
+                # If recipe_id exists for kitchen, fetch and customize greeting
+                if recipe_id and session_type == "kitchen":
+                    logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
+
+                    # Fetch recipe data
+                    recipe_data = await database_service.get_recipe_by_id(recipe_id)
+
+                    if recipe_data:
+                        recipe_name = recipe_data.get("name")
+                        logger.info(f"✅ Loaded recipe: {recipe_name}")
+                        greeting = f"Hi! I'm Raimy, your cooking assistant. I've loaded the recipe for {recipe_name}. Are you ready to start cooking?"
+                    else:
+                        logger.warning(f"⚠️  Recipe {recipe_id} not found, using default greeting")
+                        greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
                 else:
-                    greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
+                    # Select greeting based on session type
+                    if session_type == "kitchen":
+                        greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                    else:
+                        greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
 
                 # Save greeting to database
                 try:

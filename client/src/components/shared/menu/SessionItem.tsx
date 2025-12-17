@@ -1,12 +1,12 @@
 'use client';
 
 import classNames from 'classnames';
-import type { MealPlannerSession } from '@/types/meal-planner-session';
+import type { ChatSession } from '@/types/chat-session';
 import SessionItemDisplayMode from './SessionItemDisplayMode';
 import SessionItemEditMode from './SessionItemEditMode';
 
 interface SessionItemProps {
-  session: MealPlannerSession;
+  session: ChatSession;
   isActive: boolean;
   isEditing: boolean;
   editValue: string;

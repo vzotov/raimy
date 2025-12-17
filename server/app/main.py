@@ -15,7 +15,7 @@ import httpx
 from .routes.timers import create_timers_router
 from .routes.recipes import create_recipes_router
 from .routes.debug import create_debug_router
-from .routes.meal_planner_sessions import create_meal_planner_sessions_router
+from .routes.chat_sessions import create_chat_sessions_router
 from core.auth_client import auth_client
 from core.redis_client import get_redis_client
 from agents.auth_proxy import router as auth_proxy_router
@@ -299,7 +299,7 @@ async def websocket_chat_endpoint(
     Authentication is done via session cookies.
 
     Parameters:
-    - `session_id`: The meal planner session ID
+    - `session_id`: The chat session ID
 
     Message format:
     - Client sends: `{"type": "user_message", "content": {"type": "text", "content": "..."}}`
@@ -469,10 +469,10 @@ async def websocket_chat_endpoint(
         agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
 
         # Check if this is a new session (no messages) and send static greeting
-        session_data = await database_service.get_meal_planner_session(session_id)
+        session_data = await database_service.get_chat_session(session_id)
         if session_data:
             messages = session_data.get("messages", [])
-            session_type = session_data.get("session_type", "meal-planner")
+            session_type = session_data.get("session_type", "recipe-creator")
 
             # If session has no messages, send static greeting without calling LLM
             if len(messages) == 0:
@@ -615,7 +615,7 @@ async def websocket_chat_endpoint(
 # Include routers (no longer need broadcast_event injection)
 app.include_router(create_timers_router(None))
 app.include_router(create_recipes_router(None))
-app.include_router(create_meal_planner_sessions_router(None))
+app.include_router(create_chat_sessions_router(None))
 app.include_router(create_debug_router())
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)

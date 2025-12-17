@@ -6,7 +6,7 @@ import type {
   ListSessionsResponse,
   UpdateSessionNameRequest,
   UpdateSessionNameResponse,
-} from '@/types/meal-planner-session';
+} from '@/types/chat-session';
 
 export interface ApiResponse<T = unknown> {
   data?: T;
@@ -79,12 +79,9 @@ export const del = <T = unknown>(endpoint: string) =>
     method: 'DELETE',
   });
 
-export const mealPlannerSessions = {
-  create: (
-    sessionType: string = 'meal-planner',
-    recipeId?: string,
-  ) =>
-    post<CreateSessionResponse>('/api/meal-planner-sessions', {
+export const chatSessions = {
+  create: (sessionType: string = 'recipe-creator', recipeId?: string) =>
+    post<CreateSessionResponse>('/api/chat-sessions', {
       session_type: sessionType,
       ...(recipeId && { recipe_id: recipeId }),
     }),
@@ -92,19 +89,19 @@ export const mealPlannerSessions = {
   list: (sessionType?: string) =>
     get<ListSessionsResponse>(
       sessionType
-        ? `/api/meal-planner-sessions?session_type=${sessionType}`
-        : '/api/meal-planner-sessions',
+        ? `/api/chat-sessions?session_type=${sessionType}`
+        : '/api/chat-sessions',
     ),
 
   get: (sessionId: string) =>
-    get<GetSessionResponse>(`/api/meal-planner-sessions/${sessionId}`),
+    get<GetSessionResponse>(`/api/chat-sessions/${sessionId}`),
 
   updateName: (sessionId: string, data: UpdateSessionNameRequest) =>
     put<UpdateSessionNameResponse>(
-      `/api/meal-planner-sessions/${sessionId}/name`,
+      `/api/chat-sessions/${sessionId}/name`,
       data,
     ),
 
   delete: (sessionId: string) =>
-    del<DeleteSessionResponse>(`/api/meal-planner-sessions/${sessionId}`),
+    del<DeleteSessionResponse>(`/api/chat-sessions/${sessionId}`),
 };

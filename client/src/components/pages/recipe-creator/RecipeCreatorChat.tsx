@@ -4,32 +4,32 @@ import classNames from 'classnames';
 import { useCallback, useState } from 'react';
 import Chat from '@/components/shared/chat/Chat';
 import RecipeDocument from '@/components/shared/RecipeDocument';
-import { useMealPlannerState } from '@/hooks/useMealPlannerState';
+import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { RecipeContent } from '@/types/chat-message-types';
-import type { SessionMessage } from '@/types/meal-planner-session';
+import type { SessionMessage } from '@/types/chat-session';
 
-interface MealPlannerChatProps {
+interface RecipeCreatorChatProps {
   sessionId: string;
   sessionName: string;
   initialMessages?: SessionMessage[];
   initialRecipe?: RecipeContent | null;
 }
 
-export default function MealPlannerChat({
+export default function RecipeCreatorChat({
   sessionId,
   sessionName,
   initialMessages = [],
   initialRecipe,
-}: MealPlannerChatProps) {
+}: RecipeCreatorChatProps) {
   // Use composed state hook
-  const { state, handleMessage, addMessage } = useMealPlannerState({
+  const { state, handleMessage, addMessage } = useRecipeCreatorState({
     sessionId,
     initialMessages,
     initialRecipe,
   });
 
-  console.log('[MealPlannerChat] State:', initialRecipe);
+  console.log('[RecipeCreatorChat] State:', initialRecipe);
 
   // UI-specific state (moved from hook)
   const [isRecipeVisible, setIsRecipeVisible] = useState(false);

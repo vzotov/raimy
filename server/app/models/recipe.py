@@ -20,12 +20,12 @@ class Recipe(Base, TimestampMixin):
     # Foreign key to user
     user_id = Column(String(255), ForeignKey("users.email"), nullable=False)
 
-    # Foreign key to meal planner session (optional - tracks which conversation created this recipe)
-    meal_planner_session_id = Column(UUID(as_uuid=True), ForeignKey("meal_planner_sessions.id", ondelete="SET NULL"), nullable=True)
+    # Foreign key to chat session (optional - tracks which conversation created this recipe)
+    chat_session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="SET NULL"), nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="recipes")
-    meal_planner_session = relationship("MealPlannerSession", foreign_keys=[meal_planner_session_id])
+    chat_session = relationship("ChatSession", foreign_keys=[chat_session_id])
 
     def __repr__(self):
         return f"<Recipe(id='{self.id}', name='{self.name}', user_id='{self.user_id}')>"

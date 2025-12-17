@@ -10,7 +10,7 @@ import type {
   KitchenMessageAction,
   KitchenMessageState,
 } from '@/lib/messageHandlers/types';
-import type { SessionMessage } from '@/types/meal-planner-session';
+import type { SessionMessage } from '@/types/chat-session';
 
 interface UseKitchenStateParams {
   sessionId: string;

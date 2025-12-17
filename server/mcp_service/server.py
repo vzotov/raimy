@@ -250,7 +250,7 @@ async def set_timer(duration: int, label: str, session_id: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"kitchen", "meal-planner"})
+@mcp.tool(tags={"kitchen", "recipe-creator"})
 async def set_session_name(session_name: str, session_id: str) -> dict:
     """
     Set/display the session name for kitchen or meal planner sessions.
@@ -288,7 +288,7 @@ async def set_session_name(session_name: str, session_id: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"meal-planner"})
+@mcp.tool(tags={"recipe-creator"})
 async def set_recipe_metadata(
     session_id: str,
     name: str,
@@ -346,7 +346,7 @@ async def set_recipe_metadata(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"meal-planner"})
+@mcp.tool(tags={"recipe-creator"})
 async def set_recipe_ingredients(
     session_id: str,
     ingredients: List[dict],
@@ -392,7 +392,7 @@ async def set_recipe_ingredients(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"meal-planner"})
+@mcp.tool(tags={"recipe-creator"})
 async def set_recipe_steps(
     session_id: str,
     steps: List[dict],
@@ -447,7 +447,7 @@ async def set_recipe_steps(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"meal-planner"})
+@mcp.tool(tags={"recipe-creator"})
 async def save_recipe(session_id: str) -> dict:
     """
     Save the current recipe to the user's recipe collection.

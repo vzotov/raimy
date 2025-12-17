@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useKitchenSessions } from '@/hooks/useSessions';
 
 interface RecipeIngredient {
@@ -89,16 +89,14 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         <div className="mb-4">
           <h4 className="font-medium text-text mb-2">Ingredients:</h4>
           <ul className="text-sm text-text/70 space-y-1">
-            {recipe.ingredients
-              .slice(0, 3)
-              .map((ingredient, index) => (
-                <li key={index} className="flex items-center">
-                  <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
-                  {ingredient.amount && `${ingredient.amount} `}
-                  {ingredient.unit && `${ingredient.unit} `}
-                  {ingredient.name}
-                </li>
-              ))}
+            {recipe.ingredients.slice(0, 3).map((ingredient, index) => (
+              <li key={index} className="flex items-center">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
+                {ingredient.amount && `${ingredient.amount} `}
+                {ingredient.unit && `${ingredient.unit} `}
+                {ingredient.name}
+              </li>
+            ))}
             {recipe.ingredients.length > 3 && (
               <li className="text-text/60 italic">
                 +{recipe.ingredients.length - 3} more ingredients
@@ -115,9 +113,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                 <span className="bg-primary/20 text-primary text-xs font-medium px-2 py-1 rounded-full mr-2 mt-0.5">
                   {index + 1}
                 </span>
-                <span className="line-clamp-2">
-                  {step.instruction}
-                </span>
+                <span className="line-clamp-2">{step.instruction}</span>
               </div>
             ))}
             {recipe.steps.length > 2 && (

@@ -1,16 +1,16 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import MealPlannerChat from '@/components/pages/meal-planner/MealPlannerChat';
+import RecipeCreatorChat from '@/components/pages/recipe-creator/RecipeCreatorChat';
 
-interface MealPlannerSessionPageProps {
+interface RecipeCreatorSessionPageProps {
   params: Promise<{
     id: string;
   }>;
 }
 
-export default async function MealPlannerSessionPage({
+export default async function RecipeCreatorSessionPage({
   params,
-}: MealPlannerSessionPageProps) {
+}: RecipeCreatorSessionPageProps) {
   const { id } = await params;
 
   // Fetch session data
@@ -18,7 +18,7 @@ export default async function MealPlannerSessionPage({
   const cookieStore = await cookies();
 
   try {
-    const response = await fetch(`${apiUrl}/api/meal-planner-sessions/${id}`, {
+    const response = await fetch(`${apiUrl}/api/chat-sessions/${id}`, {
       headers: {
         Cookie: cookieStore.toString(),
       },
@@ -33,7 +33,7 @@ export default async function MealPlannerSessionPage({
     const session = data.session;
 
     return (
-      <MealPlannerChat
+      <RecipeCreatorChat
         sessionId={session.id}
         sessionName={session.session_name}
         initialMessages={session.messages || []}

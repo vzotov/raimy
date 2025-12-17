@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.models.base import Base
-from app.models import User, MealPlannerSession
+from app.models import User, ChatSession
 
 
 @pytest.fixture(scope="session")
@@ -88,11 +88,11 @@ async def test_session(test_db_session: AsyncSession, test_user: User):
     from uuid import uuid4
 
     session_id = uuid4()
-    session = MealPlannerSession(
+    session = ChatSession(
         id=session_id,
         user_id=test_user.email,
         session_name="Test Session",
-        room_name=f"meal-planner-{session_id}",
+        room_name=f"chat-{session_id}",
         messages=[]
     )
     test_db_session.add(session)

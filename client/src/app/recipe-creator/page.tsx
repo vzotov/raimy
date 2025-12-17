@@ -3,13 +3,13 @@
 import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useMealPlannerSessions } from '@/hooks/useSessions';
+import { useRecipeCreatorSessions } from '@/hooks/useSessions';
 
-export default function MealPlannerPage() {
+export default function RecipeCreatorPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { createSession } = useMealPlannerSessions();
+  const { createSession } = useRecipeCreatorSessions();
 
   const handleCreateRecipe = async () => {
     try {
@@ -19,10 +19,10 @@ export default function MealPlannerPage() {
       const session = await createSession();
 
       if (session?.id) {
-        router.push(`/meal-planner/${session.id}`);
+        router.push(`/recipe-creator/${session.id}`);
       }
     } catch (err) {
-      console.error('Failed to create meal planner session:', err);
+      console.error('Failed to create recipe creator session:', err);
       setError('Failed to create session. Please try again.');
       setIsCreating(false);
     }

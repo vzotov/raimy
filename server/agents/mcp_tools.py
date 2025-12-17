@@ -22,7 +22,7 @@ async def fetch_mcp_tools(mcp_url: str, session_type: Optional[str] = None) -> L
 
     Args:
         mcp_url: URL of the MCP server
-        session_type: Optional session type to filter tools ("kitchen" or "meal-planner")
+        session_type: Optional session type to filter tools ("kitchen" or "recipe-creator")
 
     Returns:
         List of tool definitions from MCP server, filtered by session_type if provided
@@ -303,7 +303,7 @@ async def load_mcp_tools_for_langchain(
 
     Args:
         mcp_url: MCP server URL (defaults to environment variable)
-        session_type: Session type to filter tools ("kitchen" or "meal-planner")
+        session_type: Session type to filter tools ("kitchen" or "recipe-creator")
 
     Returns:
         List of LangChain StructuredTool instances

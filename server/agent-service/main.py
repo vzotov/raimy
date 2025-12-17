@@ -12,7 +12,7 @@ import uvicorn
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.services import database_service  # type: ignore
-from agents.prompts import COOKING_ASSISTANT_PROMPT, MEAL_PLANNER_PROMPT  # type: ignore
+from agents.prompts import COOKING_ASSISTANT_PROMPT, RECIPE_CREATOR_PROMPT  # type: ignore
 from agents.langgraph_agent import LangGraphAgent  # type: ignore
 from agents.mcp_tools import load_mcp_tools_for_langchain  # type: ignore
 
@@ -111,22 +111,22 @@ Start with ONLY the first step, then STOP.
     return context
 
 
-async def get_agent(session_type: str = "meal-planner") -> LangGraphAgent:
+async def get_agent(session_type: str = "recipe-creator") -> LangGraphAgent:
     """
     Get or create LangGraph agent instance for the specified session type
 
     Args:
-        session_type: Session type ("kitchen" or "meal-planner")
+        session_type: Session type ("kitchen" or "recipe-creator")
 
     Returns:
         LangGraphAgent instance with session-type-specific tools
     """
     global agent_instances
 
-    # Validate session_type and default to meal-planner if unknown
-    if session_type not in {"kitchen", "meal-planner"}:
-        logger.warning(f"⚠️  Unknown session_type '{session_type}', defaulting to 'meal-planner'")
-        session_type = "meal-planner"
+    # Validate session_type and default to recipe-creator if unknown
+    if session_type not in {"kitchen", "recipe-creator"}:
+        logger.warning(f"⚠️  Unknown session_type '{session_type}', defaulting to 'recipe-creator'")
+        session_type = "recipe-creator"
 
     # Return cached instance if exists
     if session_type in agent_instances:
@@ -198,7 +198,7 @@ async def agent_chat(request: ChatRequest):
     """
     try:
         # Get session from database
-        session_data = await database_service.get_meal_planner_session(request.session_id)
+        session_data = await database_service.get_chat_session(request.session_id)
 
         if not session_data:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -207,7 +207,7 @@ async def agent_chat(request: ChatRequest):
         messages = session_data.get("messages", [])
 
         # Read session type from database
-        session_type = session_data.get("session_type", "meal-planner")
+        session_type = session_data.get("session_type", "recipe-creator")
 
         # Extract ingredients if present
         ingredients = session_data.get("ingredients", [])
@@ -249,11 +249,11 @@ async def agent_chat(request: ChatRequest):
                 ingredient_context += "\nContinue guiding from where the session left off.\n"
                 system_prompt = system_prompt + ingredient_context
 
-        elif session_type == "meal-planner":
-            system_prompt = MEAL_PLANNER_PROMPT
+        elif session_type == "recipe-creator":
+            system_prompt = RECIPE_CREATOR_PROMPT
         else:
-            # Default to meal-planner for unknown types
-            system_prompt = MEAL_PLANNER_PROMPT
+            # Default to recipe-creator for unknown types
+            system_prompt = RECIPE_CREATOR_PROMPT
 
         # Save user message to database first
         await database_service.add_message_to_session(

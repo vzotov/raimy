@@ -2,27 +2,27 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useMealPlannerSessions } from '@/hooks/useSessions';
+import { useRecipeCreatorSessions } from '@/hooks/useSessions';
 import SectionHeader from './SectionHeader';
 import SessionList from './SessionList';
 
-interface MealPlannerMenuSectionProps {
+interface RecipeCreatorMenuSectionProps {
   onMenuClose: () => void;
 }
 
-export default function MealPlannerMenuSection({
+export default function RecipeCreatorMenuSection({
   onMenuClose,
-}: MealPlannerMenuSectionProps) {
+}: RecipeCreatorMenuSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const { sessions, updateSessionName, deleteSession, createSession } =
-    useMealPlannerSessions();
+    useRecipeCreatorSessions();
 
-  // Auto-expand when on a meal planner page
+  // Auto-expand when on a recipe creator page
   useEffect(() => {
-    if (pathname.startsWith('/meal-planner')) {
+    if (pathname.startsWith('/recipe-creator')) {
       setIsExpanded(true);
     }
   }, [pathname]);
@@ -32,11 +32,11 @@ export default function MealPlannerMenuSection({
       const session = await createSession();
 
       if (session?.id) {
-        router.push(`/meal-planner/${session.id}`);
+        router.push(`/recipe-creator/${session.id}`);
         onMenuClose();
       }
     } catch (err) {
-      console.error('Error creating meal planner session:', err);
+      console.error('Error creating recipe creator session:', err);
     }
   };
 
@@ -47,8 +47,8 @@ export default function MealPlannerMenuSection({
 
     try {
       await deleteSession(sessionId);
-      if (pathname === `/meal-planner/${sessionId}`) {
-        router.push('/meal-planner');
+      if (pathname === `/recipe-creator/${sessionId}`) {
+        router.push('/recipe-creator');
       }
     } catch (err) {
       console.error('Failed to delete session:', err);
@@ -56,7 +56,7 @@ export default function MealPlannerMenuSection({
   };
 
   const handleSessionClick = (sessionId: string) => {
-    router.push(`/meal-planner/${sessionId}`);
+    router.push(`/recipe-creator/${sessionId}`);
     onMenuClose();
   };
 
@@ -80,7 +80,7 @@ export default function MealPlannerMenuSection({
           <SessionList
             sessions={sessions}
             currentPath={pathname}
-            sessionType="meal-planner"
+            sessionType="recipe-creator"
             onUpdateSessionName={updateSessionName}
             onDelete={handleDelete}
             onSessionClick={handleSessionClick}

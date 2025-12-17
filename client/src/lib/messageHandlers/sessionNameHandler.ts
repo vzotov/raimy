@@ -10,7 +10,7 @@ export function handleSessionNameMessage(
   content: SessionNameContent,
   dispatch: Dispatch<ChatAction>,
   sessionId: string,
-  sessionType: 'meal-planner' | 'kitchen',
+  sessionType: 'recipe-creator' | 'kitchen',
 ): void {
   if (content.name) {
     // Update session name in local state

@@ -1,9 +1,9 @@
 'use client';
 
-import type { MealPlannerSession } from '@/types/meal-planner-session';
+import type { ChatSession } from '@/types/chat-session';
 
 interface SessionItemDisplayModeProps {
-  session: MealPlannerSession;
+  session: ChatSession;
   onEdit: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
   onClick: () => void;

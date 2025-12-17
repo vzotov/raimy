@@ -9,7 +9,7 @@ from sqlalchemy import desc, delete
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
-from .models import User, Recipe, Session, MealPlannerSession, MealPlannerMessage
+from .models import User, Recipe, Session, ChatSession, ChatMessage
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class RecipeModel(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None
-    meal_planner_session_id: Optional[str] = None
+    chat_session_id: Optional[str] = None
 
 class DatabaseService:
     def __init__(self):
@@ -102,7 +102,7 @@ class DatabaseService:
                         servings=recipe.servings,
                         tags=recipe.tags or [],
                         user_id=recipe.user_id,
-                        meal_planner_session_id=recipe.meal_planner_session_id
+                        chat_session_id=recipe.chat_session_id
                     )
 
                     db.add(db_recipe)
@@ -275,15 +275,15 @@ class DatabaseService:
                 print(f"Error cleaning up sessions: {e}")
                 return 0
 
-    # Meal Planner Session Methods
+    # Chat Session Methods
 
-    async def create_meal_planner_session(
+    async def create_chat_session(
         self,
         user_id: str,
-        session_type: str = "meal-planner",
+        session_type: str = "recipe-creator",
         recipe_id: str = None
     ) -> Dict[str, Any]:
-        """Create a new meal planner session"""
+        """Create a new chat session"""
         async with AsyncSessionLocal() as db:
             try:
                 session_id = uuid.uuid4()
@@ -315,7 +315,7 @@ class DatabaseService:
                         logger.warning(f"⚠️  Recipe {recipe_id} not found during session creation")
 
                 # Create session
-                new_session = MealPlannerSession(
+                new_session = ChatSession(
                     id=session_id,
                     user_id=user_id,
                     session_name=session_name,
@@ -340,23 +340,23 @@ class DatabaseService:
 
             except Exception as e:
                 await db.rollback()
-                raise Exception(f"Failed to create meal planner session: {str(e)}")
+                raise Exception(f"Failed to create chat session: {str(e)}")
 
-    async def get_user_meal_planner_sessions(self, user_id: str, session_type: str = None) -> List[Dict[str, Any]]:
-        """Get all meal planner sessions for a user, optionally filtered by session_type"""
+    async def get_user_chat_sessions(self, user_id: str, session_type: str = None) -> List[Dict[str, Any]]:
+        """Get all chat sessions for a user, optionally filtered by session_type"""
         async with AsyncSessionLocal() as db:
             try:
                 query = (
-                    select(MealPlannerSession)
-                    .options(selectinload(MealPlannerSession.message_records))
-                    .where(MealPlannerSession.user_id == user_id)
+                    select(ChatSession)
+                    .options(selectinload(ChatSession.message_records))
+                    .where(ChatSession.user_id == user_id)
                 )
 
                 # Filter by session_type if provided
                 if session_type:
-                    query = query.where(MealPlannerSession.session_type == session_type)
+                    query = query.where(ChatSession.session_type == session_type)
 
-                query = query.order_by(desc(MealPlannerSession.updated_at))
+                query = query.order_by(desc(ChatSession.updated_at))
 
                 result = await db.execute(query)
                 sessions = result.scalars().all()
@@ -375,17 +375,17 @@ class DatabaseService:
                 ]
 
             except Exception as e:
-                print(f"Error getting meal planner sessions for user {user_id}: {e}")
+                print(f"Error getting chat sessions for user {user_id}: {e}")
                 return []
 
-    async def get_meal_planner_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Get a specific meal planner session with full message history"""
+    async def get_chat_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific chat session with full message history"""
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession)
-                    .options(selectinload(MealPlannerSession.message_records))
-                    .where(MealPlannerSession.id == session_id)
+                    select(ChatSession)
+                    .options(selectinload(ChatSession.message_records))
+                    .where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
@@ -417,7 +417,7 @@ class DatabaseService:
                 }
 
             except Exception as e:
-                print(f"Error getting meal planner session {session_id}: {e}")
+                print(f"Error getting chat session {session_id}: {e}")
                 return None
 
     async def add_message_to_session(
@@ -426,7 +426,7 @@ class DatabaseService:
         role: str,
         content: Union[str, Dict[str, Any]]  # Accept both strings and structured objects
     ) -> bool:
-        """Add a message to a meal planner session
+        """Add a message to a chat session
 
         Args:
             session_id: Session UUID
@@ -436,7 +436,7 @@ class DatabaseService:
         async with AsyncSessionLocal() as db:
             try:
                 # Create new message
-                new_message = MealPlannerMessage(
+                new_message = ChatMessage(
                     session_id=session_id,
                     role=role,
                     content=content
@@ -445,7 +445,7 @@ class DatabaseService:
 
                 # Update session's updated_at timestamp
                 result = await db.execute(
-                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                    select(ChatSession).where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
@@ -461,11 +461,11 @@ class DatabaseService:
                 return False
 
     async def update_session_name(self, session_id: str, session_name: str) -> bool:
-        """Update the name of a meal planner session"""
+        """Update the name of a chat session"""
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                    select(ChatSession).where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
@@ -483,12 +483,12 @@ class DatabaseService:
                 print(f"Error updating session name for {session_id}: {e}")
                 return False
 
-    async def delete_meal_planner_session(self, session_id: str) -> bool:
-        """Delete a meal planner session"""
+    async def delete_chat_session(self, session_id: str) -> bool:
+        """Delete a chat session"""
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession).where(MealPlannerSession.id == session_id)
+                    select(ChatSession).where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
@@ -516,8 +516,8 @@ class DatabaseService:
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession)
-                    .where(MealPlannerSession.id == session_id)
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
                 logger.info(f"🔍 Fetched session from DB with items={session.ingredients}")
@@ -573,8 +573,8 @@ class DatabaseService:
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession)
-                    .where(MealPlannerSession.id == session_id)
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
@@ -633,8 +633,8 @@ class DatabaseService:
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(
-                    select(MealPlannerSession)
-                    .where(MealPlannerSession.id == session_id)
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
                 )
                 session = result.scalar_one_or_none()
 
@@ -667,7 +667,7 @@ class DatabaseService:
         logger.info(f"💾 save_recipe_from_session_data: session={session_id}")
 
         # Get session data
-        session_data = await self.get_meal_planner_session(session_id)
+        session_data = await self.get_chat_session(session_id)
         recipe_json = session_data["recipe"]
         owner_email = session_data["user_id"]
         existing_recipe_id = session_data.get("recipe_id")
@@ -711,7 +711,7 @@ class DatabaseService:
                         servings=recipe_json.get("servings", 4),
                         tags=recipe_json.get("tags", []),
                         user_id=owner_email,
-                        meal_planner_session_id=session_id
+                        chat_session_id=session_id
                     )
 
                     db.add(db_recipe)

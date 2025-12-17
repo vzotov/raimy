@@ -1,20 +1,23 @@
 import useSWR, { mutate } from 'swr';
-import { mealPlannerSessions } from '@/lib/api';
-import type { MealPlannerSession } from '@/types/meal-planner-session';
+import { chatSessions } from '@/lib/api';
+import type { ChatSession } from '@/types/chat-session';
 
 // SWR keys for caching
 export const SESSIONS_KEYS = {
-  mealPlanner: '/api/meal-planner-sessions?type=meal-planner',
-  kitchen: '/api/meal-planner-sessions?type=kitchen',
+  recipeCreator: '/api/chat-sessions?type=recipe-creator',
+  kitchen: '/api/chat-sessions?type=kitchen',
 } as const;
 
-type SessionType = 'meal-planner' | 'kitchen';
+type SessionType = 'recipe-creator' | 'kitchen';
 
 /**
  * Generic hook for managing sessions with SWR
  */
 function useSessions(sessionType: SessionType) {
-  const swrKey = sessionType === 'kitchen' ? SESSIONS_KEYS.kitchen : SESSIONS_KEYS.mealPlanner;
+  const swrKey =
+    sessionType === 'kitchen'
+      ? SESSIONS_KEYS.kitchen
+      : SESSIONS_KEYS.recipeCreator;
 
   const {
     data,
@@ -24,7 +27,7 @@ function useSessions(sessionType: SessionType) {
   } = useSWR(
     swrKey,
     async () => {
-      const response = await mealPlannerSessions.list(sessionType);
+      const response = await chatSessions.list(sessionType);
       if (response.error) {
         throw new Error(response.error);
       }
@@ -38,7 +41,7 @@ function useSessions(sessionType: SessionType) {
   );
 
   const createSession = async (recipeId?: string) => {
-    const response = await mealPlannerSessions.create(sessionType, recipeId);
+    const response = await chatSessions.create(sessionType, recipeId);
     if (response.error) {
       throw new Error(response.error);
     }
@@ -46,10 +49,7 @@ function useSessions(sessionType: SessionType) {
     if (response.data) {
       await mutate(
         swrKey,
-        (current: MealPlannerSession[] = []) => [
-          response.data!.session,
-          ...current,
-        ],
+        (current: ChatSession[] = []) => [response.data!.session, ...current],
         false,
       );
       revalidate();
@@ -58,7 +58,7 @@ function useSessions(sessionType: SessionType) {
   };
 
   const updateSessionName = async (sessionId: string, newName: string) => {
-    const response = await mealPlannerSessions.updateName(sessionId, {
+    const response = await chatSessions.updateName(sessionId, {
       session_name: newName,
     });
 
@@ -68,7 +68,7 @@ function useSessions(sessionType: SessionType) {
 
     await mutate(
       swrKey,
-      (current: MealPlannerSession[] = []) =>
+      (current: ChatSession[] = []) =>
         current.map((session) =>
           session.id === sessionId
             ? { ...session, session_name: newName }
@@ -81,14 +81,14 @@ function useSessions(sessionType: SessionType) {
   };
 
   const deleteSession = async (sessionId: string) => {
-    const response = await mealPlannerSessions.delete(sessionId);
+    const response = await chatSessions.delete(sessionId);
     if (response.error) {
       throw new Error(response.error);
     }
 
     await mutate(
       swrKey,
-      (current: MealPlannerSession[] = []) =>
+      (current: ChatSession[] = []) =>
         current.filter((session) => session.id !== sessionId),
       false,
     );
@@ -108,10 +108,10 @@ function useSessions(sessionType: SessionType) {
 }
 
 /**
- * Hook for managing meal planner sessions
+ * Hook for managing recipe creator sessions
  */
-export function useMealPlannerSessions() {
-  return useSessions('meal-planner');
+export function useRecipeCreatorSessions() {
+  return useSessions('recipe-creator');
 }
 
 /**
@@ -127,16 +127,16 @@ export function useKitchenSessions() {
 export function updateSessionNameInCache(
   sessionId: string,
   sessionName: string,
-  sessionType: 'meal-planner' | 'kitchen',
+  sessionType: 'recipe-creator' | 'kitchen',
 ) {
   const key =
     sessionType === 'kitchen'
       ? SESSIONS_KEYS.kitchen
-      : SESSIONS_KEYS.mealPlanner;
+      : SESSIONS_KEYS.recipeCreator;
 
   mutate(
     key,
-    (current: MealPlannerSession[] = []) =>
+    (current: ChatSession[] = []) =>
       current.map((session) =>
         session.id === sessionId
           ? { ...session, session_name: sessionName }

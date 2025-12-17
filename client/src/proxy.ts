@@ -35,5 +35,5 @@ export async function proxy(request: NextRequest) {
 
 // Specify which routes should be protected
 export const config = {
-  matcher: ['/kitchen/:path*', '/meal-planner/:path*', '/myrecipes/:path*'],
+  matcher: ['/kitchen/:path*', '/recipe-creator/:path*', '/myrecipes/:path*'],
 };

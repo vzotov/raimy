@@ -9,11 +9,11 @@ import {
 } from '@/lib/messageHandlers';
 import type { ChatAction, ChatState } from '@/lib/messageHandlers/chatTypes';
 import type { SystemContent } from '@/types/chat-message-types';
-import type { SessionMessage } from '@/types/meal-planner-session';
+import type { SessionMessage } from '@/types/chat-session';
 
 interface UseChatStateParams {
   sessionId: string;
-  sessionType: 'meal-planner' | 'kitchen';
+  sessionType: 'recipe-creator' | 'kitchen';
   initialMessages?: SessionMessage[];
   initialSessionName?: string;
 }

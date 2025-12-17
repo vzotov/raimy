@@ -9,7 +9,7 @@ import IngredientList, {
 import TimerList from '@/components/shared/TimerList';
 import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { SessionMessage } from '@/types/meal-planner-session';
+import type { SessionMessage } from '@/types/chat-session';
 
 interface KitchenChatProps {
   sessionId: string;

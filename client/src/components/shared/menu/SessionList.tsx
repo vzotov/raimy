@@ -1,18 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import type { MealPlannerSession } from '@/types/meal-planner-session';
+import type { ChatSession } from '@/types/chat-session';
 import SessionItem from './SessionItem';
 
 interface SessionListProps {
-  sessions: MealPlannerSession[];
+  sessions: ChatSession[];
   currentPath: string;
-  sessionType: 'meal-planner' | 'kitchen';
+  sessionType: 'recipe-creator' | 'kitchen';
   onUpdateSessionName: (sessionId: string, newName: string) => Promise<unknown>;
   onDelete: (sessionId: string) => void;
   onSessionClick: (
     sessionId: string,
-    sessionType: 'meal-planner' | 'kitchen',
+    sessionType: 'recipe-creator' | 'kitchen',
   ) => void;
 }
 

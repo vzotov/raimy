@@ -25,11 +25,7 @@ export default function ChatMessages({
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4">
       {messages.length === 0 ? (
-        <div className="flex items-center justify-center flex-1">
-          <p className="text-text/50 text-sm">
-            Start a conversation about meal planning...
-          </p>
-        </div>
+        <div className="flex items-center justify-center flex-1"></div>
       ) : (
         <>
           {messages.map((message) => (

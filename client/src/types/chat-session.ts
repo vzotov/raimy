@@ -4,11 +4,11 @@ import type {
   RecipeContent,
 } from './chat-message-types';
 
-export interface MealPlannerSession {
+export interface ChatSession {
   id: string;
   user_id: string;
   session_name: string;
-  session_type: 'meal-planner' | 'kitchen';
+  session_type: 'recipe-creator' | 'kitchen';
   room_name?: string; // Optional - LiveKit remnant
   ingredients?: ChatIngredient[];
   recipe?: RecipeContent | null; // Work-in-progress recipe data
@@ -17,7 +17,7 @@ export interface MealPlannerSession {
   updated_at: string;
 }
 
-export interface MealPlannerSessionWithMessages extends MealPlannerSession {
+export interface ChatSessionWithMessages extends ChatSession {
   messages: SessionMessage[];
 }
 
@@ -29,16 +29,16 @@ export interface SessionMessage {
 
 export interface CreateSessionResponse {
   message: string;
-  session: MealPlannerSession;
+  session: ChatSession;
 }
 
 export interface ListSessionsResponse {
-  sessions: MealPlannerSession[];
+  sessions: ChatSession[];
   count: number;
 }
 
 export interface GetSessionResponse {
-  session: MealPlannerSessionWithMessages;
+  session: ChatSessionWithMessages;
 }
 
 export interface UpdateSessionNameRequest {

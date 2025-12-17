@@ -38,7 +38,7 @@ async def get_current_user_with_storage(request: Request):
 # Broadcast function will be injected
 broadcast_event = None
 
-router = APIRouter(prefix="/api/meal-planner-sessions", tags=["meal_planner_sessions"])
+router = APIRouter(prefix="/api/chat-sessions", tags=["chat_sessions"])
 
 
 @router.post("")
@@ -46,11 +46,11 @@ async def create_session(
     request: CreateSessionRequest = None,
     current_user: dict = Depends(get_current_user_with_storage)
 ):
-    """Create a new meal planner session"""
+    """Create a new chat session"""
     try:
-        session_type = request.session_type if request else "meal-planner"
+        session_type = request.session_type if request else "recipe-creator"
         recipe_id = request.recipe_id if request else None
-        session = await database_service.create_meal_planner_session(
+        session = await database_service.create_chat_session(
             current_user["email"],
             session_type,
             recipe_id
@@ -70,9 +70,9 @@ async def list_sessions(
     session_type: str = None,
     current_user: dict = Depends(get_current_user_with_storage)
 ):
-    """Get all sessions for the current user, optionally filtered by session_type (meal-planner or kitchen)"""
+    """Get all sessions for the current user, optionally filtered by session_type (recipe-creator or kitchen)"""
     try:
-        sessions = await database_service.get_user_meal_planner_sessions(
+        sessions = await database_service.get_user_chat_sessions(
             current_user["email"],
             session_type=session_type
         )
@@ -87,9 +87,9 @@ async def list_sessions(
 
 @router.get("/{session_id}")
 async def get_session(session_id: str, current_user: dict = Depends(get_current_user_with_storage)):
-    """Get a specific meal planner session with full message history"""
+    """Get a specific chat session with full message history"""
     try:
-        session = await database_service.get_meal_planner_session(session_id)
+        session = await database_service.get_chat_session(session_id)
 
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -112,10 +112,10 @@ async def update_session_name(
     request: UpdateSessionNameRequest,
     current_user: dict = Depends(get_current_user_with_storage)
 ):
-    """Update the name of a meal planner session"""
+    """Update the name of a chat session"""
     try:
         # First verify session exists and user owns it
-        session = await database_service.get_meal_planner_session(session_id)
+        session = await database_service.get_chat_session(session_id)
 
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -158,7 +158,7 @@ async def save_recipe_from_session(
 
     try:
         # Get session and verify ownership
-        session_data = await database_service.get_meal_planner_session(session_id)
+        session_data = await database_service.get_chat_session(session_id)
 
         if not session_data:
             logger.error(f"❌ API: Session not found: {session_id}")
@@ -196,10 +196,10 @@ async def save_recipe_from_session(
 
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, current_user: dict = Depends(get_current_user_with_storage)):
-    """Delete a meal planner session"""
+    """Delete a chat session"""
     try:
         # First verify session exists and user owns it
-        session = await database_service.get_meal_planner_session(session_id)
+        session = await database_service.get_chat_session(session_id)
 
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -208,7 +208,7 @@ async def delete_session(session_id: str, current_user: dict = Depends(get_curre
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Delete the session
-        success = await database_service.delete_meal_planner_session(session_id)
+        success = await database_service.delete_chat_session(session_id)
 
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete session")
@@ -224,8 +224,8 @@ async def delete_session(session_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
 
 
-def create_meal_planner_sessions_router(broadcast_func):
-    """Create meal planner sessions router with injected broadcast function"""
+def create_chat_sessions_router(broadcast_func):
+    """Create chat sessions router with injected broadcast function"""
     global broadcast_event
     broadcast_event = broadcast_func
     return router

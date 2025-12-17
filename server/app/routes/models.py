@@ -54,23 +54,23 @@ class SaveRecipeRequest(BaseModel):
     servings: Optional[int] = Field(None, description="Number of servings")
     tags: Optional[List[str]] = Field(None, description="Recipe tags")
     user_id: Optional[str] = Field(None, description="User ID (auto-filled from session)")
-    meal_planner_session_id: Optional[str] = Field(None, description="Meal planner session ID where this recipe was created")
+    chat_session_id: Optional[str] = Field(None, description="Chat session ID where this recipe was created")
 
 
 class CreateSessionRequest(BaseModel):
-    """Request model for creating a meal planner session"""
+    """Request model for creating a chat session"""
     model_config = ConfigDict(json_schema_extra={
         "examples": [{
-            "session_type": "meal-planner"
+            "session_type": "recipe-creator"
         }]
     })
 
-    session_type: Optional[str] = Field("meal-planner", description="Session type: 'meal-planner' or 'kitchen'")
+    session_type: Optional[str] = Field("recipe-creator", description="Session type: 'recipe-creator' or 'kitchen'")
     recipe_id: Optional[str] = Field(None, description="Optional recipe ID to associate with the session")
 
 
 class UpdateSessionNameRequest(BaseModel):
-    """Request model for updating meal planner session name"""
+    """Request model for updating chat session name"""
     model_config = ConfigDict(json_schema_extra={
         "examples": [{
             "session_name": "Thai Curry Recipe"

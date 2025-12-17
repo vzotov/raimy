@@ -3,24 +3,24 @@ import { useChatState } from '@/hooks/useChatState';
 import { useMealPlannerRecipe } from '@/hooks/useMealPlannerRecipe';
 import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import type { RecipeContent } from '@/types/chat-message-types';
-import type { SessionMessage } from '@/types/meal-planner-session';
+import type { SessionMessage } from '@/types/chat-session';
 
-interface UseMealPlannerStateParams {
+interface UseRecipeCreatorStateParams {
   sessionId: string;
   initialMessages?: SessionMessage[];
   initialRecipe?: RecipeContent | null;
 }
 
 /**
- * Meal planner-specific state hook that extends base chat functionality.
+ * Recipe creator-specific state hook that extends base chat functionality.
  * Adds: recipe state
  * Handles: recipe_update messages + all base messages
  */
-export function useMealPlannerState({
+export function useRecipeCreatorState({
   sessionId,
   initialMessages = [],
   initialRecipe,
-}: UseMealPlannerStateParams) {
+}: UseRecipeCreatorStateParams) {
   // Get base chat functionality
   const {
     state: chatState,
@@ -28,7 +28,7 @@ export function useMealPlannerState({
     addMessage: addChatMessage,
   } = useChatState({
     sessionId,
-    sessionType: 'meal-planner',
+    sessionType: 'recipe-creator',
     initialMessages,
   });
 
@@ -41,13 +41,13 @@ export function useMealPlannerState({
    */
   const handleMessage = useCallback(
     (wsMessage: WebSocketMessage) => {
-      console.log('[MealPlannerState] Received:', wsMessage);
+      console.log('[RecipeCreatorState] Received:', wsMessage);
 
       // Handle agent messages
       if (wsMessage.type === 'agent_message' && wsMessage.content) {
         const content = wsMessage.content;
 
-        // Handle meal planner-specific message types
+        // Handle recipe creator-specific message types
         switch (content.type) {
           case 'recipe_update':
             // Don't add to messages, just update recipe state

@@ -6,7 +6,7 @@ import { XIcon } from '@/components/icons';
 import AuthButton from '@/components/shared/AuthButton';
 import Logo from '@/components/shared/Logo';
 import KitchenMenuSection from '@/components/shared/menu/KitchenMenuSection';
-import MealPlannerMenuSection from '@/components/shared/menu/MealPlannerMenuSection';
+import RecipeCreatorMenuSection from '@/components/shared/menu/RecipeCreatorMenuSection';
 import ThemeSelector from '@/components/shared/ThemeSelector';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -50,7 +50,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
           <div className="px-3 space-y-2">
             <KitchenMenuSection onMenuClose={onClose} />
-            <MealPlannerMenuSection onMenuClose={onClose} />
+            <RecipeCreatorMenuSection onMenuClose={onClose} />
 
             <Link
               href="/myrecipes"

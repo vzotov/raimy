@@ -18,7 +18,7 @@ export default async function KitchenSessionPage({
   const cookieStore = await cookies();
 
   try {
-    const response = await fetch(`${apiUrl}/api/meal-planner-sessions/${id}`, {
+    const response = await fetch(`${apiUrl}/api/chat-sessions/${id}`, {
       headers: {
         Cookie: cookieStore.toString(),
       },

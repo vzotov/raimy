@@ -57,7 +57,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Infrastructure
 - Docker and Docker Compose
-- WebSocket for real-time communication
+- WebSocket for real-time communication with frontend
+- Redis for pub/sub messaging between services
 - Google OAuth for authentication
 
 ## Architecture Patterns
@@ -66,7 +67,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The project uses a microservices architecture with:
 - Multiple backend services communicating via HTTP
 - Shared PostgreSQL database
-- Real-time communication via WebSocket
+- WebSocket for real-time communication with frontend
+- Redis pub/sub for inter-service messaging
 - Service-to-service authentication
 
 ### Agent System
@@ -120,9 +122,14 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 - Session context is critical - don't break message history
 
 ### When Working with WebSocket Code
+- WebSockets handle real-time communication between frontend and backend
 - Authentication happens at connection time
 - Session IDs route messages to correct connections
 - Structured message format must be preserved for frontend
+
+### When Working with Inter-service Messaging
+- Redis pub/sub is used for real-time communication between backend services
+- Session IDs are used to route messages to correct channels
 
 ### When Working with Services
 - Services communicate via HTTP - check environment variables for URLs

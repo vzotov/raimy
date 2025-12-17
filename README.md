@@ -1,45 +1,59 @@
 # Raimy Cooking Assistant
 
-A conversational AI cooking assistant that guides users through recipes step-by-step using voice interaction and real-time communication.
+A conversational AI cooking assistant that helps you create, save, and play through recipes with AI-powered guidance.
+
+## Features
+
+- **Recipe Creator**: Create recipes with AI assistance through a conversational interface
+- **My Recipes**: Browse and manage your saved recipe collection
+- **Kitchen**: Interactive recipe playback with step-by-step guidance
 
 ## Prerequisites
 
 - Docker and Docker Compose
 - OpenAI API key
-- LiveKit credentials
 - Google OAuth credentials (for authentication)
 
 ## Quick Start
 
 ### 1. Environment Setup
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory (see `.env.example` for all options):
 
 ```bash
-# OpenAI
+# OpenAI API Key
 OPENAI_API_KEY=your_openai_api_key_here
 
-# Google OAuth (required for authentication)
+# Google OAuth Configuration
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 
-# Session and JWT Secrets (generate secure random strings for production)
-SESSION_SIGNER_SECRET=your_session_signer_secret_here
-JWT_SECRET=your_jwt_secret_here
+# Service API Key for internal service authentication
+SERVICE_API_KEY=your_service_api_key_here
 
-# Debug logging (optional - set to "true" to see detailed auth logs)
-AUTH_DEBUG=false
+# PostgreSQL Database
+POSTGRES_DB=raimy
+POSTGRES_USER=your_postgres_user_here
+POSTGRES_PASSWORD=your_postgres_password_here
+
+# Optional: LangSmith for debugging AI agents
+# LANGCHAIN_TRACING_V2=true
+# LANGCHAIN_API_KEY=your_langsmith_api_key_here
+# LANGCHAIN_PROJECT=raimy-agent
 ```
 
 ### 2. Run Services
 
 #### Start Backend (Docker)
 ```bash
-# Build and start API and bot
+# Build and start all services
 docker-compose up --build
 
 # Or run in detached mode
 docker-compose up -d --build
+
+# Or start with pgadmin but exclude it from logs
+docker-compose up --build --no-attach pgadmin
 ```
 
 The backend services will be available at:

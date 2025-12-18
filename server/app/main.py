@@ -500,12 +500,12 @@ async def websocket_chat_endpoint(
                     else:
                         greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
 
-                # Save greeting to database
+                # Save greeting to database (as structured TextContent)
                 try:
                     await database_service.add_message_to_session(
                         session_id=session_id,
                         role="assistant",
-                        content=greeting
+                        content={"type": "text", "content": greeting}
                     )
                 except Exception as e:
                     logger.error(f"Failed to save greeting to database: {e}")

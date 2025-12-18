@@ -4,8 +4,11 @@ import MessageRenderer from './message-types/MessageRenderer';
 
 export interface ChatMessageProps {
   role: 'user' | 'assistant';
-  content: string | MessageContent;
+  content: MessageContent;
   timestamp?: Date;
+  isLastMessage?: boolean;
+  onFocusInput?: () => void;
+  onMessageAction?: (action: string) => void;
 }
 
 /**
@@ -17,12 +20,11 @@ export default function ChatMessage({
   role,
   content,
   timestamp,
+  isLastMessage,
+  onFocusInput,
+  onMessageAction,
 }: ChatMessageProps) {
   const isUser = role === 'user';
-
-  // Convert string content to MessageContent for backward compatibility
-  const messageContent: MessageContent =
-    typeof content === 'string' ? { type: 'text', content } : content;
 
   return (
     <div
@@ -37,7 +39,13 @@ export default function ChatMessage({
           'bg-surface text-text': !isUser,
         })}
       >
-        <MessageRenderer content={messageContent} isUser={isUser} />
+        <MessageRenderer
+          content={content}
+          isUser={isUser}
+          isLastMessage={isLastMessage}
+          onFocusInput={onFocusInput}
+          onMessageAction={onMessageAction}
+        />
         {timestamp && (
           <p
             className={classNames('text-xs mt-2', {

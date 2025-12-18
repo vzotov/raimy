@@ -62,6 +62,14 @@ def upgrade() -> None:
                          ['chat_session_id'], ['id'], ondelete='SET NULL')
     op.create_index('ix_recipes_chat_session_id', 'recipes', ['chat_session_id'])
 
+    # Transform any existing plain string message content to structured TextContent
+    # This handles any messages that might exist from development
+    op.execute("""
+        UPDATE chat_messages
+        SET content = jsonb_build_object('type', 'text', 'content', content::text)::json
+        WHERE jsonb_typeof(content::jsonb) = 'string'
+    """)
+
 
 def downgrade() -> None:
     # Drop recipe link from recipes table

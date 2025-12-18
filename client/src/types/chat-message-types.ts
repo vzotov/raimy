@@ -18,6 +18,11 @@ export type TextContent = {
   content: string;
 };
 
+export type KitchenStepContent = {
+  type: 'kitchen-step';
+  content: string;
+};
+
 export type IngredientsContent = {
   type: 'ingredients';
   title?: string;
@@ -95,6 +100,7 @@ export type SystemContent = {
 // Union type for all message content types
 export type MessageContent =
   | TextContent
+  | KitchenStepContent
   | IngredientsContent
   | SessionNameContent
   | RecipeContent

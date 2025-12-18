@@ -1,10 +1,14 @@
 import type { MessageContent } from '@/types/chat-message-types';
 import IngredientList from './IngredientList';
+import MessageConfirmationButtons from './MessageConfirmationButtons';
 import RecipeMessage from './RecipeMessage';
 
 export interface MessageRendererProps {
   content: MessageContent;
   isUser?: boolean;
+  isLastMessage?: boolean;
+  onFocusInput?: () => void;
+  onMessageAction?: (action: string) => void;
 }
 
 /**
@@ -19,6 +23,9 @@ export interface MessageRendererProps {
 export default function MessageRenderer({
   content,
   isUser = false,
+  isLastMessage,
+  onFocusInput,
+  onMessageAction,
 }: MessageRendererProps) {
   switch (content.type) {
     case 'text':
@@ -26,6 +33,21 @@ export default function MessageRenderer({
         <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
           {content.content}
         </p>
+      );
+
+    case 'kitchen-step':
+      return (
+        <div>
+          <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
+            {content.content}
+          </p>
+          {isLastMessage && onFocusInput && onMessageAction && (
+            <MessageConfirmationButtons
+              onAskQuestion={onFocusInput}
+              onSendDone={() => onMessageAction('done!')}
+            />
+          )}
+        </div>
       );
 
     case 'ingredients':

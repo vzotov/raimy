@@ -39,6 +39,7 @@ export function useChatState({
   // Convert initial messages to ChatMessage format
   const convertedMessages: ChatMessage[] = initialMessages.map((msg, index) => {
     const timestamp = new Date(msg.timestamp);
+
     return {
       id: `msg-${index}-${timestamp.getTime()}`,
       role: msg.role as 'user' | 'assistant',
@@ -67,17 +68,13 @@ export function useChatState({
         const messageId = wsMessage.message_id || `agent-${Date.now()}`;
 
         switch (content.type) {
-          case 'text':
-            handleTextMessage(content, messageId, dispatch);
-            break;
-
           case 'session_name':
             handleSessionNameMessage(content, dispatch, sessionId, sessionType);
             break;
 
           // Other message types should be handled by specialized hooks
           default:
-            console.warn('[ChatState] Unhandled message type:', content.type);
+            handleTextMessage(content, messageId, dispatch);
         }
       }
 
@@ -94,7 +91,7 @@ export function useChatState({
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content,
+      content: { type: 'text', content },
       timestamp: new Date(),
     };
     dispatch({

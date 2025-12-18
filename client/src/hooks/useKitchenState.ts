@@ -11,6 +11,7 @@ import type {
   KitchenMessageState,
 } from '@/lib/messageHandlers/types';
 import type { SessionMessage } from '@/types/chat-session';
+import { KitchenStepContent } from '@/types/chat-message-types';
 
 interface UseKitchenStateParams {
   sessionId: string;
@@ -28,6 +29,20 @@ export function useKitchenState({
   initialMessages = [],
   initialIngredients = [],
 }: UseKitchenStateParams) {
+  // Transform initial text messages to kitchen-step for kitchen sessions
+  const transformedInitialMessages = initialMessages.map((msg) => {
+    if (msg.role === 'assistant' && msg.content.type === 'text') {
+      return {
+        ...msg,
+        content: {
+          type: 'kitchen-step' as const,
+          content: msg.content.content,
+        },
+      };
+    }
+    return msg;
+  });
+
   // Get base chat functionality
   const {
     state: chatState,
@@ -36,7 +51,7 @@ export function useKitchenState({
   } = useChatState({
     sessionId,
     sessionType: 'kitchen',
-    initialMessages,
+    initialMessages: transformedInitialMessages,
   });
 
   // Extend with kitchen-specific state
@@ -97,8 +112,19 @@ export function useKitchenState({
             handleTimerMessage(content, kitchenDispatch);
             return; // Handled, don't delegate
 
+          case 'text':
+            // Transform text messages to kitchen-step for kitchen sessions
+            handleChatMessage({
+              ...wsMessage,
+              content: {
+                type: 'kitchen-step',
+                content: content.content,
+              } as KitchenStepContent,
+            });
+            break;
+
           default:
-            // Delegate to base chat handler for text, session_name, etc.
+            // Other message types (session_name, etc.) - delegate as-is
             handleChatMessage(wsMessage);
         }
       } else {

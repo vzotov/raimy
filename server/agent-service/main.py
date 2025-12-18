@@ -255,11 +255,11 @@ async def agent_chat(request: ChatRequest):
             # Default to recipe-creator for unknown types
             system_prompt = RECIPE_CREATOR_PROMPT
 
-        # Save user message to database first
+        # Save user message to database first (as structured TextContent)
         await database_service.add_message_to_session(
             session_id=request.session_id,
             role="user",
-            content=request.message
+            content={"type": "text", "content": request.message}
         )
 
         # Get LangGraph agent instance with session-type-specific tools
@@ -277,11 +277,11 @@ async def agent_chat(request: ChatRequest):
         agent_response = agent_result["response"]
         structured_outputs = agent_result.get("structured_outputs", [])
 
-        # Save agent text response to database
+        # Save agent text response to database (as structured TextContent)
         await database_service.add_message_to_session(
             session_id=request.session_id,
             role="assistant",
-            content=agent_response
+            content={"type": "text", "content": agent_response}
         )
 
         # If there are saved recipes, create structured messages for each

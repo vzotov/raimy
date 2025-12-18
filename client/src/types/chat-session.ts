@@ -23,7 +23,7 @@ export interface ChatSessionWithMessages extends ChatSession {
 
 export interface SessionMessage {
   role: 'user' | 'assistant';
-  content: string | MessageContent; // Support both plain strings and structured content
+  content: MessageContent; // Always structured content
   timestamp: string;
 }
 

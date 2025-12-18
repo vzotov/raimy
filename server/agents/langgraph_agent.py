@@ -252,12 +252,26 @@ class LangGraphAgent:
             dict with 'response' (str) and optional 'structured_outputs' (list)
         """
         # Convert message history to LangChain format
+        # Helper to extract text content from structured message
+        def extract_text_content(content):
+            """Extract plain text from message content (handles both string and structured formats)"""
+            if isinstance(content, dict):
+                # Structured content: extract the actual text from TextContent
+                if content.get("type") == "text":
+                    return content.get("content", "")
+                # For other types (recipe, ingredients), return empty string
+                return ""
+            # Plain string (backward compatibility)
+            return content
+
         langchain_messages = []
         for msg in message_history:
-            if msg["role"] == "user":
-                langchain_messages.append(HumanMessage(content=msg["content"]))
-            elif msg["role"] == "assistant":
-                langchain_messages.append(AIMessage(content=msg["content"]))
+            text_content = extract_text_content(msg["content"])
+            if text_content:  # Only add if there's actual text content
+                if msg["role"] == "user":
+                    langchain_messages.append(HumanMessage(content=text_content))
+                elif msg["role"] == "assistant":
+                    langchain_messages.append(AIMessage(content=text_content))
 
         # Add new user message
         langchain_messages.append(HumanMessage(content=message))

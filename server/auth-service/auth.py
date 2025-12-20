@@ -82,16 +82,23 @@ async def login(request: Request):
             logger.error("OAuth not configured")
             raise HTTPException(status_code=500, detail=error_msg)
 
-        # OAuth callback always goes through the main API (which proxies to auth service)
-        api_url = os.getenv("API_URL", "http://localhost:8000")
-        redirect_uri = f"{api_url}/auth/callback"
+        # Get frontend URL for OAuth redirect_uri (where Google sends users back)
+        frontend_url = get_frontend_url(request)
+        redirect_uri = f"{frontend_url}/auth/google/callback"
+        logger.info(f"OAuth redirect_uri: {redirect_uri}")
 
         # Generate secure state parameter for CSRF protection
         import secrets
         state = secrets.token_urlsafe(32)
 
-        # Store state in session for validation (using secure session middleware)
-        request.session["oauth_state"] = state
+        # Store state in Redis for validation (with 10 minute expiry)
+        if hasattr(request.app.state, 'redis'):
+            await request.app.state.redis.setex(f"oauth_state:{state}", 600, state)
+            logger.debug(f"Stored OAuth state in Redis: {state[:8]}...")
+        else:
+            # Fallback to session if Redis unavailable
+            request.session["oauth_state"] = state
+            logger.warning("Redis unavailable, using session for OAuth state")
 
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
         auth_url = (
@@ -132,19 +139,29 @@ async def auth_callback(request: Request):
             logger.error("No state parameter in OAuth callback")
             raise HTTPException(status_code=400, detail="Missing state parameter")
 
-        session_state = request.session.get("oauth_state")
+        # Check Redis first, fallback to session
+        session_state = None
+        if hasattr(request.app.state, 'redis'):
+            session_state = await request.app.state.redis.get(f"oauth_state:{state}")
+            if session_state:
+                # Delete the state after validation (one-time use)
+                await request.app.state.redis.delete(f"oauth_state:{state}")
+                logger.debug("OAuth state validated via Redis")
+        else:
+            session_state = request.session.get("oauth_state")
+            request.session.pop("oauth_state", None)
+            logger.debug("OAuth state validated via session")
+
         if not session_state or session_state != state:
             logger.error("Invalid state parameter in OAuth callback")
             raise HTTPException(status_code=400, detail="Invalid state parameter")
 
-        # Clear the used state
-        request.session.pop("oauth_state", None)
-
         logger.info("OAuth state validation successful")
 
-        # OAuth callback always goes through the main API (same as in login)
-        api_url = os.getenv("API_URL", "http://localhost:8000")
-        redirect_uri = f"{api_url}/auth/callback"
+        # CRITICAL: redirect_uri must match what we sent to Google in /auth/login
+        frontend_url = get_frontend_url(request)
+        redirect_uri = f"{frontend_url}/auth/google/callback"
+        logger.info(f"Token exchange redirect_uri: {redirect_uri}")
 
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
         google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -196,21 +213,11 @@ async def auth_callback(request: Request):
         jwt_token = create_jwt_token(user_data)
         logger.info("JWT token generated successfully")
 
-        # Set JWT token as cookie and redirect to frontend
+        # Return JWT in header for Next.js to set as cookie
         frontend_url = get_frontend_url(request)
-        response = RedirectResponse(frontend_url)
-
-        # Set JWT token as HTTP-only cookie
-        response.set_cookie(
-            "access_token",
-            jwt_token,
-            httponly=True,
-            secure=os.getenv("ENVIRONMENT") == "production",
-            samesite="lax",
-            max_age=24 * 3600,  # 24 hours
-            path="/",  # Ensure cookie is available for all paths
-            domain=None  # Let browser handle domain automatically
-        )
+        response = RedirectResponse(frontend_url, status_code=302)
+        response.headers['X-Auth-Token'] = jwt_token
+        logger.info("JWT token sent in X-Auth-Token header")
 
         return response
 
@@ -303,23 +310,10 @@ async def perform_logout(request: Request):
     # Get frontend URL for redirect
     frontend_url = get_frontend_url(request)
 
-    # Create response that redirects to frontend
+    # Just redirect - Next.js will handle cookie clearing
     response = RedirectResponse(frontend_url, status_code=302)
+    logger.info("Logout redirect sent")
 
-    # Clear the JWT cookie by setting it to expire immediately
-    response.set_cookie(
-        "access_token",
-        "",
-        httponly=True,
-        secure=os.getenv("ENVIRONMENT") == "production",
-        samesite="lax",
-        max_age=0,  # Expire immediately
-        path="/",
-        domain=None,
-        expires="Thu, 01 Jan 1970 00:00:00 GMT"  # Set to past date
-    )
-
-    logger.info("Logout completed - cookie cleared")
     return response
 
 @router.post("/logout")

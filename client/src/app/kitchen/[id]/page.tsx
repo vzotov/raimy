@@ -14,7 +14,7 @@ export default async function KitchenSessionPage({
   const { id } = await params;
 
   // Fetch session data (reuses meal planner sessions endpoint)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = process.env.API_URL || 'http://localhost:8000';
   const cookieStore = await cookies();
 
   try {
@@ -31,7 +31,6 @@ export default async function KitchenSessionPage({
 
     const data = await response.json();
     const session = data.session;
-    console.log('Fetched kitchen session:', session);
 
     // Verify this is a kitchen session
     if (session.session_type !== 'kitchen') {

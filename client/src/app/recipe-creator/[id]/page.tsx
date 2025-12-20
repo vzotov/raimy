@@ -14,7 +14,7 @@ export default async function RecipeCreatorSessionPage({
   const { id } = await params;
 
   // Fetch session data
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = process.env.API_URL || 'http://localhost:8000';
   const cookieStore = await cookies();
 
   try {

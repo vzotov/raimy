@@ -10,7 +10,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
       - AUTH_DEBUG=${AUTH_DEBUG:-false}
       - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - API_URL=${API_URL:-http://localhost:8000}
+      - REDIS_URL=redis://redis:6379
     volumes:
       # Mount for development auto-reload
       - ./server/auth-service:/app
@@ -30,7 +30,6 @@ services:
       - "8002:8002"  # MCP server (Streamable HTTP)
     environment:
       - PYTHONPATH=/app
-      - API_URL=http://raimy-api:8000
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       - REDIS_URL=redis://redis:6379
@@ -138,7 +137,6 @@ services:
       - "8003:8003"  # Agent service
     environment:
       - PYTHONPATH=/app/server
-      - API_URL=http://raimy-api:8000
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       - MCP_SERVER_URL=http://mcp-service:8002/mcp

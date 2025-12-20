@@ -5,3 +5,5 @@ python-multipart==0.0.6
 itsdangerous==2.1.2
 PyJWT==2.8.0
 httpx==0.25.2
+redis==5.0.1
+aioredis==2.0.1

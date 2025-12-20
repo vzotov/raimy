@@ -6,16 +6,33 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
+import redis.asyncio as aioredis
 
 # Import auth router
 from auth import router as auth_router, oauth
 
+# Initialize Redis for session storage
+redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+redis_client = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global redis_client
     print("Starting Auth Microservice...")
+    # Initialize Redis connection
+    try:
+        redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+        await redis_client.ping()
+        print(f"✓ Connected to Redis at {redis_url}")
+        app.state.redis = redis_client
+    except Exception as e:
+        print(f"⚠ Warning: Could not connect to Redis: {e}")
+        print("  OAuth state validation will use fallback mechanism")
     yield
     print("Shutting down Auth Microservice...")
+    if redis_client:
+        await redis_client.close()
 
 
 app = FastAPI(

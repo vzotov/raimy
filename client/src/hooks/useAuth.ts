@@ -29,7 +29,7 @@ export function useAuth() {
   const isAuthenticated = data?.authenticated || false;
 
   const login = () => {
-    window.location.href = `/auth/login`;
+    window.location.href = `/auth/google`;
   };
 
   const logout = async () => {

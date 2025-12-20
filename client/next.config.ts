@@ -1,18 +1,15 @@
 import type { NextConfig } from 'next';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BACKEND_API_URL = process.env.API_URL || 'http://localhost:8000';
 
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
-      // Proxy API requests to FastAPI
+      // Proxy all /api requests to backend for general API calls
+      // Auth-specific routes (/auth/*) are handled by App Router routes
       {
         source: '/api/:path*',
-        destination: `${API_URL}/api/:path*`,
-      },
-      {
-        source: '/auth/:path*',
-        destination: `${API_URL}/auth/:path*`,
+        destination: `${BACKEND_API_URL}/api/:path*`,
       },
     ];
   },

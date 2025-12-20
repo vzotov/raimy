@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import RecipeCard, { type Recipe } from '@/components/shared/RecipeCard';
 
 export default async function MyRecipesPage() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = process.env.API_URL || 'http://localhost:8000';
   const cookieStore = await cookies();
 
   let recipes: Recipe[] = [];

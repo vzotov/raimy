@@ -18,6 +18,7 @@ htmlcov/
 .next/
 out/
 build/
+.vercel
 
 # Environment files
 .env

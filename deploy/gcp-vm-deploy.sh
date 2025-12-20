@@ -113,14 +113,10 @@ setup_vm() {
         sleep 10
     done
 
-    # Copy setup script and env file
+    # Copy setup script
     gcloud compute scp --zone="${ZONE}" \
         setup-vm.sh "${INSTANCE_NAME}":~/ \
         --project="${PROJECT_ID}"
-
-    gcloud compute scp --zone="${ZONE}" \
-        ../.env.prod "${INSTANCE_NAME}":~/raimy/.env \
-        --project="${PROJECT_ID}" 2>/dev/null || true
 
     # Run setup script
     gcloud compute ssh "${INSTANCE_NAME}" \
@@ -143,6 +139,8 @@ deploy_code() {
         --exclude='./venv' \
         --exclude='./__pycache__' \
         --exclude='*.pyc' \
+        --exclude='./.env' \
+        --exclude='./.env.*' \
         -czf /tmp/raimy-deploy.tar.gz .
     cd deploy
 
@@ -160,6 +158,28 @@ deploy_code() {
             mkdir -p ~/raimy
             tar -xzf ~/raimy-deploy.tar.gz -C ~/raimy
             echo 'Code extracted successfully'
+        "
+
+    # Copy .env.prod file to VM
+    echo -e "${YELLOW}Configuring environment variables...${NC}"
+    gcloud compute scp --zone="${ZONE}" \
+        ../.env.prod "${INSTANCE_NAME}":~/raimy/.env \
+        --project="${PROJECT_ID}"
+
+    # Verify FRONTEND_URL is set (required for OAuth)
+    echo -e "${YELLOW}Verifying OAuth configuration...${NC}"
+    gcloud compute ssh "${INSTANCE_NAME}" \
+        --zone="${ZONE}" \
+        --project="${PROJECT_ID}" \
+        --command="
+            if ! grep -q '^FRONTEND_URL=' ~/raimy/.env; then
+                echo '⚠ WARNING: FRONTEND_URL not set in .env.prod'
+                echo 'Please set FRONTEND_URL to your Vercel domain for OAuth to work'
+                echo 'Example: FRONTEND_URL=https://raimy-1vb297346.vercel.app'
+            else
+                echo '✓ FRONTEND_URL configured'
+                grep FRONTEND_URL ~/raimy/.env
+            fi
         "
 
     echo -e "${YELLOW}Building Docker images (this takes 5-10 minutes)...${NC}"
@@ -207,18 +227,28 @@ case "${1:-create}" in
         echo -e "${GREEN}========================================${NC}"
         echo ""
         echo "VM IP Address: ${VM_IP}"
+        echo "Backend accessible at: http://${VM_IP}/api"
         echo ""
-        echo "API Endpoint: http://${VM_IP}/api"
-        echo "API Docs: http://${VM_IP}/api/docs"
+        echo -e "${YELLOW}⚠ IMPORTANT: Complete OAuth setup for Vercel${NC}"
         echo ""
-        echo "Next steps:"
-        echo "1. Update Vercel env: NEXT_PUBLIC_API_URL=http://${VM_IP}/api"
-        echo "2. Update Google OAuth redirect URI: http://${VM_IP}/api/auth/google/callback"
-        echo "3. (Optional) Set up custom domain and SSL certificate"
+        echo "1. Ensure FRONTEND_URL is set in .env.prod:"
+        echo "   FRONTEND_URL=https://raimy-1vb297346.vercel.app"
+        echo "   (This should already be set - used for OAuth redirect_uri)"
+        echo ""
+        echo "2. Configure Vercel environment variable:"
+        echo "   API_URL=http://${VM_IP}/api"
+        echo "   (Vercel needs this to reach the backend from server-side)"
+        echo ""
+        echo "3. Update Google OAuth Console authorized redirect URIs:"
+        echo "   Add: https://raimy-1vb297346.vercel.app/auth/google/callback"
+        echo "   Remove: Any backend IP URLs (OAuth must go through Vercel)"
+        echo ""
+        echo "4. If you changed .env.prod, redeploy backend:"
+        echo "   ./gcp-vm-deploy.sh update"
         echo ""
         echo "Useful commands:"
         echo "  SSH to VM:        gcloud compute ssh ${INSTANCE_NAME} --zone=${ZONE}"
-        echo "  View logs:        gcloud compute ssh ${INSTANCE_NAME} --zone=${ZONE} --command='cd ~/raimy && docker-compose -f docker-compose.prod.yml logs -f'"
+        echo "  View logs:        ./gcp-vm-deploy.sh logs"
         echo "  Restart services: gcloud compute ssh ${INSTANCE_NAME} --zone=${ZONE} --command='cd ~/raimy && docker-compose -f docker-compose.prod.yml restart'"
         ;;
 
@@ -230,7 +260,10 @@ case "${1:-create}" in
 
         echo ""
         echo -e "${GREEN}Update Complete!${NC}"
-        echo "Services restarted at http://${VM_IP}"
+        echo "Backend services restarted at http://${VM_IP}/api"
+        echo ""
+        echo "Remember to update Vercel environment variable if IP changed:"
+        echo "  API_URL=http://${VM_IP}/api"
         ;;
 
     "destroy")
@@ -263,7 +296,10 @@ case "${1:-create}" in
     "ip")
         VM_IP=$(get_vm_ip)
         echo "VM IP: ${VM_IP}"
-        echo "API: http://${VM_IP}/api"
+        echo "Backend API: http://${VM_IP}/api"
+        echo ""
+        echo "Set this in Vercel environment variables:"
+        echo "  API_URL=http://${VM_IP}/api"
         ;;
 
     *)

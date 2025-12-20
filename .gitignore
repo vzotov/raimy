@@ -36,6 +36,8 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+# macOS metadata files (resource forks)
+._*
 
 # Logs
 *.log

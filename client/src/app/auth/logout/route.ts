@@ -15,13 +15,43 @@ export async function GET(request: NextRequest) {
 
     // Redirect to home and clear cookie
     const response = NextResponse.redirect(new URL('/', request.nextUrl.origin));
-    response.cookies.delete('access_token');
+
+    // Delete cookie with same domain attribute used when setting it
+    const cookieOptions: any = {
+      path: '/',
+      secure: true,
+      sameSite: 'none' as const
+    };
+
+    if (process.env.NODE_ENV === 'production') {
+      cookieOptions.domain = '.raimy.app';
+    }
+
+    response.cookies.set('access_token', '', {
+      ...cookieOptions,
+      maxAge: 0  // Expire immediately
+    });
 
     return response;
   } catch (error) {
     // Even if backend call fails, clear cookie and redirect
     const response = NextResponse.redirect(new URL('/', request.nextUrl.origin));
-    response.cookies.delete('access_token');
+
+    const cookieOptions: any = {
+      path: '/',
+      secure: true,
+      sameSite: 'none' as const
+    };
+
+    if (process.env.NODE_ENV === 'production') {
+      cookieOptions.domain = '.raimy.app';
+    }
+
+    response.cookies.set('access_token', '', {
+      ...cookieOptions,
+      maxAge: 0
+    });
+
     return response;
   }
 }

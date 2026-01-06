@@ -99,6 +99,7 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 
 ### Git Commits
 - **DO NOT** include Claude Code signatures, co-author tags, or "Generated with Claude Code" footers
+- Add commit task only when I asked you to. We always need to test changes first
 - Write concise commit messages with a summary line followed by 3-5 bullet points
 - Focus on high-level "what" and "why" rather than listing every file or implementation detail
 - Avoid verbose explanations, architectural details, or step-by-step descriptions

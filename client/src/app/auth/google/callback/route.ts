@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_API_URL = process.env.API_URL || 'https://35.207.14.249/api';
+const BACKEND_API_URL = process.env.API_URL || 'https://api.raimy.app';
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,14 +52,21 @@ export async function GET(request: NextRequest) {
       const redirectResponse = NextResponse.redirect(location);
 
       // Set cookie with JWT token from backend
-      // Don't set domain - let browser handle it automatically for same-site cookies
-      redirectResponse.cookies.set('access_token', token, {
+      // Use SameSite=None with Domain=.raimy.app for cross-subdomain auth (frontend on raimy.app, API on api.raimy.app)
+      const cookieOptions: any = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',  // Same-site cookie since Next.js and API are both on Vercel
+        secure: true,  // Required for SameSite=None
+        sameSite: 'none',  // Allow cross-origin cookies for WebSocket auth
         path: '/',
         maxAge: 24 * 3600  // 24 hours
-      });
+      };
+
+      // Set domain only in production for cross-subdomain sharing
+      if (process.env.NODE_ENV === 'production') {
+        cookieOptions.domain = '.raimy.app';
+      }
+
+      redirectResponse.cookies.set('access_token', token, cookieOptions);
 
       return redirectResponse;
     }

@@ -133,7 +133,9 @@ services:
         condition: service_healthy
 
   raimy-bot:
-    build: ./server/agent-service
+    build:
+      context: .
+      dockerfile: server/agent-service/Dockerfile
     ports:
       - "8003:8003"
     environment:

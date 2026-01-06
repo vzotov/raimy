@@ -2,11 +2,15 @@
 
 A conversational AI cooking assistant that helps you create, save, and play through recipes with AI-powered guidance.
 
+**🚀 Deployed at: [raimy.app](https://raimy.app)**
+
 ## Features
 
 - **Recipe Creator**: Create recipes with AI assistance through a conversational interface
 - **My Recipes**: Browse and manage your saved recipe collection
 - **Kitchen**: Interactive recipe playback with step-by-step guidance
+- **Real-time AI interactions** via WebSocket
+- **Google OAuth authentication**
 
 ## Prerequisites
 

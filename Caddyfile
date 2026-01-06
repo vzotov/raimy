@@ -1,0 +1,40 @@
+# Caddyfile for automatic HTTPS with Let's Encrypt
+# Caddy will automatically obtain and renew SSL certificates
+
+{
+    # Email for Let's Encrypt certificate notifications
+    email {$LETSENCRYPT_EMAIL}
+}
+
+# Backend API with automatic HTTPS
+{$API_DOMAIN} {
+    # Auth endpoints (to auth-service)
+    reverse_proxy /auth/* auth-service:8001
+
+    # API endpoints
+    reverse_proxy /api/* raimy-api:8000
+
+    # WebSocket endpoint
+    reverse_proxy /ws/* raimy-api:8000 {
+        # WebSocket headers
+        header_up Upgrade {http.request.header.Upgrade}
+        header_up Connection {http.request.header.Connection}
+    }
+
+    # Health check
+    reverse_proxy /health raimy-api:8000
+
+    # CORS headers for Vercel frontend
+    header {
+        Access-Control-Allow-Origin https://{$FRONTEND_DOMAIN}
+        Access-Control-Allow-Credentials true
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, Cookie"
+    }
+
+    # Handle OPTIONS preflight requests
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+}

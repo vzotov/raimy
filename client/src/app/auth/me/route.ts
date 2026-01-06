@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ authenticated: false }, { status: 500 });
+    console.error('Auth /me error:', error);
+    return NextResponse.json({
+      authenticated: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

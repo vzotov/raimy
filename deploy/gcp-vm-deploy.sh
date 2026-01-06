@@ -166,22 +166,6 @@ deploy_code() {
         ../.env.prod "${INSTANCE_NAME}":~/raimy/.env \
         --project="${PROJECT_ID}"
 
-    # Verify FRONTEND_URL is set (required for OAuth)
-    echo -e "${YELLOW}Verifying OAuth configuration...${NC}"
-    gcloud compute ssh "${INSTANCE_NAME}" \
-        --zone="${ZONE}" \
-        --project="${PROJECT_ID}" \
-        --command="
-            if ! grep -q '^FRONTEND_URL=' ~/raimy/.env; then
-                echo '⚠ WARNING: FRONTEND_URL not set in .env.prod'
-                echo 'Please set FRONTEND_URL to your Vercel domain for OAuth to work'
-                echo 'Example: FRONTEND_URL=https://raimy-1vb297346.vercel.app'
-            else
-                echo '✓ FRONTEND_URL configured'
-                grep FRONTEND_URL ~/raimy/.env
-            fi
-        "
-
     echo -e "${YELLOW}Building Docker images (this takes 5-10 minutes)...${NC}"
     gcloud compute ssh "${INSTANCE_NAME}" \
         --zone="${ZONE}" \
@@ -229,21 +213,17 @@ case "${1:-create}" in
         echo "VM IP Address: ${VM_IP}"
         echo "Backend accessible at: http://${VM_IP}/api"
         echo ""
-        echo -e "${YELLOW}⚠ IMPORTANT: Complete OAuth setup for Vercel${NC}"
+        echo -e "${YELLOW}⚠ IMPORTANT: Complete OAuth and domain setup${NC}"
         echo ""
-        echo "1. Ensure FRONTEND_URL is set in .env.prod:"
-        echo "   FRONTEND_URL=https://raimy-1vb297346.vercel.app"
-        echo "   (This should already be set - used for OAuth redirect_uri)"
+        echo "1. Update Google OAuth Console authorized redirect URIs:"
+        echo "   Add: https://raimy.app/auth/google/callback"
+        echo "   (Update with your actual domain)"
         echo ""
-        echo "2. Configure Vercel environment variable:"
-        echo "   API_URL=http://${VM_IP}/api"
-        echo "   (Vercel needs this to reach the backend from server-side)"
+        echo "2. Configure Vercel environment variables:"
+        echo "   API_URL=https://api.raimy.app"
+        echo "   NEXT_PUBLIC_WS_HOST=api.raimy.app"
         echo ""
-        echo "3. Update Google OAuth Console authorized redirect URIs:"
-        echo "   Add: https://raimy-1vb297346.vercel.app/auth/google/callback"
-        echo "   Remove: Any backend IP URLs (OAuth must go through Vercel)"
-        echo ""
-        echo "4. If you changed .env.prod, redeploy backend:"
+        echo "3. If you changed .env.prod, redeploy:"
         echo "   ./gcp-vm-deploy.sh update"
         echo ""
         echo "Useful commands:"
@@ -260,10 +240,7 @@ case "${1:-create}" in
 
         echo ""
         echo -e "${GREEN}Update Complete!${NC}"
-        echo "Backend services restarted at http://${VM_IP}/api"
-        echo ""
-        echo "Remember to update Vercel environment variable if IP changed:"
-        echo "  API_URL=http://${VM_IP}/api"
+        echo "Backend accessible at: https://api.raimy.app"
         ;;
 
     "destroy")
@@ -296,10 +273,8 @@ case "${1:-create}" in
     "ip")
         VM_IP=$(get_vm_ip)
         echo "VM IP: ${VM_IP}"
-        echo "Backend API: http://${VM_IP}/api"
-        echo ""
-        echo "Set this in Vercel environment variables:"
-        echo "  API_URL=http://${VM_IP}/api"
+        echo "Backend API: https://api.raimy.app"
+        echo "Frontend: https://raimy.app"
         ;;
 
     *)

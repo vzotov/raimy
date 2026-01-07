@@ -9,7 +9,7 @@ export default async function MyRecipesPage() {
   let recipes: Recipe[] = [];
 
   try {
-    const response = await fetch(`${apiUrl}/api/recipes`, {
+    const response = await fetch(`${apiUrl}/api/recipes/`, {
       headers: {
         Cookie: cookieStore.toString(),
       },

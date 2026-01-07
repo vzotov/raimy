@@ -1,25 +1,77 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Dict
 import os
 import subprocess
 import sys
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sse_starlette.sse import EventSourceResponse
 import uvicorn
+import httpx
 
 # Import routers
 from .routes.timers import create_timers_router
 from .routes.recipes import create_recipes_router
 from .routes.debug import create_debug_router
-from ..core.auth_client import auth_client
-from ..agents.auth_proxy import router as auth_proxy_router
+from .routes.chat_sessions import create_chat_sessions_router
+from core.auth_client import auth_client
+from core.redis_client import get_redis_client
+from agents.auth_proxy import router as auth_proxy_router
+from .services import database_service
 
-# Global state for SSE connections
-sse_connections: List[asyncio.Queue] = []
+
+class ConnectionManager:
+    """Manages WebSocket connections for chat sessions"""
+
+    def __init__(self):
+        # Map of session_id -> WebSocket connection
+        self.active_connections: Dict[str, WebSocket] = {}
+
+    async def connect(self, session_id: str, websocket: WebSocket):
+        """Accept and store WebSocket connection for a session"""
+        await websocket.accept()
+        self.active_connections[session_id] = websocket
+        logger.info(f"WebSocket connected for session {session_id}")
+
+    def disconnect(self, session_id: str):
+        """Remove WebSocket connection for a session"""
+        if session_id in self.active_connections:
+            del self.active_connections[session_id]
+            logger.info(f"WebSocket disconnected for session {session_id}")
+
+    async def send_message(self, session_id: str, message: dict):
+        """Send message to a specific session"""
+        logger.info(f"🔍 send_message called for session {session_id}")
+        logger.info(f"🔍 Message type: {message.get('type')}, content type: {message.get('content', {}).get('type')}")
+
+        if session_id in self.active_connections:
+            websocket = self.active_connections[session_id]
+            logger.info(f"✅ Found active WebSocket connection for session {session_id}")
+            try:
+                await websocket.send_json(message)
+                logger.info(f"📤 Successfully sent WebSocket message to session {session_id}")
+            except Exception as e:
+                logger.error(f"❌ Error sending message to session {session_id}: {e}")
+                self.disconnect(session_id)
+        else:
+            logger.warning(f"⚠️  No active WebSocket connection found for session {session_id}")
+            logger.warning(f"⚠️  Active sessions: {list(self.active_connections.keys())}")
+
+    async def receive_message(self, session_id: str) -> dict:
+        """Receive message from a specific session"""
+        if session_id in self.active_connections:
+            websocket = self.active_connections[session_id]
+            try:
+                return await websocket.receive_json()
+            except Exception as e:
+                logger.error(f"Error receiving message from session {session_id}: {e}")
+                raise
+
+
+# Global connection manager
+connection_manager = ConnectionManager()
 
 
 async def run_database_migrations():
@@ -126,25 +178,16 @@ app.add_middleware(
 
 # OAuth handled by auth microservice
 import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(name)s - %(message)s',
+    stream=sys.stdout
+)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-async def broadcast_event(event_type: str, data: dict):
-    """Broadcast event to all connected SSE clients"""
-    event_data = {"type": event_type, "data": data}
-
-    # Remove disconnected clients
-    disconnected = []
-    for i, queue in enumerate(sse_connections):
-        try:
-            await queue.put(json.dumps(event_data))
-        except Exception:
-            disconnected.append(i)
-
-    # Remove disconnected clients
-    for i in reversed(disconnected):
-        sse_connections.pop(i)
 
 
 @app.get("/", tags=["Root"])
@@ -165,7 +208,7 @@ async def root():
             "auth": "/auth/*",
             "recipes": "/api/recipes/*",
             "timers": "/api/timers/*",
-            "events": "/api/events",
+            "chat": "/ws/chat/{session_id}",
             "debug": "/debug/*",
             "health": "/health"
         }
@@ -176,65 +219,403 @@ async def root():
 async def health_check():
     """
     ## Health Check
-    
-    Check the health status of the API and get current SSE connection count.
-    
+
+    Check the health status of the API and get current WebSocket connection count.
+
     Returns:
     - `status`: API health status
-    - `connections`: Number of active SSE connections
+    - `websocket_connections`: Number of active WebSocket connections
     """
     return {
-        "status": "healthy", 
-        "connections": len(sse_connections),
+        "status": "healthy",
+        "websocket_connections": len(connection_manager.active_connections),
         "timestamp": asyncio.get_event_loop().time()
     }
 
 
-@app.get("/api/events", tags=["Events"])
-async def events():
+async def get_websocket_user(websocket: WebSocket) -> dict:
     """
-    ## Server-Sent Events (SSE)
-    
-    Real-time event stream for cooking updates, timer notifications, and user events.
-    
-    ### Event Types:
-    - `timer_set`: When a timer is started
-    - `recipe_name`: When a recipe name is sent
-    - `user_logout`: When a user logs out
-    
-    ### Usage:
-    ```javascript
-    const eventSource = new EventSource('/api/events');
-    eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log(data.type, data.data);
-    };
-    ```
-    """
-    queue = asyncio.Queue()
-    sse_connections.append(queue)
+    Authenticate WebSocket connection using cookies
 
-    async def event_generator():
-        try:
-            while True:
+    Returns:
+        User data dict if authenticated
+
+    Raises:
+        HTTPException if not authenticated
+    """
+    try:
+        # Get cookies from WebSocket headers
+        cookies = websocket.cookies
+
+        # Create a fake request object with cookies for auth_client
+        from starlette.requests import Request
+        from starlette.datastructures import Headers
+
+        # Build headers with cookies
+        cookie_header = "; ".join([f"{k}={v}" for k, v in cookies.items()])
+        headers = Headers({"cookie": cookie_header} if cookie_header else {})
+
+        # Create minimal request for auth verification
+        scope = {
+            "type": "http",
+            "headers": [(b"cookie", cookie_header.encode())],
+        }
+        request = Request(scope)
+
+        # Verify authentication using existing auth_client
+        auth_data = await auth_client.verify_auth(request)
+
+        if not auth_data.get("authenticated"):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_data = auth_data.get("user", {})
+
+        # Store/update user data in database
+        if user_data and user_data.get('email'):
+            try:
+                await database_service.save_user(user_data)
+                logger.debug(f"WebSocket auth: Updated user data for {user_data.get('email')}")
+            except Exception as e:
+                logger.warning(f"Failed to store user data: {str(e)}")
+
+        return user_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"WebSocket authentication error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+
+@app.websocket("/ws/chat/{session_id}")
+async def websocket_chat_endpoint(
+    websocket: WebSocket,
+    session_id: str
+):
+    """
+    ## WebSocket Chat Endpoint
+
+    Establishes WebSocket connection for real-time chat with the agent.
+    Authentication is done via session cookies.
+
+    Parameters:
+    - `session_id`: The chat session ID
+
+    Message format:
+    - Client sends: `{"type": "user_message", "content": {"type": "text", "content": "..."}}`
+    - Server sends: `{"type": "agent_message", "content": {"type": "text", "content": "..."}}`
+    - Server sends: `{"type": "system", "system_type": "connected|error", "message": "..."}`
+    """
+    # Authenticate user before accepting connection
+    try:
+        user = await get_websocket_user(websocket)
+        logger.info(f"WebSocket authenticated for user: {user.get('email')}")
+    except HTTPException as e:
+        logger.warning(f"WebSocket auth failed: {e.detail}")
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+    except Exception as e:
+        logger.error(f"WebSocket auth error: {str(e)}")
+        await websocket.close(code=1011, reason="Authentication error")
+        return
+
+    # Initialize Redis client
+    redis_client = get_redis_client()
+    redis_task = None
+
+    try:
+        # Connect WebSocket
+        await connection_manager.connect(session_id, websocket)
+
+        # Send connection confirmation
+        await connection_manager.send_message(session_id, {
+            "type": "system",
+            "content": {
+                "type": "connected",
+                "message": "Connected to chat"
+            },
+            "session_id": session_id
+        })
+
+        # Subscribe to Redis for this session
+        async def redis_listener():
+            """Background task to listen for Redis messages and forward to WebSocket"""
+            try:
+                async for message in redis_client.subscribe(f"session:{session_id}"):
+                    # Extract message type and content
+                    msg_type = message.get("type")
+                    content = message.get("content", {})
+                    content_type = content.get("type") if isinstance(content, dict) else None
+
+                    logger.info(f"🔍 Redis message: type={msg_type}, content_type={content_type}")
+
+                    # Route message to appropriate handler based on content type
+                    if msg_type == "agent_message" and content_type:
+                        match content_type:
+                            # action from Kitchen agent
+                            case "ingredients":
+                                await handle_ingredients_message(content)
+
+                            case "recipe_update":
+                                await handle_recipe_update_message(content)
+
+                            case "session_name":
+                                await handle_session_name_message(content)
+
+                            case _:
+                                # timer, text - UI only, just forward
+                                logger.info(f"{msg_type} passed through")
+                                pass
+
+                    # Always forward message to WebSocket for UI
+                    try:
+                        await websocket.send_json(message)
+                    except Exception as e:
+                        logger.warning(f"Failed to send WebSocket message (connection may be closed): {e}")
+
+            except Exception as e:
+                logger.error(f"Redis listener error: {e}", exc_info=True)
+
+        async def handle_ingredients_message(content: dict):
+            """Handle ingredients message - save to session.ingredients"""
+            action = content.get("action", "set")
+            items = content.get("items", [])
+            logger.info(f"🥘 Ingredients: action={action}, count={len(items)}")
+
+            await database_service.save_or_update_ingredients(
+                session_id=session_id,
+                ingredients=items,
+                action=action
+            )
+
+        async def handle_recipe_update_message(content: dict):
+            """Handle recipe_update message - save to session.recipe or Recipe table"""
+            action = content.get("action")
+            logger.info(f"📝 Recipe update: action={action}")
+
+            match action:
+                case "save_recipe":
+                    # Immediate save to Recipe table (no debouncing)
+                    try:
+                        logger.info(f"💾 Saving recipe to Recipe table")
+                        result = await database_service.save_recipe_from_session_data(session_id)
+
+                        # Send success message
+                        await websocket.send_json({
+                            "type": "system",
+                            "content": {
+                                "type": "recipe_saved",
+                                "recipe_id": result["recipe_id"],
+                                "message": f"Recipe '{result['recipe']['name']}' saved successfully!"
+                            }
+                        })
+                        logger.info(f"✅ Recipe saved: {result['recipe_id']}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to save recipe: {e}")
+                        try:
+                            await websocket.send_json({
+                                "type": "system",
+                                "content": {
+                                    "type": "error",
+                                    "message": f"Failed to save recipe: {str(e)}"
+                                }
+                            })
+                        except:
+                            pass  # WebSocket might be disconnected
+
+                case "set_metadata":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_metadata",
+                        name=content.get("name"),
+                        description=content.get("description"),
+                        difficulty=content.get("difficulty"),
+                        total_time_minutes=content.get("total_time_minutes"),
+                        servings=content.get("servings"),
+                        tags=content.get("tags"),
+                    )
+
+                case "set_ingredients":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_ingredients",
+                        ingredients=content.get("ingredients", [])
+                    )
+
+                case "set_steps":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_steps",
+                        steps=content.get("steps", [])
+                    )
+
+        async def handle_session_name_message(content: dict):
+            """Handle session_name message - save to session.session_name"""
+            session_name = content.get("name")
+            if session_name:
+                logger.info(f"📝 Session name: {session_name}")
+                await database_service.update_session_name(
+                    session_id=session_id,
+                    session_name=session_name
+                )
+
+        # Start Redis listener as background task
+        redis_task = asyncio.create_task(redis_listener())
+
+        # Get agent service URL from environment
+        agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
+
+        # Check if this is a new session (no messages) and send static greeting
+        session_data = await database_service.get_chat_session(session_id)
+        if session_data:
+            messages = session_data.get("messages", [])
+            session_type = session_data.get("session_type", "recipe-creator")
+
+            # If session has no messages, send static greeting without calling LLM
+            if len(messages) == 0:
+                recipe_id = session_data.get("recipe_id")
+                recipe_name = None
+
+                # If recipe_id exists for kitchen, fetch and customize greeting
+                if recipe_id and session_type == "kitchen":
+                    logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
+
+                    # Fetch recipe data
+                    recipe_data = await database_service.get_recipe_by_id(recipe_id)
+
+                    if recipe_data:
+                        recipe_name = recipe_data.get("name")
+                        logger.info(f"✅ Loaded recipe: {recipe_name}")
+                        greeting = f"Hi! I'm Raimy, your cooking assistant. I've loaded the recipe for {recipe_name}. Are you ready to start cooking?"
+                    else:
+                        logger.warning(f"⚠️  Recipe {recipe_id} not found, using default greeting")
+                        greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                else:
+                    # Select greeting based on session type
+                    if session_type == "kitchen":
+                        greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                    else:
+                        greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
+
+                # Save greeting to database (as structured TextContent)
                 try:
-                    data = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield {"event": "message", "data": data}
-                except asyncio.TimeoutError:
-                    # Send keepalive
-                    yield {"event": "ping", "data": "keepalive"}
-        except Exception as e:
-            print(f"SSE connection error: {e}")
-        finally:
-            if queue in sse_connections:
-                sse_connections.remove(queue)
+                    await database_service.add_message_to_session(
+                        session_id=session_id,
+                        role="assistant",
+                        content={"type": "text", "content": greeting}
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save greeting to database: {e}")
 
-    return EventSourceResponse(event_generator())
+                # Send greeting as agent message
+                await connection_manager.send_message(session_id, {
+                    "type": "agent_message",
+                    "content": {
+                        "type": "text",
+                        "content": greeting
+                    },
+                    "message_id": f"greeting-{session_id}"
+                })
+
+        # Listen for messages from client
+        while True:
+            # Receive message from WebSocket
+            data = await websocket.receive_json()
+
+            logger.info(f"Received message from session {session_id}: {data}")
+
+            # Extract message content
+            message_type = data.get("type")
+            content = data.get("content")
+
+            if message_type == "user_message" and content:
+                try:
+                    # Extract text from MessageContent structure
+                    # content = {type: 'text', content: 'actual message'}
+                    message_text = content.get("content") if isinstance(content, dict) else content
+
+                    # Send "thinking" status immediately for UI responsiveness
+                    await connection_manager.send_message(session_id, {
+                        "type": "system",
+                        "content": {
+                            "type": "thinking",
+                            "message": "thinking"
+                        }
+                    })
+
+                    # Forward message to agent service
+                    async with httpx.AsyncClient(timeout=120.0) as client:
+                        response = await client.post(
+                            f"{agent_url}/agent/chat",
+                            json={
+                                "session_id": session_id,
+                                "message": message_text
+                            }
+                        )
+
+                        if response.status_code == 200:
+                            agent_response = response.json()
+
+                            # Send each structured output as a separate message
+                            for idx, structured_output in enumerate(agent_response.get("structured_outputs", [])):
+                                await connection_manager.send_message(session_id, {
+                                    "type": "agent_message",
+                                    "content": structured_output,  # Already properly structured
+                                    "message_id": f"{agent_response.get('message_id')}_{idx}"
+                                })
+                        else:
+                            logger.error(f"Agent service error: {response.status_code}")
+                            await connection_manager.send_message(session_id, {
+                                "type": "system",
+                                "content": {
+                                    "type": "error",
+                                    "message": "Failed to get response from agent"
+                                }
+                            })
+
+                except httpx.RequestError as e:
+                    logger.error(f"Failed to connect to agent service: {e}")
+                    await connection_manager.send_message(session_id, {
+                        "type": "system",
+                        "content": {
+                            "type": "error",
+                            "message": "Agent service unavailable"
+                        }
+                    })
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}")
+                    await connection_manager.send_message(session_id, {
+                        "type": "system",
+                        "content": {
+                            "type": "error",
+                            "message": str(e)
+                        }
+                    })
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for session {session_id}")
+        connection_manager.disconnect(session_id)
+    except Exception as e:
+        logger.error(f"WebSocket error for session {session_id}: {e}")
+        connection_manager.disconnect(session_id)
+    finally:
+        # Cancel Redis listener task
+        if redis_task:
+            redis_task.cancel()
+            try:
+                await redis_task
+            except asyncio.CancelledError:
+                pass
 
 
-# Include routers with injected broadcast function
-app.include_router(create_timers_router(broadcast_event))
-app.include_router(create_recipes_router(broadcast_event))
+
+# Include routers (no longer need broadcast_event injection)
+app.include_router(create_timers_router(None))
+app.include_router(create_recipes_router(None))
+app.include_router(create_chat_sessions_router(None))
 app.include_router(create_debug_router())
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)

@@ -1,10 +1,10 @@
-import React from 'react';
+import type { BaseIngredient } from '@/types/ingredient';
 import ScrollableArea from './ScrollableArea';
 
-export interface Ingredient {
-  name: string;
-  amount?: string;
-  unit?: string;
+/**
+ * Kitchen ingredient extends base with UI state for highlighting and tracking usage
+ */
+export interface Ingredient extends BaseIngredient {
   highlighted?: boolean;
   used?: boolean;
 }
@@ -21,11 +21,11 @@ export default function IngredientList({ ingredients }: IngredientListProps) {
     // Highlighted items first
     if (a.highlighted && !b.highlighted) return -1;
     if (!a.highlighted && b.highlighted) return 1;
-    
+
     // Used items last
     if (a.used && !b.used) return 1;
     if (!a.used && b.used) return -1;
-    
+
     return 0; // Maintain original order within each group
   });
 
@@ -33,14 +33,14 @@ export default function IngredientList({ ingredients }: IngredientListProps) {
     <ScrollableArea className="flex flex-1 max-h-[32vh] items-stretch flex-col">
       <ul className="space-y-2 list-disc pl-4">
         {sortedIngredients.map((ingredient) => (
-          <li 
-            key={ingredient.name} 
+          <li
+            key={ingredient.name}
             className={`text-lg leading-relaxed mb-0 ${
-              ingredient.highlighted 
-                ? 'text-primary font-semibold [li::marker]:text-primary' 
+              ingredient.highlighted
+                ? 'text-primary font-semibold [li::marker]:text-primary'
                 : ingredient.used
-                ? 'text-text/40 line-through [li::marker]:text-text/40'
-                : 'text-text/75 font-normal'
+                  ? 'text-text/40 line-through [li::marker]:text-text/40'
+                  : 'text-text/75 font-normal'
             }`}
           >
             {ingredient.amount && `${ingredient.amount} `}
@@ -51,4 +51,4 @@ export default function IngredientList({ ingredients }: IngredientListProps) {
       </ul>
     </ScrollableArea>
   );
-} 
+}

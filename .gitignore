@@ -8,10 +8,17 @@ __pycache__/
 venv/
 .env
 
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
 # Next.js
 .next/
 out/
 build/
+.vercel
 
 # Environment files
 .env
@@ -19,6 +26,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.prod
 
 # IDE
 .vscode/
@@ -28,6 +36,8 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+# macOS metadata files (resource forks)
+._*
 
 # Logs
 *.log

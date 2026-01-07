@@ -1,8 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import AuthButton from '@/components/shared/AuthButton';
-import Logo from '@/components/shared/Logo';
 import LoadingScreen from '@/components/shared/LoadingScreen';
+import Logo from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function HomeContent() {
@@ -19,7 +19,7 @@ export default function HomeContent() {
     <div className="flex flex-col justify-between sm:justify-center flex-1 max-w-2xl mx-auto w-full">
       {/* Empty space at top */}
       <span />
-      
+
       {/* Main content centered */}
       <div className="flex flex-col justify-center items-center px-6 mx-auto">
         <div className="text-center max-w-2xl mx-auto">
@@ -30,7 +30,7 @@ export default function HomeContent() {
 
           {/* Hero Headline */}
           <h1 className="text-4xl md:text-5xl font-heading font-bold text-text mb-6">
-            Let's cook something delicious
+            Let&apos;s cook something delicious
           </h1>
 
           {/* Sub-headline */}

@@ -11,19 +11,32 @@ router = APIRouter(prefix="/api/timers", tags=["timers"])
 
 
 @router.post("/set")
-async def set_timer(timer: TimerRequest):
+async def set_timer(timer_request: dict):
     """Set a timer for the current cooking step"""
-    timer_data = {
-        "duration": timer.duration,
-        "label": timer.label,
-        "started_at": asyncio.get_event_loop().time()
-    }
-    
-    # Broadcast timer set event
-    if broadcast_event:
-        await broadcast_event("timer_set", timer_data)
-    
-    return {"message": f"Timer set for {timer.duration} seconds: {timer.label}"}
+    duration = timer_request.get("duration")
+    label = timer_request.get("label")
+    session_id = timer_request.get("session_id")
+
+    # Send via WebSocket to specific session
+    if session_id:
+        from app.main import connection_manager
+        timer_data = {
+            "duration": duration,
+            "label": label,
+            "started_at": asyncio.get_event_loop().time()
+        }
+
+        await connection_manager.send_message(session_id, {
+            "type": "agent_message",
+            "content": {
+                "type": "timer",
+                "duration": duration,
+                "label": label,
+                "started_at": timer_data["started_at"]
+            }
+        })
+
+    return {"message": f"Timer set for {duration} seconds: {label}"}
 
 
 def create_timers_router(broadcast_func):

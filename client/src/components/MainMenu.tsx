@@ -1,11 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import classNames from 'classnames';
-import AuthButton from '@/components/shared/AuthButton';
-import ThemeSelector from '@/components/shared/ThemeSelector';
-import Logo from '@/components/shared/Logo';
+import Link from 'next/link';
 import { XIcon } from '@/components/icons';
+import AuthButton from '@/components/shared/AuthButton';
+import Logo from '@/components/shared/Logo';
+import KitchenMenuSection from '@/components/shared/menu/KitchenMenuSection';
+import RecipeCreatorMenuSection from '@/components/shared/menu/RecipeCreatorMenuSection';
+import ThemeSelector from '@/components/shared/ThemeSelector';
 import { useAuth } from '@/hooks/useAuth';
 
 interface MainMenuProps {
@@ -15,9 +17,8 @@ interface MainMenuProps {
 
 export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
   const { user, isAuthenticated } = useAuth();
-  if (!isAuthenticated || !user) return null;
 
-  const handleCloseMenu = () => onClose();
+  if (!isAuthenticated || !user) return null;
 
   return (
     <>
@@ -31,13 +32,13 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         {/* Header with Logo and Close button */}
         <div className="flex-shrink-0 px-6 py-6 border-b border-accent/20">
           <div className="flex items-center justify-between">
-            <div onClick={handleCloseMenu}>
+            <div onClick={onClose}>
               <Logo size="md" />
             </div>
             {/* Close button for mobile */}
             <button
               className="sm:hidden p-2 text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
-              onClick={handleCloseMenu}
+              onClick={onClose}
               aria-label="Close menu"
             >
               <XIcon className="w-5 h-5" />
@@ -48,17 +49,13 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         {/* Navigation Links - Scrollable middle section */}
         <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
           <div className="px-3 space-y-2">
-            <Link 
-              href="/kitchen" 
+            <KitchenMenuSection onMenuClose={onClose} />
+            <RecipeCreatorMenuSection onMenuClose={onClose} />
+
+            <Link
+              href="/myrecipes"
               className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
-              onClick={handleCloseMenu}
-            >
-              Kitchen
-            </Link>
-            <Link 
-              href="/myrecipes" 
-              className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
-              onClick={handleCloseMenu}
+              onClick={onClose}
             >
               My Recipes
             </Link>
@@ -77,8 +74,10 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
       {/* Overlay for menu on mobile */}
       {isOpen && (
         <div
-          className={classNames('fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden transition-opacity duration-300')}
-          onClick={handleCloseMenu}
+          className={classNames(
+            'fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden transition-opacity duration-300',
+          )}
+          onClick={onClose}
         />
       )}
     </>

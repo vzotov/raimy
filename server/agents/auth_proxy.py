@@ -55,9 +55,13 @@ class AuthProxy:
                 if location:
                     logger.debug(f"Redirecting to: {location}")
                     redirect_response = RedirectResponse(location, status_code=response.status_code)
-                    # Forward any set-cookie headers from auth service
+                    # Forward set-cookie headers from auth service
                     if "set-cookie" in response.headers:
                         redirect_response.headers["set-cookie"] = response.headers["set-cookie"]
+                    # Forward X-Auth-Token header (for OAuth callback)
+                    if "x-auth-token" in response.headers:
+                        redirect_response.headers["x-auth-token"] = response.headers["x-auth-token"]
+                        logger.debug("Forwarded X-Auth-Token header")
                     return redirect_response
 
             # Forward response with cookies

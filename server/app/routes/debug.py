@@ -5,7 +5,7 @@ import aiohttp
 from datetime import datetime
 
 # Import from MCP server instead of agents.tools
-from ...mcp_service.server import get_service_token, save_recipe
+from mcp_service.server import get_service_token, save_recipe
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 
@@ -70,7 +70,7 @@ async def test_service_auth():
     start_time = datetime.now()
 
     # Clear cache for fresh test
-    from ...mcp_service import server as mcp_server
+    from mcp_service import server as mcp_server
     mcp_server._service_token_cache = None
 
     try:

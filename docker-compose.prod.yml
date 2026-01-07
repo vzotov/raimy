@@ -1,0 +1,177 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3 support
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - API_DOMAIN=${API_DOMAIN}
+      - FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    restart: unless-stopped
+    depends_on:
+      raimy-api:
+        condition: service_healthy
+
+  auth-service:
+    build: ./server/auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONPATH=/app
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-jwt-secret-key}
+      - AUTH_DEBUG=${AUTH_DEBUG:-false}
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp-service:
+    build:
+      context: ./server
+      dockerfile: mcp_service/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - PYTHONPATH=/app
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      raimy-api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-raimy}
+      - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raimy_user} -d ${POSTGRES_DB:-raimy}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  raimy-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app/server
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_SERVICE_URL=http://raimy-bot:8003
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      # PostgreSQL Configuration (internal network)
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-raimy}
+      - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
+      # Migration Configuration
+      - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
+      - FAIL_ON_MIGRATION_ERROR=${FAIL_ON_MIGRATION_ERROR:-false}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  raimy-bot:
+    build:
+      context: .
+      dockerfile: server/agent-service/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - PYTHONPATH=/app/server
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - MCP_SERVER_URL=http://mcp-service:8002/mcp
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # LangSmith for debugging
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-raimy-agent}
+      # PostgreSQL Configuration
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-raimy}
+      - POSTGRES_USER=${POSTGRES_USER:-raimy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
+      # Migration Configuration (disabled for agent, only API runs migrations)
+      - AUTO_MIGRATE=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      raimy-api:
+        condition: service_healthy
+      mcp-service:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

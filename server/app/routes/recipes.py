@@ -4,7 +4,7 @@ import asyncio
 
 from ..services import database_service, RecipeModel, RecipeStepModel
 from .models import RecipeNameRequest, SaveRecipeRequest
-from ...core.auth_client import auth_client
+from core.auth_client import auth_client
 from fastapi import Request
 import logging
 
@@ -43,37 +43,8 @@ broadcast_event = None
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
-@router.post("/name")
-async def send_recipe_name(recipe: RecipeNameRequest):
-    """Send recipe name to the client via SSE"""
-    recipe_data = {
-        "recipe_name": recipe.recipe_name,
-        "timestamp": asyncio.get_event_loop().time()
-    }
-    
-    # Broadcast recipe name event
-    if broadcast_event:
-        await broadcast_event("recipe_name", recipe_data)
-    
-    return {"message": f"Recipe name sent: {recipe.recipe_name}"}
-
-
-@router.post("/ingredients")
-async def set_ingredients(ingredients_request: dict):
-    """Send ingredients list to the client via SSE"""
-    action = ingredients_request.get("action", "set")  # Default to "set" for backward compatibility
-    ingredients_data = {
-        "ingredients": ingredients_request.get("ingredients", []),
-        "action": action,
-        "timestamp": asyncio.get_event_loop().time()
-    }
-    
-    # Broadcast ingredients event
-    if broadcast_event:
-        await broadcast_event("ingredients", ingredients_data)
-    
-    action_text = "set" if action == "set" else "updated"
-    return {"message": f"Ingredients {action_text}: {len(ingredients_data['ingredients'])} items"}
+# Old HTTP-based routing endpoints removed - now using Redis PubSub
+# MCP tools publish directly to Redis, API WebSocket subscribes to Redis
 
 
 @router.get("/")
@@ -82,6 +53,7 @@ async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depend
     try:
         # Get all recipes for now (showing agent-created recipes)
         # TODO: Add proper user filtering if needed
+        logger.info(f"Getting recipes for user: {current_user['email']} with user_id param: {user_id}")
         recipes = await database_service.get_recipes()
 
         return {
@@ -101,10 +73,8 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
         steps = []
         for i, step_data in enumerate(recipe_request.steps):
             step = RecipeStepModel(
-                step_number=i + 1,
                 instruction=step_data.get("instruction", ""),
-                duration_minutes=step_data.get("duration_minutes"),
-                ingredients=step_data.get("ingredients")
+                duration=step_data.get("duration"),
             )
             steps.append(step)
 
@@ -118,11 +88,21 @@ async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = De
             difficulty=recipe_request.difficulty,
             servings=recipe_request.servings,
             tags=recipe_request.tags,
-            user_id=current_user["email"]  # Always use current user
+            user_id=current_user["email"],  # Always use current user
+            chat_session_id=recipe_request.chat_session_id  # Link to session
         )
+
+        logger.info(f"Saving recipe for user: {current_user['email']} with session ID: {recipe_request.chat_session_id}")
 
         # Save to PostgreSQL
         recipe_id = await database_service.save_recipe(recipe)
+
+        # Update session's recipe_id FK to link saved recipe
+        if recipe_request.chat_session_id:
+            await database_service.update_session_recipe_id(
+                session_id=recipe_request.chat_session_id,
+                recipe_id=recipe_id
+            )
 
         return {
             "message": "Recipe saved successfully",

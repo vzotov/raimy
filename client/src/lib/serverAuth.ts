@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers';
-import { AuthResponse } from '@/types/auth';
+import type { AuthResponse } from '@/types/auth';
 
 export async function getServerAuth(): Promise<AuthResponse> {
   try {
     const cookieStore = await cookies();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const apiUrl = process.env.API_URL || 'http://localhost:8000';
 
     const response = await fetch(`${apiUrl}/auth/me`, {
       headers: {

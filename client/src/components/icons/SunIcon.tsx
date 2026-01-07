@@ -2,7 +2,7 @@ interface IconProps {
   className?: string;
 }
 
-export default function SunIcon({ className = "h-5 w-5" }: IconProps) {
+export default function SunIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
       className={className}

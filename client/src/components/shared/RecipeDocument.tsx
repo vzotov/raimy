@@ -21,16 +21,16 @@ export default function RecipeDocument({
         <button
           onClick={onToggle}
           className="md:hidden p-2 hover:bg-accent/10 rounded"
-          aria-label={isVisible ? 'Collapse recipe' : 'Expand recipe'}
+          aria-label="Close recipe"
         >
-          {isVisible ? '▼' : '▶'}
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
       {/* Document content (always visible on desktop) */}
-      <div
-        className={`flex-1 overflow-y-auto p-6 ${isVisible ? 'block' : 'hidden md:block'}`}
-      >
+      <div className="flex-1 overflow-y-auto p-6">
         {/* Recipe Name */}
         <h1 className="text-3xl font-bold text-text mb-2">
           {recipe.name || 'Untitled Recipe'}

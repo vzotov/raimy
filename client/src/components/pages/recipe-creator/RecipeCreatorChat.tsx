@@ -4,6 +4,7 @@ import classNames from 'classnames';
 import { useCallback, useState } from 'react';
 import Chat from '@/components/shared/chat/Chat';
 import RecipeDocument from '@/components/shared/RecipeDocument';
+import SlidingPanel from '@/components/shared/SlidingPanel';
 import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { RecipeContent } from '@/types/chat-message-types';
@@ -50,7 +51,7 @@ export default function RecipeCreatorChat({
   );
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-full w-full">
       {/* Main chat area */}
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
         {/* Header */}
@@ -94,14 +95,33 @@ export default function RecipeCreatorChat({
         </div>
       </div>
 
+      {/* Tab button on right edge to open panel - only shown when panel is closed */}
+      {!isRecipeVisible && state.recipe && (
+        <button
+          onClick={() => setIsRecipeVisible(true)}
+          className="fixed top-[20%] right-0 z-30 md:hidden bg-primary text-white px-3 py-6 rounded-l-lg shadow-xl hover:bg-primary/90 transition-all"
+          aria-label="Show recipe"
+        >
+          <div className="flex flex-col items-center gap-1">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span className="text-xs font-medium">Recipe</span>
+          </div>
+        </button>
+      )}
+
       {/* Recipe sidebar (desktop) / Expandable panel (mobile) */}
-      <div className="w-full border-l border-accent/20 md:w-96">
+      <SlidingPanel
+        isOpen={isRecipeVisible}
+        onClose={() => setIsRecipeVisible(false)}
+      >
         <RecipeDocument
           recipe={state.recipe}
-          isVisible={isRecipeVisible}
-          onToggle={() => setIsRecipeVisible(!isRecipeVisible)}
+          isVisible={true}
+          onToggle={() => setIsRecipeVisible(false)}
         />
-      </div>
+      </SlidingPanel>
     </div>
   );
 }

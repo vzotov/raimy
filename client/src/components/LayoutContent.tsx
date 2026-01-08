@@ -22,22 +22,27 @@ export default function LayoutContent({ children }: LayoutContentProps) {
   const handleCloseMenu = () => setIsMenuOpen(false);
 
   return (
-    <div className="flex min-h-screen flex-col sm:flex-row">
+    <div
+      className={classNames('h-screen', {
+        'grid grid-rows-[auto_1fr]': user && !isHomePage,
+        'flex flex-col': !user || isHomePage,
+        'sm:flex sm:flex-row': true,
+      })}
+    >
       {/* Header for mobile - only show if authenticated */}
       {user && (
         <header
-          className={classNames('sm:hidden sticky top-0 z-40 h-16 px-2 py-4', {
-            'bg-surface/95 backdrop-blur-md border-b border-accent/20':
-              !isHomePage,
+          className={classNames('px-2 py-4 sm:hidden', {
+            'h-16 border-b border-accent/20 bg-surface': !isHomePage,
           })}
         >
-          <div className="flex items-center gap-1 h-full">
+          <div className="flex h-full items-center gap-1">
             <button
               className="p-3 transition-all duration-200 hover:scale-105 active:scale-95"
               onClick={handleToggleMenu}
               aria-label="Open menu"
             >
-              <MenuIcon className="w-5 h-5" />
+              <MenuIcon className="h-5 w-5" />
             </button>
             {!isHomePage && <Logo size="md" showLink={true} />}
           </div>
@@ -48,7 +53,7 @@ export default function LayoutContent({ children }: LayoutContentProps) {
       {user && <MainMenu isOpen={isMenuOpen} onClose={handleCloseMenu} />}
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col">{children}</main>
+      <main className={'flex flex-1 flex-col overflow-hidden'}>{children}</main>
     </div>
   );
 }

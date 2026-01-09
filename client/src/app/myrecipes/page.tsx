@@ -32,7 +32,7 @@ export default async function MyRecipesPage() {
   }
 
   return (
-    <div className="min-h-screen min-h-dvh bg-background py-8 pb-24 sm:pb-8 overflow-auto">
+    <div className="min-h-dvh bg-background py-8 pb-24 sm:pb-8 overflow-auto">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text">My Recipes</h1>

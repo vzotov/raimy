@@ -30,7 +30,7 @@ export default function RecipeCreatorPage() {
   };
 
   return (
-    <div className="flex h-screen h-dvh items-center justify-center p-8">
+    <div className="flex h-dvh items-center justify-center p-8">
       <div className="max-w-2xl">
         <div className="flex items-start gap-6">
           <NotebookIcon className="w-20 h-20 text-primary flex-shrink-0" />

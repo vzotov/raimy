@@ -25,7 +25,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
       {/* Sidebar menu */}
       <nav
         className={classNames(
-          'fixed sm:sticky top-0 left-0 z-50 h-screen h-dvh w-72 sm:w-64 bg-surface/95 backdrop-blur-md border-r border-accent/20 flex flex-col transition-all duration-300 sm:translate-x-0 sm:flex shadow-xl sm:shadow-none overscroll-contain',
+          'fixed sm:sticky top-0 left-0 z-50 h-dvh w-72 sm:w-64 bg-surface/95 backdrop-blur-md border-r border-accent/20 flex flex-col transition-all duration-300 sm:translate-x-0 sm:flex shadow-xl sm:shadow-none overscroll-contain',
           { 'translate-x-0': isOpen, '-translate-x-full': !isOpen },
         )}
       >

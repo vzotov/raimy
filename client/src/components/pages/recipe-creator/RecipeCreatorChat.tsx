@@ -56,7 +56,7 @@ export default function RecipeCreatorChat({
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
         {/* Header */}
         <div className="border-b border-accent/20 p-4">
-          <h1 className="text-2xl font-bold text-text">
+          <h1 className="text-2xl font-bold text-text truncate">
             {state.sessionName || sessionName}
           </h1>
           <div className="mt-2 flex items-center gap-4">
@@ -91,6 +91,7 @@ export default function RecipeCreatorChat({
             onSendMessage={handleSendMessage}
             isConnected={isConnected}
             agentStatus={state.agentStatus}
+            placeholder="Describe your meal preferences..."
           />
         </div>
       </div>
@@ -103,8 +104,18 @@ export default function RecipeCreatorChat({
           aria-label="Show recipe"
         >
           <div className="flex flex-col items-center gap-1">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             <span className="text-xs font-medium">Recipe</span>
           </div>

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_API_URL = process.env.API_URL || 'https://api.raimy.app';
 
@@ -21,19 +21,22 @@ export async function GET(request: NextRequest) {
     if (response.status === 302 || response.status === 307) {
       const location = response.headers.get('location');
       if (!location) {
-        return NextResponse.json({ error: 'Invalid redirect from auth service' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Invalid redirect from auth service' },
+          { status: 500 },
+        );
       }
       return NextResponse.redirect(location);
     }
 
     return NextResponse.json(
       { error: 'OAuth initialization failed' },
-      { status: response.status }
+      { status: response.status },
     );
   } catch (error) {
     return NextResponse.json(
       { error: 'OAuth initialization failed' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

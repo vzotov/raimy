@@ -77,7 +77,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             className={classNames(
               'flex-1 resize-none rounded-lg px-4 py-3 text-sm sm:text-base',
               'bg-surface border border-accent/20',
-              'text-text placeholder:text-text/50',
+              'text-text placeholder:text-text/50 placeholder:truncate',
               'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'max-h-32 overflow-y-auto',
@@ -91,15 +91,28 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             type="submit"
             disabled={disabled || !message.trim()}
             className={classNames(
-              'px-6 py-3 rounded-lg font-medium text-sm sm:text-base',
+              'w-12 h-12 rounded-lg flex items-center justify-center',
               'bg-primary text-white',
               'hover:bg-primary-hover active:bg-primary-pressed',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'transition-colors duration-150',
               'flex-shrink-0',
             )}
+            aria-label="Send message"
           >
-            Send
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 10l7-7m0 0l7 7m-7-7v18"
+              />
+            </svg>
           </button>
         </div>
         <p className="text-xs text-text/50 mt-2">

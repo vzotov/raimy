@@ -61,7 +61,7 @@ export default function ScrollableArea({
         ref={scrollContainerRef}
         className={classNames(
           direction === 'vertical' ? 'overflow-y-auto' : 'overflow-x-auto',
-          'flex gap-4',
+          'flex gap-4 h-full',
         )}
       >
         {children}

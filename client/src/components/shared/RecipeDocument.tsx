@@ -1,26 +1,44 @@
 import type { RecipeContent } from '@/types/chat-message-types';
+import ClockIcon from '@/components/icons/ClockIcon';
+import SaveIcon from '@/components/icons/SaveIcon';
+import HourglassIcon from '@/components/icons/HourglassIcon';
 
 interface RecipeDocumentProps {
   recipe: RecipeContent | null;
   isVisible: boolean;
   onToggle: () => void;
+  onSave?: () => void;
+  isSaving?: boolean;
+  saveError?: string | null;
+  isRecipeChanged?: boolean;
+  onClearError?: () => void;
 }
 
 export default function RecipeDocument({
   recipe,
   isVisible,
   onToggle,
+  onSave,
+  isSaving,
+  saveError,
+  isRecipeChanged,
+  onClearError,
 }: RecipeDocumentProps) {
   if (!recipe) return null;
 
   return (
     <div className="recipe-document h-full flex flex-col bg-surface">
-      {/* Header with toggle for mobile */}
-      <div className="border-b border-accent/20 p-4 flex items-center justify-between">
-        <h2 className="font-semibold text-lg text-text">Recipe</h2>
+      {/* Sticky Recipe Name with close button */}
+      <div className="sticky top-0 bg-surface z-10 border-b border-accent/20 px-6 pt-6 pb-4 flex items-center justify-between gap-4">
+        <h1
+          className="text-xl font-bold text-text truncate"
+          title={recipe.name || 'Untitled Recipe'}
+        >
+          {recipe.name || 'Untitled Recipe'}
+        </h1>
         <button
           onClick={onToggle}
-          className="md:hidden p-2 hover:bg-accent/10 rounded"
+          className="md:hidden p-2 hover:bg-accent/10 rounded flex-shrink-0"
           aria-label="Close recipe"
         >
           <svg
@@ -39,16 +57,11 @@ export default function RecipeDocument({
         </button>
       </div>
 
-      {/* Document content (always visible on desktop) */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {/* Recipe Name */}
-        <h1 className="text-3xl font-bold text-text mb-2">
-          {recipe.name || 'Untitled Recipe'}
-        </h1>
-
+      {/* Document content (scrollable) */}
+      <div className="flex-1 overflow-y-auto px-6 pb-6">
         {/* Description */}
         {recipe.description && (
-          <p className="text-text/80 text-base mb-6 leading-relaxed">
+          <p className="text-text/80 text-base mb-6 leading-relaxed mt-4">
             {recipe.description}
           </p>
         )}
@@ -104,7 +117,7 @@ export default function RecipeDocument({
         {/* Ingredients Section */}
         {recipe.ingredients && recipe.ingredients.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-text mb-4 border-b border-accent/20 pb-2">
+            <h2 className="sticky top-0 bg-surface z-10 text-xl font-semibold text-text mb-4 border-b border-accent/20 pb-2">
               Ingredients
             </h2>
             <ul className="space-y-2">
@@ -135,7 +148,7 @@ export default function RecipeDocument({
         {/* Instructions Section */}
         {recipe.steps && recipe.steps.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-text mb-4 border-b border-accent/20 pb-2">
+            <h2 className="sticky top-0 bg-surface z-10 text-xl font-semibold text-text mb-4 border-b border-accent/20 pb-2">
               Instructions
             </h2>
             <ol className="space-y-4">
@@ -149,8 +162,9 @@ export default function RecipeDocument({
                       {step.instruction}
                     </p>
                     {step.duration && (
-                      <p className="text-text/60 text-sm mt-1">
-                        ⏱️ {step.duration} min
+                      <p className="text-text/60 text-sm mt-1 flex items-center gap-1">
+                        <ClockIcon className="inline-block w-4 h-4" />{' '}
+                        {step.duration} min
                       </p>
                     )}
                   </div>
@@ -160,6 +174,48 @@ export default function RecipeDocument({
           </div>
         )}
       </div>
+
+      {/* Sticky footer with save button */}
+      {onSave && (
+        <div className="border-t border-accent/20 p-4">
+          {saveError && (
+            <div className="mb-3 p-2 bg-red-100 text-red-800 text-sm rounded flex items-center justify-between">
+              <span>{saveError}</span>
+              <button
+                onClick={onClearError}
+                className="ml-2 hover:opacity-70 text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <button
+            onClick={onSave}
+            disabled={!isRecipeChanged || isSaving}
+            className="w-full px-4 py-3 bg-primary hover:bg-primary/90
+                       disabled:bg-primary/50 disabled:cursor-not-allowed
+                       text-white font-medium rounded-lg transition-colors
+                       flex items-center justify-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <HourglassIcon className="animate-spin w-5 h-5" />
+                Saving...
+              </>
+            ) : isRecipeChanged ? (
+              <>
+                <SaveIcon className="w-5 h-5" />
+                Save Recipe
+              </>
+            ) : (
+              <>
+                <SaveIcon className="w-5 h-5" />
+                Saved
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

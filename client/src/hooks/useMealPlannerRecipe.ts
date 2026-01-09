@@ -8,6 +8,7 @@ import type {
 
 interface RecipeState {
   recipe: RecipeContent | null;
+  isRecipeChanged: boolean;
 }
 
 type RecipeAction =
@@ -25,6 +26,7 @@ type RecipeAction =
     }
   | { type: 'SET_INGREDIENTS'; payload: ChatIngredient[] }
   | { type: 'SET_STEPS'; payload: RecipeStep[] }
+  | { type: 'RESET_CHANGED_FLAG' }
   | { type: 'CLEAR_RECIPE' };
 
 /**
@@ -75,7 +77,7 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
         ingredients: state.recipe?.ingredients || [],
         steps: state.recipe?.steps || [],
       };
-      return { ...state, recipe: newRecipe };
+      return { ...state, recipe: newRecipe, isRecipeChanged: true };
     }
 
     case 'SET_INGREDIENTS': {
@@ -89,6 +91,7 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
           ...state.recipe,
           ingredients: action.payload,
         },
+        isRecipeChanged: true,
       };
     }
 
@@ -103,13 +106,21 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
           ...state.recipe,
           steps: action.payload,
         },
+        isRecipeChanged: true,
       };
     }
+
+    case 'RESET_CHANGED_FLAG':
+      return {
+        ...state,
+        isRecipeChanged: false,
+      };
 
     case 'CLEAR_RECIPE':
       return {
         ...state,
         recipe: null,
+        isRecipeChanged: false,
       };
 
     default:
@@ -120,6 +131,7 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
 export function useMealPlannerRecipe(initialRecipe?: RecipeContent | null) {
   const [state, dispatch] = useReducer(recipeReducer, {
     recipe: initialRecipe || null,
+    isRecipeChanged: false,
   });
 
   const applyRecipeUpdate = useCallback(
@@ -166,7 +178,12 @@ export function useMealPlannerRecipe(initialRecipe?: RecipeContent | null) {
 
   return {
     recipe: state.recipe,
+    isRecipeChanged: state.isRecipeChanged,
     applyRecipeUpdate,
+    resetChangedFlag: useCallback(
+      () => dispatch({ type: 'RESET_CHANGED_FLAG' }),
+      [dispatch],
+    ),
     clearRecipe: useCallback(
       () => dispatch({ type: 'CLEAR_RECIPE' }),
       [dispatch],

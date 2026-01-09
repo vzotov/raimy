@@ -5,6 +5,8 @@ import LoadingScreen from '@/components/shared/LoadingScreen';
 import Logo from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
 import HomePageNavCard from './HomePageNavCard';
+import NotebookIcon from '@/components/icons/NotebookIcon';
+import ChefHatIcon from '@/components/icons/ChefHatIcon';
 
 export default function HomeContent() {
   const { user, loading } = useAuth();
@@ -47,13 +49,13 @@ export default function HomeContent() {
         {user ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
             <HomePageNavCard
-              icon="📝"
+              icon={<NotebookIcon className="w-6 h-6 md:w-8 md:h-8" />}
               title="Recipe Creator"
               description="Create and save custom recipes based on your preferences"
               onClick={handleGoToRecipeCreator}
             />
             <HomePageNavCard
-              icon="👨‍🍳"
+              icon={<ChefHatIcon className="w-6 h-6" />}
               title="Kitchen"
               description="Get step-by-step guidance while you cook"
               onClick={handleGoToKitchen}

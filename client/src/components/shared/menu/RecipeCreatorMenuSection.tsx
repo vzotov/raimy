@@ -10,15 +10,12 @@ interface RecipeCreatorMenuSectionProps {
   onMenuClose: () => void;
 }
 
-export default function RecipeCreatorMenuSection({
-  onMenuClose,
-}: RecipeCreatorMenuSectionProps) {
+export default function RecipeCreatorMenuSection({ onMenuClose }: RecipeCreatorMenuSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { sessions, updateSessionName, deleteSession, createSession } =
-    useRecipeCreatorSessions();
+  const { sessions, updateSessionName, deleteSession, createSession } = useRecipeCreatorSessions();
 
   // Auto-expand when on a recipe creator page
   useEffect(() => {
@@ -72,7 +69,7 @@ export default function RecipeCreatorMenuSection({
         <div className="mt-1 ml-4 space-y-1">
           <button
             onClick={handleCreateRecipe}
-            className="w-full text-left px-4 py-2 text-sm font-medium text-text/80 hover:text-primary hover:bg-accent/20 rounded-lg transition-colors duration-150"
+            className="w-full rounded-lg px-4 py-2 text-left text-sm font-medium text-text/80 transition-colors duration-150 hover:bg-accent/20 hover:text-primary"
           >
             + New Recipe
           </button>

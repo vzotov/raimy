@@ -103,6 +103,10 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 - Write concise commit messages with a summary line followed by 3-5 bullet points
 - Focus on high-level "what" and "why" rather than listing every file or implementation detail
 - Avoid verbose explanations, architectural details, or step-by-step descriptions
+- **Describe the final result, not the implementation process**
+  - ❌ Bad: "Create button component, make it clickable, add hover effects"
+  - ✅ Good: "Add navigation button with hover effects"
+  - Commit message should reflect what changed from the previous version, not the iterative steps taken during implementation
 
 ## Important Guidelines
 

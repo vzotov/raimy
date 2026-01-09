@@ -10,8 +10,8 @@ import type {
   KitchenMessageAction,
   KitchenMessageState,
 } from '@/lib/messageHandlers/types';
+import type { KitchenStepContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/chat-session';
-import { KitchenStepContent } from '@/types/chat-message-types';
 
 interface UseKitchenStateParams {
   sessionId: string;

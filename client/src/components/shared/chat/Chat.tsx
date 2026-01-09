@@ -13,6 +13,7 @@ export interface ChatProps {
   agentStatus?: string | null;
   onFocusInput?: () => void;
   onMessageAction?: (action: string) => void;
+  placeholder?: string;
 }
 
 /**
@@ -27,6 +28,7 @@ export default function Chat({
   agentStatus = null,
   onFocusInput,
   onMessageAction,
+  placeholder = 'Type a message...',
 }: ChatProps) {
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<ChatInputHandle>(null);
@@ -74,11 +76,7 @@ export default function Chat({
         ref={inputRef}
         onSend={handleSend}
         disabled={isDisabled}
-        placeholder={
-          isConnected
-            ? 'Ask about meal ideas, recipes, or ingredients...'
-            : 'Connecting to chat...'
-        }
+        placeholder={isConnected ? placeholder : 'Connecting...'}
       />
     </div>
   );

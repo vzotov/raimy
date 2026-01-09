@@ -30,7 +30,7 @@ export default function IngredientList({ ingredients }: IngredientListProps) {
   });
 
   return (
-    <ScrollableArea className="flex flex-1 max-h-[32vh] items-stretch flex-col">
+    <ScrollableArea className="flex flex-1 items-stretch flex-col min-h-0">
       <ul className="space-y-2 list-disc pl-4">
         {sortedIngredients.map((ingredient) => (
           <li

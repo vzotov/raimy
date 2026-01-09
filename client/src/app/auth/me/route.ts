@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_API_URL = process.env.API_URL || 'http://localhost:8000';
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(`${BACKEND_API_URL}/auth/me`, {
       headers: {
-        'cookie': cookieHeader || '',
+        cookie: cookieHeader || '',
       },
     });
 
@@ -16,9 +16,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Auth /me error:', error);
-    return NextResponse.json({
-      authenticated: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        authenticated: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 },
+    );
   }
 }

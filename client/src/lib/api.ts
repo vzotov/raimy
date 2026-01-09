@@ -7,6 +7,7 @@ import type {
   UpdateSessionNameRequest,
   UpdateSessionNameResponse,
 } from '@/types/chat-session';
+import type { RecipeContent } from '@/types/chat-message-types';
 
 export interface ApiResponse<T = unknown> {
   data?: T;
@@ -104,4 +105,9 @@ export const chatSessions = {
 
   delete: (sessionId: string) =>
     del<DeleteSessionResponse>(`/api/chat-sessions/${sessionId}`),
+
+  saveRecipe: (sessionId: string) =>
+    post<{ message: string; recipe_id: string; recipe: RecipeContent }>(
+      `/api/chat-sessions/${sessionId}/save-recipe`,
+    ),
 };

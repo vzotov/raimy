@@ -33,7 +33,7 @@ export function useRecipeCreatorState({
   });
 
   // Get recipe-specific functionality
-  const { recipe, applyRecipeUpdate, clearRecipe } =
+  const { recipe, isRecipeChanged, applyRecipeUpdate, resetChangedFlag, clearRecipe } =
     useMealPlannerRecipe(initialRecipe);
 
   /**
@@ -79,9 +79,11 @@ export function useRecipeCreatorState({
     state: {
       ...chatState,
       recipe,
+      isRecipeChanged,
     },
     handleMessage,
     addMessage,
+    resetChangedFlag,
     applyRecipeUpdate,
     clearRecipe,
   };

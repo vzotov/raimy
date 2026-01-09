@@ -7,6 +7,7 @@ import RecipeDocument from '@/components/shared/RecipeDocument';
 import SlidingPanel from '@/components/shared/SlidingPanel';
 import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { chatSessions } from '@/lib/api';
 import type { RecipeContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/chat-session';
 
@@ -24,16 +25,19 @@ export default function RecipeCreatorChat({
   initialRecipe,
 }: RecipeCreatorChatProps) {
   // Use composed state hook
-  const { state, handleMessage, addMessage } = useRecipeCreatorState({
-    sessionId,
-    initialMessages,
-    initialRecipe,
-  });
+  const { state, handleMessage, addMessage, resetChangedFlag } =
+    useRecipeCreatorState({
+      sessionId,
+      initialMessages,
+      initialRecipe,
+    });
 
   console.log('[RecipeCreatorChat] State:', initialRecipe);
 
   // UI-specific state (moved from hook)
   const [isRecipeVisible, setIsRecipeVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // WebSocket connection
   const { isConnected, error, sendMessage } = useWebSocket({
@@ -49,6 +53,31 @@ export default function RecipeCreatorChat({
     },
     [addMessage, sendMessage],
   );
+
+  // Handle saving recipe
+  const handleSaveRecipe = useCallback(async () => {
+    if (!state.recipe) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+
+      const response = await chatSessions.saveRecipe(sessionId);
+
+      if (response.error) {
+        setSaveError(response.error);
+        return;
+      }
+
+      // Reset the changed flag after successful save
+      resetChangedFlag();
+    } catch (error) {
+      console.error('Failed to save recipe:', error);
+      setSaveError('Failed to save recipe. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [state.recipe, sessionId, resetChangedFlag]);
 
   return (
     <div className="flex h-full w-full">
@@ -100,23 +129,28 @@ export default function RecipeCreatorChat({
       {!isRecipeVisible && state.recipe && (
         <button
           onClick={() => setIsRecipeVisible(true)}
-          className="fixed top-[20%] right-0 z-30 md:hidden bg-primary text-white px-3 py-6 rounded-l-lg shadow-xl hover:bg-primary/90 transition-all"
+          className="fixed top-[20%] right-0 z-30 md:hidden bg-surface text-text px-3 py-6 rounded-l-lg shadow-xl hover:bg-surface/90 transition-all border border-accent/20"
           aria-label="Show recipe"
         >
           <div className="flex flex-col items-center gap-1">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <div className="relative">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              {state.isRecipeChanged && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full" />
+              )}
+            </div>
             <span className="text-xs font-medium">Recipe</span>
           </div>
         </button>
@@ -131,6 +165,11 @@ export default function RecipeCreatorChat({
           recipe={state.recipe}
           isVisible={true}
           onToggle={() => setIsRecipeVisible(false)}
+          onSave={handleSaveRecipe}
+          isSaving={isSaving}
+          saveError={saveError}
+          isRecipeChanged={state.isRecipeChanged}
+          onClearError={() => setSaveError(null)}
         />
       </SlidingPanel>
     </div>

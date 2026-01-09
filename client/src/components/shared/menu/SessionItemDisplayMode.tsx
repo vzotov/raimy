@@ -1,6 +1,8 @@
 'use client';
 
 import type { ChatSession } from '@/types/chat-session';
+import EditIcon from '@/components/icons/EditIcon';
+import TrashIcon from '@/components/icons/TrashIcon';
 
 interface SessionItemDisplayModeProps {
   session: ChatSession;
@@ -33,14 +35,14 @@ export default function SessionItemDisplayMode({
           className="p-1 text-xs text-text/50 hover:text-primary rounded transition-colors"
           title="Rename"
         >
-          ✎
+          <EditIcon className="w-4 h-4" />
         </button>
         <button
           onClick={onDelete}
           className="p-1 text-xs text-text/50 hover:text-red-500 rounded transition-colors"
           title="Delete"
         >
-          🗑
+          <TrashIcon className="w-4 h-4" />
         </button>
       </div>
     </div>

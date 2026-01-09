@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import RecipeCard, { type Recipe } from '@/components/shared/RecipeCard';
+import ChefHatIcon from '@/components/icons/ChefHatIcon';
 
 export default async function MyRecipesPage() {
   const apiUrl = process.env.API_URL || 'http://localhost:8000';
@@ -43,14 +44,18 @@ export default async function MyRecipesPage() {
         </div>
 
         {recipes.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">👨‍🍳</div>
-            <h3 className="text-xl font-semibold text-text mb-2">
-              No recipes yet
-            </h3>
-            <p className="text-text/70 mb-6">
-              Start cooking with Raimy to create your first recipe!
-            </p>
+          <div className="py-12">
+            <div className="flex items-start gap-6 mb-6">
+              <ChefHatIcon className="w-20 h-20 text-primary flex-shrink-0" />
+              <div>
+                <h3 className="text-xl font-semibold text-text mb-2">
+                  No recipes yet
+                </h3>
+                <p className="text-text/70">
+                  Start cooking with Raimy to create your first recipe!
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

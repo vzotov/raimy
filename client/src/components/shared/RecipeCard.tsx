@@ -3,6 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useKitchenSessions } from '@/hooks/useSessions';
+import ClockIcon from '@/components/icons/ClockIcon';
+import UsersIcon from '@/components/icons/UsersIcon';
+import HourglassIcon from '@/components/icons/HourglassIcon';
+import ChefHatIcon from '@/components/icons/ChefHatIcon';
 
 interface RecipeIngredient {
   name: string;
@@ -82,8 +86,14 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         </p>
 
         <div className="flex items-center justify-between text-sm text-text/60 mb-4">
-          <span>⏱️ {recipe.total_time_minutes} min</span>
-          <span>👥 {recipe.servings} servings</span>
+          <span className="flex items-center gap-1">
+            <ClockIcon className="inline-block w-4 h-4" />{' '}
+            {recipe.total_time_minutes} min
+          </span>
+          <span className="flex items-center gap-1">
+            <UsersIcon className="inline-block w-4 h-4" />{' '}
+            {recipe.servings} servings
+          </span>
         </div>
 
         <div className="mb-4">
@@ -147,12 +157,12 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         >
           {isCreating ? (
             <>
-              <span className="animate-spin">⏳</span>
+              <HourglassIcon className="animate-spin w-5 h-5" />
               Starting...
             </>
           ) : (
             <>
-              <span>👨‍🍳</span>
+              <ChefHatIcon className="w-5 h-5" />
               Send to Kitchen
             </>
           )}

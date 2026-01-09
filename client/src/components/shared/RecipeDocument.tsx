@@ -1,4 +1,5 @@
 import type { RecipeContent } from '@/types/chat-message-types';
+import ClockIcon from '@/components/icons/ClockIcon';
 
 interface RecipeDocumentProps {
   recipe: RecipeContent | null;
@@ -149,8 +150,9 @@ export default function RecipeDocument({
                       {step.instruction}
                     </p>
                     {step.duration && (
-                      <p className="text-text/60 text-sm mt-1">
-                        ⏱️ {step.duration} min
+                      <p className="text-text/60 text-sm mt-1 flex items-center gap-1">
+                        <ClockIcon className="inline-block w-4 h-4" />{' '}
+                        {step.duration} min
                       </p>
                     )}
                   </div>

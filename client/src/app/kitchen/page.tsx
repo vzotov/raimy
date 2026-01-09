@@ -56,10 +56,6 @@ export default function KitchenPage() {
             {error}
           </div>
         )}
-
-        <div className="mt-8 text-sm text-text/50">
-          Select a previous session from the menu or start a new one
-        </div>
       </div>
     </div>
   );

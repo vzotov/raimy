@@ -4,12 +4,14 @@ import AuthButton from '@/components/shared/AuthButton';
 import LoadingScreen from '@/components/shared/LoadingScreen';
 import Logo from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
+import HomePageNavCard from './HomePageNavCard';
 
 export default function HomeContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   const handleGoToKitchen = () => router.push('/kitchen');
+  const handleGoToRecipeCreator = () => router.push('/recipe-creator');
 
   if (loading) {
     return <LoadingScreen />;
@@ -34,21 +36,29 @@ export default function HomeContent() {
           </h1>
 
           {/* Sub-headline */}
-          <p className="text-xl text-text/80 leading-relaxed mb-8">
+          <p className="text-xl text-text/80 leading-relaxed sm:mb-8">
             Vibe cooking—made for home chefs, right in your kitchen
           </p>
         </div>
       </div>
 
-      {/* Button at bottom */}
-      <div className="flex flex-col justify-end items-center pb-8">
+      {/* Navigation cards at bottom */}
+      <div className="flex flex-col justify-end items-center pb-8 px-4">
         {user ? (
-          <button
-            onClick={handleGoToKitchen}
-            className="px-8 py-4 bg-primary text-white rounded-full hover:bg-primary-hover transition-colors text-lg font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
-          >
-            Go to the Kitchen
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
+            <HomePageNavCard
+              icon="📝"
+              title="Recipe Creator"
+              description="Create and save custom recipes based on your preferences"
+              onClick={handleGoToRecipeCreator}
+            />
+            <HomePageNavCard
+              icon="👨‍🍳"
+              title="Kitchen"
+              description="Get step-by-step guidance while you cook"
+              onClick={handleGoToKitchen}
+            />
+          </div>
         ) : (
           <AuthButton />
         )}

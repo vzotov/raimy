@@ -19,7 +19,7 @@ export default function SlidingPanel({
       {/* Sliding panel */}
       <div
         className={classNames(
-          'fixed md:sticky top-0 right-0 z-50 h-screen w-80 md:w-96 bg-surface/95 backdrop-blur-md border-l border-accent/20 flex flex-col transition-all duration-300 md:translate-x-0 shadow-xl md:shadow-none',
+          'fixed md:sticky top-0 right-0 z-50 h-screen h-dvh w-80 md:w-96 bg-surface/95 backdrop-blur-md border-l border-accent/20 flex flex-col transition-all duration-300 md:translate-x-0 shadow-xl md:shadow-none',
           { 'translate-x-0': isOpen, 'translate-x-full': !isOpen },
         )}
       >

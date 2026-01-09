@@ -23,7 +23,7 @@ export default function LayoutContent({ children }: LayoutContentProps) {
 
   return (
     <div
-      className={classNames('h-screen', {
+      className={classNames('h-screen h-dvh', {
         'grid grid-rows-[auto_1fr]': user && !isHomePage,
         'flex flex-col': !user || isHomePage,
         'sm:flex sm:flex-row': true,

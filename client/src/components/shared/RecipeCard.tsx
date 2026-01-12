@@ -1,12 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useKitchenSessions } from '@/hooks/useSessions';
-import ClockIcon from '@/components/icons/ClockIcon';
-import UsersIcon from '@/components/icons/UsersIcon';
-import HourglassIcon from '@/components/icons/HourglassIcon';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import HourglassIcon from '@/components/icons/HourglassIcon';
 
 interface RecipeIngredient {
   name: string;
@@ -31,6 +30,7 @@ export interface Recipe {
   servings: number;
   tags: string[];
   user_id: string;
+  chat_session_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -45,13 +45,14 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSendToKitchen = async () => {
+  const handleSendToKitchen = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     try {
       setIsCreating(true);
       setError(null);
-
       const session = await createSession(recipe.id);
-
       if (session) {
         router.push(`/kitchen/${session.id}`);
       }
@@ -61,123 +62,64 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
       setIsCreating(false);
     }
   };
+
   return (
-    <div className="bg-surface rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h3 className="text-xl font-semibold text-text line-clamp-2">
+    <Link href={`/recipe/${recipe.id}`} className="h-full">
+      <div className="bg-surface rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
+        <div className="p-6 flex flex-col flex-1">
+          {/* Recipe Name */}
+          <h3 className="text-xl font-semibold text-text mb-4 line-clamp-2">
             {recipe.name}
           </h3>
-          <span
-            className={`px-2 py-1 text-xs font-medium rounded-full ${
-              recipe.difficulty === 'easy'
-                ? 'bg-green-100 text-green-800'
-                : recipe.difficulty === 'medium'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-red-100 text-red-800'
-            }`}
+
+          {/* Description */}
+          {recipe.description && (
+            <p className="text-text/70 text-sm mb-4 line-clamp-3">
+              {recipe.description}
+            </p>
+          )}
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {recipe.tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          {/* Spacer to push button to bottom */}
+          <div className="flex-1"></div>
+
+          {/* Send to Kitchen Button */}
+          <button
+            onClick={handleSendToKitchen}
+            disabled={isCreating}
+            className="w-full px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
-            {recipe.difficulty}
-          </span>
-        </div>
-
-        <p className="text-text/70 text-sm mb-4 line-clamp-3">
-          {recipe.description}
-        </p>
-
-        <div className="flex items-center justify-between text-sm text-text/60 mb-4">
-          <span className="flex items-center gap-1">
-            <ClockIcon className="inline-block w-4 h-4" />{' '}
-            {recipe.total_time_minutes} min
-          </span>
-          <span className="flex items-center gap-1">
-            <UsersIcon className="inline-block w-4 h-4" />{' '}
-            {recipe.servings} servings
-          </span>
-        </div>
-
-        <div className="mb-4">
-          <h4 className="font-medium text-text mb-2">Ingredients:</h4>
-          <ul className="text-sm text-text/70 space-y-1">
-            {recipe.ingredients.slice(0, 3).map((ingredient, index) => (
-              <li key={index} className="flex items-center">
-                <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
-                {ingredient.amount && `${ingredient.amount} `}
-                {ingredient.unit && `${ingredient.unit} `}
-                {ingredient.name}
-              </li>
-            ))}
-            {recipe.ingredients.length > 3 && (
-              <li className="text-text/60 italic">
-                +{recipe.ingredients.length - 3} more ingredients
-              </li>
+            {isCreating ? (
+              <>
+                <HourglassIcon className="animate-spin w-5 h-5" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <ChefHatIcon className="w-5 h-5" />
+                Send to Kitchen
+              </>
             )}
-          </ul>
-        </div>
+          </button>
 
-        <div className="mb-4">
-          <h4 className="font-medium text-text mb-2">Steps:</h4>
-          <div className="text-sm text-text/70 space-y-1">
-            {recipe.steps.slice(0, 2).map((step, index) => (
-              <div key={index} className="flex items-start">
-                <span className="bg-primary/20 text-primary text-xs font-medium px-2 py-1 rounded-full mr-2 mt-0.5">
-                  {index + 1}
-                </span>
-                <span className="line-clamp-2">{step.instruction}</span>
-              </div>
-            ))}
-            {recipe.steps.length > 2 && (
-              <div className="text-text/60 italic">
-                +{recipe.steps.length - 2} more steps
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1 mb-4">
-          {recipe.tags.slice(0, 3).map((tag) => (
-            <span
-              key={`tag-${tag}`}
-              className="px-2 py-1 bg-surface/50 text-text/80 text-xs rounded-full"
-            >
-              {tag}
-            </span>
-          ))}
-          {recipe.tags.length > 3 && (
-            <span className="text-text/60 text-xs">
-              +{recipe.tags.length - 3} more
-            </span>
+          {error && (
+            <div className="mt-3 p-2 bg-red-100 text-red-800 text-sm rounded">
+              {error}
+            </div>
           )}
-        </div>
-
-        <button
-          onClick={handleSendToKitchen}
-          disabled={isCreating}
-          className="w-full mb-3 px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          {isCreating ? (
-            <>
-              <HourglassIcon className="animate-spin w-5 h-5" />
-              Starting...
-            </>
-          ) : (
-            <>
-              <ChefHatIcon className="w-5 h-5" />
-              Send to Kitchen
-            </>
-          )}
-        </button>
-
-        {error && (
-          <div className="mb-3 p-2 bg-red-100 text-red-800 text-sm rounded">
-            {error}
-          </div>
-        )}
-
-        <div className="text-xs text-text/50">
-          Created: {new Date(recipe.created_at).toLocaleDateString()}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

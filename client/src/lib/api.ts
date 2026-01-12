@@ -8,6 +8,7 @@ import type {
   UpdateSessionNameResponse,
 } from '@/types/chat-session';
 import type { RecipeContent } from '@/types/chat-message-types';
+import type { Recipe } from '@/components/shared/RecipeCard';
 
 export interface ApiResponse<T = unknown> {
   data?: T;
@@ -110,4 +111,9 @@ export const chatSessions = {
     post<{ message: string; recipe_id: string; recipe: RecipeContent }>(
       `/api/chat-sessions/${sessionId}/save-recipe`,
     ),
+};
+
+export const recipes = {
+  get: (recipeId: string) => get<{ recipe: Recipe }>(`/api/recipes/${recipeId}`),
+  list: () => get<{ recipes: Recipe[]; count: number }>('/api/recipes/'),
 };

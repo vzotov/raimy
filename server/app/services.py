@@ -211,6 +211,10 @@ class DatabaseService:
                     "difficulty": recipe.difficulty,
                     "servings": recipe.servings,
                     "tags": recipe.tags,
+                    "user_id": recipe.user_id,
+                    "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
+                    "created_at": recipe.created_at,
+                    "updated_at": recipe.updated_at,
                 }
             except Exception as e:
                 logger.error(f"Error getting recipe {recipe_id}: {e}", exc_info=True)

@@ -65,6 +65,27 @@ async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depend
         raise HTTPException(status_code=500, detail=f"Failed to get recipes: {str(e)}")
 
 
+@router.get("/{recipe_id}")
+async def get_recipe(recipe_id: str, current_user: dict = Depends(get_current_user_with_storage)):
+    """Get a single recipe by ID"""
+    try:
+        recipe = await database_service.get_recipe_by_id(recipe_id)
+
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+
+        # Verify ownership
+        if recipe["user_id"] != current_user["email"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        return {"recipe": recipe}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recipe {recipe_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get recipe: {str(e)}")
+
+
 @router.post("/")
 async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user_with_storage)):
     """Save a new recipe for the current user"""

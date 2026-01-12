@@ -116,4 +116,5 @@ export const chatSessions = {
 export const recipes = {
   get: (recipeId: string) => get<{ recipe: Recipe }>(`/api/recipes/${recipeId}`),
   list: () => get<{ recipes: Recipe[]; count: number }>('/api/recipes/'),
+  delete: (recipeId: string) => del<{ message: string }>(`/api/recipes/${recipeId}`),
 };

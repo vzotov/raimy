@@ -508,6 +508,27 @@ class DatabaseService:
                 print(f"Error deleting session {session_id}: {e}")
                 return False
 
+    async def delete_recipe(self, recipe_id: str) -> bool:
+        """Delete a recipe"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(Recipe).where(Recipe.id == recipe_id)
+                )
+                recipe = result.scalar_one_or_none()
+
+                if not recipe:
+                    return False
+
+                await db.delete(recipe)
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error deleting recipe {recipe_id}: {e}", exc_info=True)
+                return False
+
     async def save_or_update_ingredients(
         self,
         session_id: str,

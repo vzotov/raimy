@@ -28,8 +28,8 @@ export default function SessionItemDisplayMode({
         </div>
       </div>
 
-      {/* Actions (visible on hover) */}
-      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-2 transition-opacity">
+      {/* Actions (always visible on mobile, hover on desktop) */}
+      <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-1 ml-2 transition-opacity">
         <button
           onClick={onEdit}
           className="p-1 text-xs text-text/50 hover:text-primary rounded transition-colors"

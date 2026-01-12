@@ -86,6 +86,34 @@ async def get_recipe(recipe_id: str, current_user: dict = Depends(get_current_us
         raise HTTPException(status_code=500, detail=f"Failed to get recipe: {str(e)}")
 
 
+@router.delete("/{recipe_id}")
+async def delete_recipe(recipe_id: str, current_user: dict = Depends(get_current_user_with_storage)):
+    """Delete a recipe by ID"""
+    try:
+        # Get recipe to verify ownership
+        recipe = await database_service.get_recipe_by_id(recipe_id)
+
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+
+        # Verify ownership
+        if recipe["user_id"] != current_user["email"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Delete the recipe
+        success = await database_service.delete_recipe(recipe_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete recipe")
+
+        return {"message": "Recipe deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting recipe {recipe_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete recipe: {str(e)}")
+
+
 @router.post("/")
 async def save_recipe(recipe_request: SaveRecipeRequest, current_user: dict = Depends(get_current_user_with_storage)):
     """Save a new recipe for the current user"""

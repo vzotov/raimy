@@ -27,8 +27,10 @@ export default async function RecipePage({ params }: RecipePageProps) {
     const recipeData = await recipeRes.json();
 
     return (
-      <div className="mx-auto max-w-4xl overflow-auto bg-background">
-        <RecipeDetail recipe={recipeData.recipe} />
+      <div className="overflow-auto bg-background">
+        <div className="mx-auto max-w-4xl">
+          <RecipeDetail recipe={recipeData.recipe} />
+        </div>
       </div>
     );
   } catch (error) {

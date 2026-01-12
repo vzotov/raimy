@@ -3,12 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useKitchenSessions } from '@/hooks/useSessions';
+import { recipes } from '@/lib/api';
 import type { Recipe } from './RecipeCard';
 import ClockIcon from '@/components/icons/ClockIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
+import TrashIcon from '@/components/icons/TrashIcon';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -18,6 +20,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const router = useRouter();
   const { createSession } = useKitchenSessions();
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSendToKitchen = async () => {
@@ -38,6 +41,27 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const handleEdit = () => {
     if (recipe.chat_session_id) {
       router.push(`/recipe-creator/${recipe.chat_session_id}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this recipe?')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setError(null);
+      const response = await recipes.delete(recipe.id);
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      // Navigate to my recipes page after deletion
+      router.push('/myrecipes');
+    } catch (err) {
+      console.error('Failed to delete recipe:', err);
+      setError('Failed to delete recipe. Please try again.');
+      setIsDeleting(false);
     }
   };
 
@@ -168,6 +192,24 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
                 Edit in Creator
               </button>
             )}
+
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <>
+                  <HourglassIcon className="animate-spin w-5 h-5" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <TrashIcon className="w-5 h-5" />
+                  Delete Recipe
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

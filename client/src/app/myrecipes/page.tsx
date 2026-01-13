@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import RecipeCard, { type Recipe } from '@/components/shared/RecipeCard';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import RecipeCard from '@/components/shared/RecipeCard';
+import type { Recipe } from '@/types/recipe';
 
 export default async function MyRecipesPage() {
   const apiUrl = process.env.API_URL || 'http://localhost:8000';
@@ -58,7 +59,7 @@ export default async function MyRecipesPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:auto-rows-fr">
             {recipes.map((recipe) => (
               <RecipeCard key={recipe.id} recipe={recipe} />
             ))}

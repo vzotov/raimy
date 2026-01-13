@@ -3,14 +3,7 @@
  * Supports multiple message types with type-safe content.
  */
 
-import type { BaseIngredient } from './ingredient';
-
-/**
- * Chat ingredient extends base with additional meal planning fields
- */
-export interface ChatIngredient extends BaseIngredient {
-  notes?: string;
-}
+import type { RecipeIngredient, RecipeStep } from './recipe';
 
 // Message content variants
 export type TextContent = {
@@ -26,7 +19,7 @@ export type KitchenStepContent = {
 export type IngredientsContent = {
   type: 'ingredients';
   title?: string;
-  items: ChatIngredient[];
+  items: RecipeIngredient[];
   action: 'set' | 'update';
 };
 
@@ -35,17 +28,12 @@ export type SessionNameContent = {
   name: string;
 };
 
-export type RecipeStep = {
-  instruction: string;
-  duration?: number;
-};
-
 export type RecipeContent = {
   type: 'recipe';
   recipe_id: string;
   name: string;
   description?: string;
-  ingredients: ChatIngredient[];
+  ingredients: RecipeIngredient[];
   steps: RecipeStep[];
   total_time_minutes?: number;
   difficulty?: string;
@@ -71,7 +59,7 @@ export type RecipeMetadataUpdate = {
 export type RecipeIngredientsUpdate = {
   type: 'recipe_update';
   action: 'set_ingredients';
-  ingredients: ChatIngredient[];
+  ingredients: RecipeIngredient[];
 };
 
 export type RecipeStepsUpdate = {

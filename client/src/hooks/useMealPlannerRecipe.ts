@@ -1,18 +1,14 @@
 import { useCallback, useReducer } from 'react';
-import type {
-  ChatIngredient,
-  RecipeContent,
-  RecipeStep,
-  RecipeUpdateContent,
-} from '@/types/chat-message-types';
+import type { RecipeUpdateContent } from '@/types/chat-message-types';
+import type { Recipe, RecipeIngredient, RecipeStep } from '@/types/recipe';
 
 interface RecipeState {
-  recipe: RecipeContent | null;
+  recipe: Recipe | null;
   isRecipeChanged: boolean;
 }
 
 type RecipeAction =
-  | { type: 'SET_RECIPE'; payload: RecipeContent }
+  | { type: 'SET_RECIPE'; payload: Recipe }
   | {
       type: 'SET_METADATA';
       payload: {
@@ -24,7 +20,7 @@ type RecipeAction =
         tags?: string[];
       };
     }
-  | { type: 'SET_INGREDIENTS'; payload: ChatIngredient[] }
+  | { type: 'SET_INGREDIENTS'; payload: RecipeIngredient[] }
   | { type: 'SET_STEPS'; payload: RecipeStep[] }
   | { type: 'RESET_CHANGED_FLAG' }
   | { type: 'CLEAR_RECIPE' };
@@ -64,20 +60,36 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
       };
 
     case 'SET_METADATA': {
-      // Initialize or update recipe with metadata
-      const newRecipe: RecipeContent = {
-        type: 'recipe',
-        recipe_id: state.recipe?.recipe_id || '',
-        name: action.payload.name,
-        description: action.payload.description,
-        difficulty: action.payload.difficulty,
-        total_time_minutes: action.payload.total_time_minutes,
-        servings: action.payload.servings,
-        tags: action.payload.tags || [],
-        ingredients: state.recipe?.ingredients || [],
-        steps: state.recipe?.steps || [],
+      if (!state.recipe) {
+        // Create new recipe during initial creation
+        const newRecipe: Recipe = {
+          id: '',
+          name: action.payload.name,
+          description: action.payload.description,
+          total_time_minutes: action.payload.total_time_minutes,
+          difficulty: action.payload.difficulty,
+          servings: action.payload.servings,
+          tags: action.payload.tags,
+          ingredients: [],
+          steps: [],
+          user_id: undefined,
+          chat_session_id: undefined,
+          created_at: undefined,
+          updated_at: undefined,
+        };
+        return { ...state, recipe: newRecipe, isRecipeChanged: true };
+      }
+
+      // Update existing recipe
+      return {
+        ...state,
+        recipe: {
+          ...state.recipe,
+          ...action.payload,
+          updated_at: new Date().toISOString(),
+        },
+        isRecipeChanged: true,
       };
-      return { ...state, recipe: newRecipe, isRecipeChanged: true };
     }
 
     case 'SET_INGREDIENTS': {
@@ -128,10 +140,13 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
   }
 }
 
-export function useMealPlannerRecipe(initialRecipe?: RecipeContent | null) {
+export function useMealPlannerRecipe(initialRecipe?: Recipe | null) {
+  // Determine initial state: if recipe exists but has no id, it's unsaved
+  const initialIsRecipeChanged = !!(initialRecipe && !initialRecipe.id);
+
   const [state, dispatch] = useReducer(recipeReducer, {
     recipe: initialRecipe || null,
-    isRecipeChanged: false,
+    isRecipeChanged: initialIsRecipeChanged,
   });
 
   const applyRecipeUpdate = useCallback(
@@ -180,6 +195,10 @@ export function useMealPlannerRecipe(initialRecipe?: RecipeContent | null) {
     recipe: state.recipe,
     isRecipeChanged: state.isRecipeChanged,
     applyRecipeUpdate,
+    setRecipe: useCallback(
+      (recipe: Recipe) => dispatch({ type: 'SET_RECIPE', payload: recipe }),
+      [dispatch],
+    ),
     resetChangedFlag: useCallback(
       () => dispatch({ type: 'RESET_CHANGED_FLAG' }),
       [dispatch],

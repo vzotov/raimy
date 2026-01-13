@@ -211,6 +211,10 @@ class DatabaseService:
                     "difficulty": recipe.difficulty,
                     "servings": recipe.servings,
                     "tags": recipe.tags,
+                    "user_id": recipe.user_id,
+                    "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
+                    "created_at": recipe.created_at,
+                    "updated_at": recipe.updated_at,
                 }
             except Exception as e:
                 logger.error(f"Error getting recipe {recipe_id}: {e}", exc_info=True)
@@ -504,6 +508,27 @@ class DatabaseService:
                 print(f"Error deleting session {session_id}: {e}")
                 return False
 
+    async def delete_recipe(self, recipe_id: str) -> bool:
+        """Delete a recipe"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(Recipe).where(Recipe.id == recipe_id)
+                )
+                recipe = result.scalar_one_or_none()
+
+                if not recipe:
+                    return False
+
+                await db.delete(recipe)
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error deleting recipe {recipe_id}: {e}", exc_info=True)
+                return False
+
     async def save_or_update_ingredients(
         self,
         session_id: str,
@@ -729,14 +754,17 @@ class DatabaseService:
                     "recipe": {
                         "id": recipe_id,
                         "name": db_recipe.name,
-                        "description": db_recipe.description,
+                        "description": db_recipe.description or None,
                         "ingredients": db_recipe.ingredients,
                         "steps": db_recipe.steps,
                         "total_time_minutes": db_recipe.total_time_minutes,
                         "difficulty": db_recipe.difficulty,
                         "servings": db_recipe.servings,
-                        "tags": db_recipe.tags,
-                        "user_id": db_recipe.user_id
+                        "tags": db_recipe.tags or [],
+                        "user_id": db_recipe.user_id,
+                        "chat_session_id": str(db_recipe.chat_session_id) if db_recipe.chat_session_id else None,
+                        "created_at": db_recipe.created_at.isoformat() if db_recipe.created_at else None,
+                        "updated_at": db_recipe.updated_at.isoformat() if db_recipe.updated_at else None,
                     }
                 }
 

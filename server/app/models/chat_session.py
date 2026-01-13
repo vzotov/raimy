@@ -14,7 +14,7 @@ class ChatSession(Base, TimestampMixin):
     room_name = Column(String(255), unique=True, nullable=True)  # LiveKit remnant, nullable now
     ingredients = Column(JSON, nullable=True)
     recipe = Column(JSON, nullable=True)  # Work-in-progress recipe data
-    recipe_id = Column(UUID(as_uuid=True), ForeignKey("recipes.id"), nullable=True)  # Saved recipe reference
+    recipe_id = Column(UUID(as_uuid=True), ForeignKey("recipes.id", ondelete="SET NULL"), nullable=True)  # Saved recipe reference
 
     # Relationships
     user = relationship("User", back_populates="chat_sessions")

@@ -32,12 +32,20 @@ export default async function RecipeCreatorSessionPage({
     const data = await response.json();
     const session = data.session;
 
+    // Transform recipe to include id from session.recipe_id
+    const recipeWithId = session.recipe
+      ? {
+          ...session.recipe,
+          id: session.recipe_id || null,
+        }
+      : null;
+
     return (
       <RecipeCreatorChat
         sessionId={session.id}
         sessionName={session.session_name}
         initialMessages={session.messages || []}
-        initialRecipe={session.recipe}
+        initialRecipe={recipeWithId}
       />
     );
   } catch (error) {

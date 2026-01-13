@@ -2,13 +2,13 @@ import { useCallback } from 'react';
 import { useChatState } from '@/hooks/useChatState';
 import { useMealPlannerRecipe } from '@/hooks/useMealPlannerRecipe';
 import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
-import type { RecipeContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/chat-session';
+import type { Recipe } from '@/types/recipe';
 
 interface UseRecipeCreatorStateParams {
   sessionId: string;
   initialMessages?: SessionMessage[];
-  initialRecipe?: RecipeContent | null;
+  initialRecipe?: Recipe | null;
 }
 
 /**
@@ -33,8 +33,14 @@ export function useRecipeCreatorState({
   });
 
   // Get recipe-specific functionality
-  const { recipe, isRecipeChanged, applyRecipeUpdate, resetChangedFlag, clearRecipe } =
-    useMealPlannerRecipe(initialRecipe);
+  const {
+    recipe,
+    isRecipeChanged,
+    applyRecipeUpdate,
+    setRecipe,
+    resetChangedFlag,
+    clearRecipe,
+  } = useMealPlannerRecipe(initialRecipe);
 
   /**
    * Handle meal planner-specific messages first, then delegate to chat handler
@@ -83,6 +89,7 @@ export function useRecipeCreatorState({
     },
     handleMessage,
     addMessage,
+    setRecipe,
     resetChangedFlag,
     applyRecipeUpdate,
     clearRecipe,

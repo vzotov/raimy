@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import NotebookIcon from '@/components/icons/NotebookIcon';
+import SaveIcon from '@/components/icons/SaveIcon';
 import AuthButton from '@/components/shared/AuthButton';
 import LoadingScreen from '@/components/shared/LoadingScreen';
 import Logo from '@/components/shared/Logo';
@@ -14,6 +15,7 @@ export default function HomeContent() {
 
   const handleGoToKitchen = () => router.push('/kitchen');
   const handleGoToRecipeCreator = () => router.push('/recipe-creator');
+  const handleGoToMyRecipes = () => router.push('/myrecipes');
 
   if (loading) {
     return <LoadingScreen />;
@@ -47,12 +49,18 @@ export default function HomeContent() {
       {/* Navigation cards at bottom */}
       <div className="flex flex-col justify-end items-center pb-8 px-4">
         {user ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 w-full max-w-4xl">
             <HomePageNavCard
               icon={<NotebookIcon className="w-6 h-6 md:w-8 md:h-8" />}
               title="Recipe Creator"
               description="Create and save custom recipes based on your preferences"
               onClick={handleGoToRecipeCreator}
+            />
+            <HomePageNavCard
+              icon={<SaveIcon className="w-6 h-6 md:w-8 md:h-8" />}
+              title="My Recipes"
+              description="View and manage your saved recipes"
+              onClick={handleGoToMyRecipes}
             />
             <HomePageNavCard
               icon={<ChefHatIcon className="w-6 h-6" />}

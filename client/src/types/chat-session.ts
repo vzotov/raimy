@@ -1,8 +1,5 @@
-import type {
-  ChatIngredient,
-  MessageContent,
-  RecipeContent,
-} from './chat-message-types';
+import type { MessageContent, RecipeContent } from './chat-message-types';
+import type { RecipeIngredient } from './recipe';
 
 export interface ChatSession {
   id: string;
@@ -10,7 +7,7 @@ export interface ChatSession {
   session_name: string;
   session_type: 'recipe-creator' | 'kitchen';
   room_name?: string; // Optional - LiveKit remnant
-  ingredients?: ChatIngredient[];
+  ingredients?: RecipeIngredient[];
   recipe?: RecipeContent | null; // Work-in-progress recipe data
   recipe_id?: string | null; // Saved recipe reference
   created_at: string;

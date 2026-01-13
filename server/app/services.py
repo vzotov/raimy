@@ -754,14 +754,17 @@ class DatabaseService:
                     "recipe": {
                         "id": recipe_id,
                         "name": db_recipe.name,
-                        "description": db_recipe.description,
+                        "description": db_recipe.description or None,
                         "ingredients": db_recipe.ingredients,
                         "steps": db_recipe.steps,
                         "total_time_minutes": db_recipe.total_time_minutes,
                         "difficulty": db_recipe.difficulty,
                         "servings": db_recipe.servings,
-                        "tags": db_recipe.tags,
-                        "user_id": db_recipe.user_id
+                        "tags": db_recipe.tags or [],
+                        "user_id": db_recipe.user_id,
+                        "chat_session_id": str(db_recipe.chat_session_id) if db_recipe.chat_session_id else None,
+                        "created_at": db_recipe.created_at.isoformat() if db_recipe.created_at else None,
+                        "updated_at": db_recipe.updated_at.isoformat() if db_recipe.updated_at else None,
                     }
                 }
 

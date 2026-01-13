@@ -9,7 +9,11 @@ interface SectionHeaderProps {
   onToggle: () => void;
 }
 
-export default function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
+export default function SectionHeader({
+  title,
+  isExpanded,
+  onToggle,
+}: SectionHeaderProps) {
   return (
     <div
       className="flex cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-base font-medium text-text transition-colors duration-150 hover:bg-accent/30 hover:text-primary"

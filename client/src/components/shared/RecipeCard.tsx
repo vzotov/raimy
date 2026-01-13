@@ -3,39 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useKitchenSessions } from '@/hooks/useSessions';
-import { recipes } from '@/lib/api';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
-
-interface RecipeIngredient {
-  name: string;
-  amount?: string;
-  unit?: string;
-  notes?: string;
-}
-
-interface RecipeStep {
-  instruction: string;
-  duration?: number;
-}
-
-export interface Recipe {
-  id: string;
-  name: string;
-  description: string;
-  ingredients: RecipeIngredient[];
-  steps: RecipeStep[];
-  total_time_minutes: number;
-  difficulty: string;
-  servings: number;
-  tags: string[];
-  user_id: string;
-  chat_session_id?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { useKitchenSessions } from '@/hooks/useSessions';
+import { recipes } from '@/lib/api';
+import type { Recipe } from '@/types/recipe';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -108,7 +81,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {recipe.tags.map((tag) => (
+            {recipe.tags?.map((tag) => (
               <span
                 key={tag}
                 className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full"

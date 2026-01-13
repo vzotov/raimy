@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import RecipeCard, { type Recipe } from '@/components/shared/RecipeCard';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import RecipeCard from '@/components/shared/RecipeCard';
+import type { Recipe } from '@/types/recipe';
 
 export default async function MyRecipesPage() {
   const apiUrl = process.env.API_URL || 'http://localhost:8000';

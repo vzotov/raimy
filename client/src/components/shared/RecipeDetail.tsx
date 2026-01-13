@@ -2,15 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useKitchenSessions } from '@/hooks/useSessions';
-import { recipes } from '@/lib/api';
-import type { Recipe } from './RecipeCard';
-import ClockIcon from '@/components/icons/ClockIcon';
-import UsersIcon from '@/components/icons/UsersIcon';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
+import UsersIcon from '@/components/icons/UsersIcon';
+import { useKitchenSessions } from '@/hooks/useSessions';
+import { recipes } from '@/lib/api';
+import type { Recipe } from '@/types/recipe';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -69,7 +69,9 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
     <>
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-text/10 py-4 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-text px-4 sm:px-6 lg:px-8">{recipe.name}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-text px-4 sm:px-6 lg:px-8">
+          {recipe.name}
+        </h1>
       </div>
 
       {/* Recipe Info */}
@@ -97,7 +99,9 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
 
       {/* Description */}
       {recipe.description && (
-        <p className="text-text/80 text-base mb-6 px-4 sm:px-6 lg:px-8">{recipe.description}</p>
+        <p className="text-text/80 text-base mb-6 px-4 sm:px-6 lg:px-8">
+          {recipe.description}
+        </p>
       )}
 
       {/* Tags */}
@@ -118,7 +122,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       <div className="mb-8 px-4 sm:px-6 lg:px-8">
         <h2 className="text-xl font-semibold text-text mb-4">Ingredients</h2>
         <ul className="space-y-2">
-          {recipe.ingredients.map((ingredient, index) => (
+          {recipe.ingredients?.map((ingredient, index) => (
             <li key={index} className="flex items-center text-text/80">
               <span className="w-2 h-2 bg-primary rounded-full mr-3"></span>
               {ingredient.amount && `${ingredient.amount} `}
@@ -138,7 +142,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       <div className="mb-8 px-4 sm:px-6 lg:px-8">
         <h2 className="text-xl font-semibold text-text mb-4">Instructions</h2>
         <div className="space-y-4">
-          {recipe.steps.map((step, index) => (
+          {recipe.steps?.map((step, index) => (
             <div key={index} className="flex items-start">
               <span className="bg-primary/20 text-primary text-sm font-medium px-3 py-1 rounded-full mr-4 mt-1 flex-shrink-0">
                 {index + 1}
@@ -215,11 +219,13 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       </div>
 
       {/* Metadata */}
-      <div className="border-t border-text/10 pt-4 mb-4">
-        <div className="text-xs text-text/50 px-4 sm:px-6 lg:px-8">
-          Created: {new Date(recipe.created_at).toLocaleDateString()}
+      {recipe.created_at && (
+        <div className="border-t border-text/10 pt-4 mb-4">
+          <div className="text-xs text-text/50 px-4 sm:px-6 lg:px-8">
+            Created: {new Date(recipe.created_at).toLocaleDateString()}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

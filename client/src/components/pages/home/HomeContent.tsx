@@ -1,12 +1,12 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import NotebookIcon from '@/components/icons/NotebookIcon';
 import AuthButton from '@/components/shared/AuthButton';
 import LoadingScreen from '@/components/shared/LoadingScreen';
 import Logo from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
 import HomePageNavCard from './HomePageNavCard';
-import NotebookIcon from '@/components/icons/NotebookIcon';
-import ChefHatIcon from '@/components/icons/ChefHatIcon';
 
 export default function HomeContent() {
   const { user, loading } = useAuth();

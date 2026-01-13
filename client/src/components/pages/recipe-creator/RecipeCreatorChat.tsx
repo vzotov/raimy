@@ -8,14 +8,14 @@ import SlidingPanel from '@/components/shared/SlidingPanel';
 import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { chatSessions } from '@/lib/api';
-import type { RecipeContent } from '@/types/chat-message-types';
 import type { SessionMessage } from '@/types/chat-session';
+import type { Recipe } from '@/types/recipe';
 
 interface RecipeCreatorChatProps {
   sessionId: string;
   sessionName: string;
   initialMessages?: SessionMessage[];
-  initialRecipe?: RecipeContent | null;
+  initialRecipe?: Recipe | null;
 }
 
 export default function RecipeCreatorChat({
@@ -25,7 +25,7 @@ export default function RecipeCreatorChat({
   initialRecipe,
 }: RecipeCreatorChatProps) {
   // Use composed state hook
-  const { state, handleMessage, addMessage, resetChangedFlag } =
+  const { state, handleMessage, addMessage, setRecipe, resetChangedFlag } =
     useRecipeCreatorState({
       sessionId,
       initialMessages,
@@ -69,6 +69,11 @@ export default function RecipeCreatorChat({
         return;
       }
 
+      // Update recipe with the returned data (includes recipe_id)
+      if (response.data?.recipe) {
+        setRecipe(response.data.recipe);
+      }
+
       // Reset the changed flag after successful save
       resetChangedFlag();
     } catch (error) {
@@ -77,7 +82,7 @@ export default function RecipeCreatorChat({
     } finally {
       setIsSaving(false);
     }
-  }, [state.recipe, sessionId, resetChangedFlag]);
+  }, [state.recipe, sessionId, setRecipe, resetChangedFlag]);
 
   return (
     <div className="flex h-full w-full">
@@ -163,7 +168,6 @@ export default function RecipeCreatorChat({
       >
         <RecipeDocument
           recipe={state.recipe}
-          isVisible={true}
           onToggle={() => setIsRecipeVisible(false)}
           onSave={handleSaveRecipe}
           isSaving={isSaving}

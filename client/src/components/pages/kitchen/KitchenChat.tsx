@@ -3,7 +3,9 @@
 import classNames from 'classnames';
 import { useCallback } from 'react';
 import Chat from '@/components/shared/chat/Chat';
-import IngredientList, { type Ingredient } from '@/components/shared/IngredientList';
+import IngredientList, {
+  type Ingredient,
+} from '@/components/shared/IngredientList';
 import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SessionMessage } from '@/types/chat-session';
@@ -71,16 +73,20 @@ export default function KitchenChat({
             </span>
           </div>
         </div>
-        {error && <p className="mt-1 text-xs text-red-500">Connection error: {error}</p>}
+        {error && (
+          <p className="mt-1 text-xs text-red-500">Connection error: {error}</p>
+        )}
       </div>
 
       {/* Content area with ingredients and chat */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         {/* Ingredients panel - stacked on mobile, sidebar on desktop */}
         {state.ingredients.length > 0 && (
-          <div className="flex h-[32vh] w-full flex-shrink-0 flex-col md:order-last md:h-auto md:w-80 md:flex-1 md:border-l md:border-accent/20">
-            <div className="flex min-h-0 flex-1 flex-col p-4 gap-4">
-              <h2 className="flex-shrink-0 text-lg font-semibold text-text">Ingredients</h2>
+          <div className="flex h-[32vh] w-full flex-shrink-0 flex-col md:order-last md:h-auto md:w-80 md:border-l md:border-accent/20">
+            <div className="flex min-h-0 flex-1 flex-col pl-4 pt-4 pb-4 gap-4">
+              <h2 className="flex-shrink-0 text-lg font-semibold text-text pr-4">
+                Ingredients
+              </h2>
               <IngredientList ingredients={state.ingredients} />
             </div>
           </div>

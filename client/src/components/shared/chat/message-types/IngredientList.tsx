@@ -1,9 +1,9 @@
 import classNames from 'classnames';
-import type { ChatIngredient } from '@/types/chat-message-types';
+import type { RecipeIngredient } from '@/types/recipe';
 
 export interface IngredientListProps {
   title?: string;
-  items: ChatIngredient[];
+  items: RecipeIngredient[];
   isUser?: boolean;
 }
 

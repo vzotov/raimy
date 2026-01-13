@@ -10,12 +10,15 @@ interface RecipeCreatorMenuSectionProps {
   onMenuClose: () => void;
 }
 
-export default function RecipeCreatorMenuSection({ onMenuClose }: RecipeCreatorMenuSectionProps) {
+export default function RecipeCreatorMenuSection({
+  onMenuClose,
+}: RecipeCreatorMenuSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { sessions, updateSessionName, deleteSession, createSession } = useRecipeCreatorSessions();
+  const { sessions, updateSessionName, deleteSession, createSession } =
+    useRecipeCreatorSessions();
 
   // Auto-expand when on a recipe creator page
   useEffect(() => {

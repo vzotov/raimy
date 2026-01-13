@@ -1,11 +1,10 @@
-import type { RecipeContent } from '@/types/chat-message-types';
 import ClockIcon from '@/components/icons/ClockIcon';
-import SaveIcon from '@/components/icons/SaveIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
+import SaveIcon from '@/components/icons/SaveIcon';
+import type { Recipe } from '@/types/recipe';
 
 interface RecipeDocumentProps {
-  recipe: RecipeContent | null;
-  isVisible: boolean;
+  recipe: Recipe | null;
   onToggle: () => void;
   onSave?: () => void;
   isSaving?: boolean;
@@ -16,7 +15,6 @@ interface RecipeDocumentProps {
 
 export default function RecipeDocument({
   recipe,
-  isVisible,
   onToggle,
   onSave,
   isSaving,

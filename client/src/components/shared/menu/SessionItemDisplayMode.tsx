@@ -1,8 +1,8 @@
 'use client';
 
-import type { ChatSession } from '@/types/chat-session';
 import EditIcon from '@/components/icons/EditIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
+import type { ChatSession } from '@/types/chat-session';
 
 interface SessionItemDisplayModeProps {
   session: ChatSession;

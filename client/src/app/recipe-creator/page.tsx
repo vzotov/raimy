@@ -3,8 +3,8 @@
 import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useRecipeCreatorSessions } from '@/hooks/useSessions';
 import NotebookIcon from '@/components/icons/NotebookIcon';
+import { useRecipeCreatorSessions } from '@/hooks/useSessions';
 
 export default function RecipeCreatorPage() {
   const router = useRouter();

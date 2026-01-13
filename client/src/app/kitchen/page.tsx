@@ -3,8 +3,8 @@
 import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useKitchenSessions } from '@/hooks/useSessions';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import { useKitchenSessions } from '@/hooks/useSessions';
 
 export default function KitchenPage() {
   const router = useRouter();
@@ -37,8 +37,7 @@ export default function KitchenPage() {
           <div>
             <h1 className="text-4xl font-bold text-text mb-3">Kitchen</h1>
             <p className="text-lg text-text/70 mb-6">
-              Get step-by-step guidance while you cook with real-time
-              assistance
+              Get step-by-step guidance while you cook with real-time assistance
             </p>
             <button
               onClick={handleStartCooking}

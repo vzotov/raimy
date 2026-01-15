@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
-import KitchenChat from '@/components/pages/kitchen/KitchenChat';
+import { Suspense } from 'react';
+import KitchenContent from '@/components/pages/kitchen/KitchenContent';
+import KitchenChatSkeleton from '@/components/pages/kitchen/KitchenChatSkeleton';
 
 interface KitchenSessionPageProps {
   params: Promise<{
@@ -13,40 +13,9 @@ export default async function KitchenSessionPage({
 }: KitchenSessionPageProps) {
   const { id } = await params;
 
-  // Fetch session data (reuses meal planner sessions endpoint)
-  const apiUrl = process.env.API_URL || 'http://localhost:8000';
-  const cookieStore = await cookies();
-
-  try {
-    const response = await fetch(`${apiUrl}/api/chat-sessions/${id}`, {
-      headers: {
-        Cookie: cookieStore.toString(),
-      },
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      notFound();
-    }
-
-    const data = await response.json();
-    const session = data.session;
-
-    // Verify this is a kitchen session
-    if (session.session_type !== 'kitchen') {
-      notFound();
-    }
-
-    return (
-      <KitchenChat
-        sessionId={session.id}
-        sessionName={session.session_name}
-        initialMessages={session.messages || []}
-        initialIngredients={session.ingredients || []}
-      />
-    );
-  } catch (error) {
-    console.error('Error fetching kitchen session:', error);
-    notFound();
-  }
+  return (
+    <Suspense fallback={<KitchenChatSkeleton />}>
+      <KitchenContent id={id} />
+    </Suspense>
+  );
 }

@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
+    // Rethrow prerender interruptions - these are expected with cacheComponents
+    if (error instanceof Error && 'digest' in error) {
+      throw error;
+    }
     console.error('Auth /me error:', error);
     return NextResponse.json(
       {

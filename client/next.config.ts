@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 const BACKEND_API_URL = process.env.API_URL || 'http://localhost:8000';
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
   compiler: {
     // Remove console logs in production (keep errors and warnings)
     removeConsole:

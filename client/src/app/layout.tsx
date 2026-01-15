@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
 import './globals.css';
 import LayoutContent from '@/components/LayoutContent';
 import Providers from '@/providers/Providers';
@@ -44,9 +45,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} antialiased`}>
-        <Providers>
-          <LayoutContent>{children}</LayoutContent>
-        </Providers>
+        <Suspense>
+          <Providers>
+            <LayoutContent>{children}</LayoutContent>
+          </Providers>
+        </Suspense>
       </body>
     </html>
   );

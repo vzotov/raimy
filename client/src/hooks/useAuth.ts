@@ -22,6 +22,7 @@ export function useAuth() {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
       dedupingInterval: 60000, // 1 minute
+      fallbackData: { authenticated: false }, // Prevent fetch during SSR/prerendering
     },
   );
 

@@ -113,6 +113,8 @@ services:
       # Migration Configuration
       - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
       - FAIL_ON_MIGRATION_ERROR=${FAIL_ON_MIGRATION_ERROR:-false}
+      # Instacart Integration (optional)
+      - INSTACART_API_KEY=${INSTACART_API_KEY:-}
     volumes:
       # Mount for development (optional)
       - ./server:/app/server

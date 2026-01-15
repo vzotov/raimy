@@ -16,6 +16,7 @@ from .routes.timers import create_timers_router
 from .routes.recipes import create_recipes_router
 from .routes.debug import create_debug_router
 from .routes.chat_sessions import create_chat_sessions_router
+from .routes.config import router as config_router
 from core.auth_client import auth_client
 from core.redis_client import get_redis_client
 from agents.auth_proxy import router as auth_proxy_router
@@ -636,6 +637,7 @@ app.include_router(create_timers_router(None))
 app.include_router(create_recipes_router(None))
 app.include_router(create_chat_sessions_router(None))
 app.include_router(create_debug_router())
+app.include_router(config_router)
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)
 

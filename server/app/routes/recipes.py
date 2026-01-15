@@ -1,6 +1,4 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Optional
-import asyncio
 
 from ..services import database_service, RecipeModel, RecipeStepModel
 from .models import RecipeNameRequest, SaveRecipeRequest
@@ -48,18 +46,15 @@ router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
 @router.get("/")
-async def get_recipes(user_id: Optional[str] = None, current_user: dict = Depends(get_current_user_with_storage)):
-    """Get recipes from PostgreSQL database"""
+async def get_recipes(current_user: dict = Depends(get_current_user_with_storage)):
+    """Get recipes for the current user from PostgreSQL database"""
     try:
-        # Get all recipes for now (showing agent-created recipes)
-        # TODO: Add proper user filtering if needed
-        logger.info(f"Getting recipes for user: {current_user['email']} with user_id param: {user_id}")
-        recipes = await database_service.get_recipes()
+        logger.info(f"Getting recipes for user: {current_user['email']}")
+        recipes = await database_service.get_recipes_by_user(current_user["email"])
 
         return {
             "recipes": recipes,
             "count": len(recipes),
-            "note": "Showing all recipes from PostgreSQL database."
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recipes: {str(e)}")

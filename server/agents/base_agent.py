@@ -332,24 +332,6 @@ class BaseAgent(ABC):
             # Get current node name
             node_name = metadata.get("langgraph_node", "")
 
-            # Send status updates when entering execute_tools node
-            if node_name and node_name != current_node:
-                current_node = node_name
-
-                if node_name == "execute_tools" and isinstance(msg, AIMessage):
-                    # Check if there are tool calls to determine the message
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        tool_name = msg.tool_calls[0].get("name", "")
-                        status_msg = self._get_tool_status_message(tool_name)
-                        try:
-                            await self.redis_client.send_system_message(
-                                session_id,
-                                "thinking",
-                                status_msg
-                            )
-                        except Exception as e:
-                            logger.warning(f"❌ Failed to publish tool status (non-fatal): {e}")
-
             # Filter for LLM-generated content from call_llm node
             if node_name == "call_llm" and isinstance(msg, AIMessage):
                 # Handle token streaming

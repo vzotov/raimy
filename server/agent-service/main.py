@@ -13,7 +13,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.services import database_service  # type: ignore
 from agents.prompts import COOKING_ASSISTANT_PROMPT, RECIPE_CREATOR_PROMPT  # type: ignore
-from agents.langgraph_agent import LangGraphAgent  # type: ignore
+from agents import KitchenAgent, RecipeCreatorAgent  # type: ignore
+from agents.base_agent import BaseAgent  # type: ignore
 from agents.mcp_tools import load_mcp_tools_for_langchain  # type: ignore
 
 load_dotenv()
@@ -22,7 +23,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Cache of agent instances by session type
-agent_instances: Dict[str, LangGraphAgent] = {}
+agent_instances: Dict[str, BaseAgent] = {}
 
 
 def format_recipe_context(recipe_data: Dict[str, Any]) -> str:
@@ -111,15 +112,15 @@ Start with ONLY the first step, then STOP.
     return context
 
 
-async def get_agent(session_type: str = "recipe-creator") -> LangGraphAgent:
+async def get_agent(session_type: str = "recipe-creator") -> BaseAgent:
     """
-    Get or create LangGraph agent instance for the specified session type
+    Get or create agent instance for the specified session type
 
     Args:
         session_type: Session type ("kitchen" or "recipe-creator")
 
     Returns:
-        LangGraphAgent instance with session-type-specific tools
+        Agent instance (KitchenAgent or RecipeCreatorAgent) with session-type-specific tools
     """
     global agent_instances
 
@@ -136,10 +137,14 @@ async def get_agent(session_type: str = "recipe-creator") -> LangGraphAgent:
     logger.info(f"🔄 Creating new agent instance for session_type='{session_type}'")
     mcp_tools = await load_mcp_tools_for_langchain(session_type=session_type)
 
-    agent = LangGraphAgent(mcp_tools=mcp_tools)
+    if session_type == "kitchen":
+        agent = KitchenAgent(mcp_tools=mcp_tools)
+    else:  # recipe-creator
+        agent = RecipeCreatorAgent(mcp_tools=mcp_tools)
+
     agent_instances[session_type] = agent
 
-    logger.info(f"✅ Initialized LangGraph agent for '{session_type}' with {len(mcp_tools)} tools")
+    logger.info(f"✅ Initialized {type(agent).__name__} for '{session_type}' with {len(mcp_tools)} tools")
     return agent
 
 

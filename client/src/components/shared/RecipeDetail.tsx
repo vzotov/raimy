@@ -6,7 +6,7 @@ import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
-import ShoppingCartIcon from '@/components/icons/ShoppingCartIcon';
+import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
 import { useKitchenSessions } from '@/hooks/useSessions';
@@ -235,8 +235,11 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
                   </>
                 ) : (
                   <>
-                    <ShoppingCartIcon className="w-5 h-5" />
-                    Order Ingredients
+                    <InstacartCarrotIcon className="w-6 h-6" />
+                    <span className="flex flex-col items-start leading-tight">
+                      <span>Order Ingredients</span>
+                      <span className="text-xs text-text/60">via Instacart</span>
+                    </span>
                   </>
                 )}
               </button>

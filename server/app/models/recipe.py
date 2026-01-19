@@ -17,6 +17,9 @@ class Recipe(Base, TimestampMixin):
     servings = Column(Integer)
     tags = Column(ARRAY(String), default=list)
 
+    # Instacart integration - cached shopping link
+    instacart_link_url = Column(String(512), nullable=True)
+
     # Foreign key to user
     user_id = Column(String(255), ForeignKey("users.email"), nullable=False)
 

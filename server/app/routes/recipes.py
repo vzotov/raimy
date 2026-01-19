@@ -169,7 +169,7 @@ async def generate_instacart_link(
     Generate an Instacart shopping link for a recipe's ingredients.
 
     Calls the Instacart Developer Platform API to create a pre-populated
-    shopping cart with all recipe ingredients.
+    shopping cart with all recipe ingredients. Caches the link for future requests.
     """
     # Check if Instacart API is configured
     instacart_api_key = os.getenv("INSTACART_API_KEY")
@@ -186,6 +186,11 @@ async def generate_instacart_link(
 
     if recipe["user_id"] != current_user["email"]:
         raise HTTPException(status_code=403, detail="Access denied")
+
+    # Return cached link if available
+    if recipe.get("instacart_link_url"):
+        logger.info(f"Returning cached Instacart link for recipe {recipe_id}")
+        return {"products_link_url": recipe["instacart_link_url"]}
 
     # Transform ingredients to Instacart format
     instacart_ingredients = []
@@ -216,11 +221,18 @@ async def generate_instacart_link(
     if recipe.get("total_time_minutes"):
         instacart_payload["cooking_time"] = recipe["total_time_minutes"]
 
+    # Get Instacart API base URL from env var
+    instacart_base_url = os.getenv(
+        "INSTACART_API_URL",
+        "https://connect.dev.instacart.tools"
+    )
+    instacart_api_url = f"{instacart_base_url}/idp/v1/products/recipe"
+
     # Call Instacart API
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                "https://connect.instacart.com/idp/v1/products/recipe",
+                instacart_api_url,
                 headers={
                     "Authorization": f"Bearer {instacart_api_key}",
                     "Content-Type": "application/json",
@@ -231,7 +243,14 @@ async def generate_instacart_link(
 
             if response.status_code == 200:
                 data = response.json()
-                return {"products_link_url": data["products_link_url"]}
+                products_link_url = data["products_link_url"]
+
+                # Cache the link in the database
+                await database_service.update_recipe_instacart_link(
+                    recipe_id, products_link_url
+                )
+
+                return {"products_link_url": products_link_url}
             else:
                 logger.error(
                     f"Instacart API error: {response.status_code} - {response.text}"

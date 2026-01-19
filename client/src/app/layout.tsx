@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import './globals.css';
 import LayoutContent from '@/components/LayoutContent';
 import Providers from '@/providers/Providers';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -46,6 +47,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} antialiased`}>
         <Suspense>
+          <GoogleAnalytics />
           <Providers>
             <LayoutContent>{children}</LayoutContent>
           </Providers>

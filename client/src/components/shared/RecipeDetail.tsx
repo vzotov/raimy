@@ -1,15 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
+import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
 import { useKitchenSessions } from '@/hooks/useSessions';
-import { recipes } from '@/lib/api';
+import { config, recipes } from '@/lib/api';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeDetailProps {
@@ -21,7 +22,20 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const { createSession } = useKitchenSessions();
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOrderingIngredients, setIsOrderingIngredients] = useState(false);
+  const [instacartEnabled, setInstacartEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // TODO: Move this to a global config context/provider
+    const fetchFeatures = async () => {
+      const response = await config.getFeatures();
+      if (response.data?.instacart_enabled) {
+        setInstacartEnabled(true);
+      }
+    };
+    fetchFeatures();
+  }, []);
 
   const handleSendToKitchen = async () => {
     try {
@@ -62,6 +76,28 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       console.error('Failed to delete recipe:', err);
       setError('Failed to delete recipe. Please try again.');
       setIsDeleting(false);
+    }
+  };
+
+  const handleOrderIngredients = async () => {
+    try {
+      setIsOrderingIngredients(true);
+      setError(null);
+      const response = await recipes.getInstacartLink(recipe.id);
+      if (response.data?.products_link_url) {
+        window.open(
+          response.data.products_link_url,
+          '_blank',
+          'noopener,noreferrer',
+        );
+      } else if (response.error) {
+        throw new Error(response.error);
+      }
+    } catch (err) {
+      console.error('Error generating Instacart link:', err);
+      setError('Failed to generate shopping link. Please try again.');
+    } finally {
+      setIsOrderingIngredients(false);
     }
   };
 
@@ -186,6 +222,29 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
                 </>
               )}
             </button>
+
+            {instacartEnabled && (
+              <button
+                onClick={handleOrderIngredients}
+                disabled={isOrderingIngredients || !recipe.ingredients?.length}
+                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isOrderingIngredients ? (
+                  <>
+                    <HourglassIcon className="animate-spin w-5 h-5" />
+                    Opening...
+                  </>
+                ) : (
+                  <>
+                    <InstacartCarrotIcon className="w-6 h-6" />
+                    <span className="flex flex-col items-start leading-tight">
+                      <span>Order Ingredients</span>
+                      <span className="text-xs text-text/60">via Instacart</span>
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
 
             {recipe.chat_session_id && (
               <button

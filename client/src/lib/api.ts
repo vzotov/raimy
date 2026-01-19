@@ -118,4 +118,13 @@ export const recipes = {
   list: () => get<{ recipes: Recipe[]; count: number }>('/api/recipes/'),
   delete: (recipeId: string) =>
     del<{ message: string }>(`/api/recipes/${recipeId}`),
+  getInstacartLink: (recipeId: string) =>
+    post<{ products_link_url: string }>(
+      `/api/recipes/${recipeId}/instacart-link`,
+    ),
+};
+
+export const config = {
+  getFeatures: () =>
+    get<{ instacart_enabled: boolean }>('/api/config/features'),
 };

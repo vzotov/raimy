@@ -167,6 +167,9 @@ class BaseAgent(ABC):
         # No text generated yet, continue to LLM to get response
         return "continue"
 
+    # Class attributes for tool tracking - override in subclasses
+    TRACKED_TOOLS: Dict[str, str] = {}  # tool_name -> state_key mapping
+
     @abstractmethod
     def _get_tool_status_message(self, tool_name: str) -> str:
         """
@@ -181,29 +184,78 @@ class BaseAgent(ABC):
         """
         pass
 
+    def _should_skip_tool(self, tool_name: str, tool_id: str, state: AgentState) -> Optional[ToolMessage]:
+        """
+        Check if tool should be skipped. Override in subclass for deduplication.
+
+        Args:
+            tool_name: Name of the tool
+            tool_id: Tool call ID
+            state: Current agent state
+
+        Returns:
+            ToolMessage if tool should be skipped, None otherwise
+        """
+        return None
+
+    def _on_tool_executed(self, tool_name: str, state: AgentState, state_updates: Dict) -> None:
+        """
+        Called after successful tool execution. Override for custom tracking.
+        Default implementation handles TRACKED_TOOLS class attribute.
+
+        Args:
+            tool_name: Name of the executed tool
+            state: Current agent state
+            state_updates: Dict to add state updates to
+        """
+        if tool_name in self.TRACKED_TOOLS:
+            state_key = self.TRACKED_TOOLS[tool_name]
+            state_updates[state_key] = True
+            logger.info(f"📝 Tool tracked: {state_key} = True")
+
+    def _finalize_state_updates(self, state: AgentState, state_updates: Dict) -> Dict:
+        """
+        Finalize state updates before returning. Override for custom state handling.
+
+        Args:
+            state: Current agent state
+            state_updates: Accumulated state updates
+
+        Returns:
+            Final state updates dict to merge with return value
+        """
+        return state_updates
+
     async def _execute_tools_node(self, state: AgentState) -> Dict:
         """
-        Execute tool calls from the LLM response
+        Execute tool calls from the LLM response.
+        Uses hooks for customization: _should_skip_tool, _on_tool_executed, _finalize_state_updates
 
         Args:
             state: Current agent state
 
         Returns:
-            Updated state with tool results
+            Updated state with tool results and any state updates from hooks
         """
         last_message = state["messages"][-1]
         tool_results = []
+        state_updates = {}
 
-        # Execute each tool call
         if hasattr(last_message, "tool_calls"):
             for tool_call in last_message.tool_calls:
                 tool_name = tool_call.get("name")
                 tool_args = tool_call.get("args", {})
                 tool_id = tool_call.get("id", "")
 
-                logger.debug(f"🔧 Tool call: {tool_name}, args before injection: {tool_args}")
+                logger.debug(f"🔧 Tool call: {tool_name}, args: {tool_args}")
 
-                # Publish status based on tool name
+                # Hook: Check if tool should be skipped (for deduplication)
+                skip_message = self._should_skip_tool(tool_name, tool_id, state)
+                if skip_message:
+                    tool_results.append(skip_message)
+                    continue
+
+                # Publish status
                 status_message = self._get_tool_status_message(tool_name)
                 try:
                     await self.redis_client.send_system_message(
@@ -214,173 +266,214 @@ class BaseAgent(ABC):
                 except Exception as e:
                     logger.warning(f"❌ Failed to publish tool status (non-fatal): {e}")
 
-                # Always override session_id with the actual session from state
-                # The LLM might provide example values from tool docs, so we need to replace them
+                # Override session_id with actual session from state
                 if "session_id" in state:
-                    original_session = tool_args.get("session_id", "not provided")
                     tool_args["session_id"] = state["session_id"]
-                    logger.debug(f"✅ Overrode session_id: '{original_session}' → '{state['session_id']}'")
 
-                # Find the tool in our tool list
+                # Find and execute the tool
                 tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
 
                 if tool:
                     try:
-                        # Execute the tool
                         result = await tool.ainvoke(tool_args)
-
-                        # Create tool message with result
-                        tool_message = ToolMessage(
+                        tool_results.append(ToolMessage(
                             content=str(result),
                             tool_call_id=tool_id,
                             name=tool_name
-                        )
-                        tool_results.append(tool_message)
+                        ))
+                        # Hook: Post-execution tracking
+                        self._on_tool_executed(tool_name, state, state_updates)
 
                     except Exception as e:
-                        # Create error message
-                        error_message = ToolMessage(
+                        tool_results.append(ToolMessage(
                             content=f"Error executing {tool_name}: {str(e)}",
                             tool_call_id=tool_id,
                             name=tool_name
-                        )
-                        tool_results.append(error_message)
+                        ))
                 else:
-                    # Tool not found
-                    error_message = ToolMessage(
+                    tool_results.append(ToolMessage(
                         content=f"Tool {tool_name} not found",
                         tool_call_id=tool_id,
                         name=tool_name
-                    )
-                    tool_results.append(error_message)
+                    ))
 
-        return {"messages": tool_results}
+        # Hook: Finalize state updates
+        final_updates = self._finalize_state_updates(state, state_updates)
+        return {"messages": tool_results, **final_updates}
+
+    # ========================================================================
+    # Template Method Pattern for run_streaming
+    # ========================================================================
+    # The following methods implement a template method pattern that allows
+    # subclasses to customize streaming behavior without duplicating the
+    # core streaming logic.
+
+    def _convert_message_history(self, message_history: List[Dict]) -> List[BaseMessage]:
+        """
+        Convert message history to LangChain format.
+        Shared implementation for all agents.
+
+        Args:
+            message_history: Previous message history from database
+
+        Returns:
+            List of LangChain BaseMessage objects
+        """
+        def extract_text_content(content):
+            """Extract plain text from message content (handles both string and structured formats)"""
+            if isinstance(content, dict):
+                if content.get("type") == "text":
+                    return content.get("content", "")
+                return ""
+            return content
+
+        langchain_messages = []
+        for msg in message_history:
+            text_content = extract_text_content(msg["content"])
+            if text_content:
+                if msg["role"] == "user":
+                    langchain_messages.append(HumanMessage(content=text_content))
+                elif msg["role"] == "assistant":
+                    langchain_messages.append(AIMessage(content=text_content))
+
+        return langchain_messages
+
+    def _create_initial_state(
+        self,
+        messages: List[BaseMessage],
+        session_id: str,
+        system_prompt: str,
+        **extra_state
+    ) -> AgentState:
+        """
+        Create initial state for the graph. Override to add extra fields.
+
+        Args:
+            messages: LangChain messages including new user message
+            session_id: Session ID for context
+            system_prompt: System prompt for the agent
+            **extra_state: Additional state fields from subclass
+
+        Returns:
+            Initial state dict for the graph
+        """
+        return {
+            "messages": messages,
+            "session_id": session_id,
+            "system_prompt": system_prompt,
+            "has_generated_text": False
+        }
+
+    def _create_streaming_context(self) -> Dict:
+        """
+        Create context dict for accumulating data during streaming.
+        Override to add extra tracking fields.
+
+        Returns:
+            Context dict with at least 'accumulated_content' and 'message_id'
+        """
+        return {
+            "accumulated_content": [],
+            "message_id": f"msg-{uuid.uuid4()}"
+        }
+
+    def _handle_tool_message(self, msg: ToolMessage, context: Dict) -> None:
+        """
+        Handle tool messages during streaming. Override for agent-specific logic.
+        Default implementation does nothing.
+
+        Args:
+            msg: The ToolMessage from the graph
+            context: Streaming context dict to update
+        """
+        pass
+
+    def _build_response(self, context: Dict) -> dict:
+        """
+        Build final response dict. Override to add extra fields.
+
+        Args:
+            context: Streaming context dict with accumulated data
+
+        Returns:
+            Response dict with at least 'response' and 'message_id'
+        """
+        final_text = "".join(context["accumulated_content"])
+        return {
+            "response": final_text or "I apologize, I couldn't generate a response.",
+            "message_id": context["message_id"]
+        }
 
     async def run_streaming(
         self,
         message: str,
         message_history: List[Dict],
         system_prompt: str,
-        session_id: str
+        session_id: str,
+        **extra_state
     ) -> dict:
         """
-        Run the agent with streaming support
+        Run the agent with streaming support.
 
-        Publishes LLM tokens to Redis as they arrive, accumulating content for final DB save.
+        Uses template method pattern with hooks for customization:
+        - _convert_message_history: Convert message history to LangChain format
+        - _create_initial_state: Create initial state (override to add fields)
+        - _create_streaming_context: Create streaming context (override to add tracking)
+        - _handle_tool_message: Handle tool messages (override for custom logic)
+        - _build_response: Build final response (override to add fields)
 
         Args:
             message: User message to process
             message_history: Previous message history from database
             system_prompt: System prompt for the agent
             session_id: Session ID for context
+            **extra_state: Additional state fields for subclasses
 
         Returns:
-            dict with 'response' (str) and optional 'structured_outputs' (list)
+            dict with 'response' (str) and 'message_id' (str), plus subclass-specific fields
         """
-        # Convert message history to LangChain format
-        # Helper to extract text content from structured message
-        def extract_text_content(content):
-            """Extract plain text from message content (handles both string and structured formats)"""
-            if isinstance(content, dict):
-                # Structured content: extract the actual text from TextContent
-                if content.get("type") == "text":
-                    return content.get("content", "")
-                # For other types (recipe, ingredients), return empty string
-                return ""
-            # Plain string (backward compatibility)
-            return content
-
-        langchain_messages = []
-        for msg in message_history:
-            text_content = extract_text_content(msg["content"])
-            if text_content:  # Only add if there's actual text content
-                if msg["role"] == "user":
-                    langchain_messages.append(HumanMessage(content=text_content))
-                elif msg["role"] == "assistant":
-                    langchain_messages.append(AIMessage(content=text_content))
-
-        # Add new user message
+        # 1. Convert message history (shared)
+        langchain_messages = self._convert_message_history(message_history)
         langchain_messages.append(HumanMessage(content=message))
 
-        # Create initial state
-        initial_state: AgentState = {
-            "messages": langchain_messages,
-            "session_id": session_id,
-            "system_prompt": system_prompt,
-            "has_generated_text": False  # Reset for new turn
-        }
+        # 2. Create initial state (hook)
+        initial_state = self._create_initial_state(
+            langchain_messages, session_id, system_prompt, **extra_state
+        )
 
-        # Accumulators for final response
-        accumulated_content = []
-        saved_recipes = []
-        all_messages = []
+        # 3. Setup streaming context (hook)
+        context = self._create_streaming_context()
 
-        # Generate unique message ID for this streaming response
-        message_id = f"msg-{uuid.uuid4()}"
-
-        # Track current node to send appropriate status messages
-        current_node = None
-
-        # Stream through the graph
+        # 4. Stream through the graph (shared)
         async for msg, metadata in self.graph.astream(
             initial_state,
             stream_mode="messages"
         ):
-            # Track all messages for final processing
-            all_messages.append(msg)
-
-            # Get current node name
             node_name = metadata.get("langgraph_node", "")
 
-            # Filter for LLM-generated content from call_llm node
+            # 5. Handle LLM tokens (shared)
             if node_name == "call_llm" and isinstance(msg, AIMessage):
-                # Handle token streaming
                 if msg.content:
-                    # Accumulate for final save
-                    accumulated_content.append(msg.content)
-
-                    # Publish immediately for faster TTFT (time to first token)
-                    # No buffering - users see content as soon as it arrives
-                    full_text_so_far = "".join(accumulated_content)
+                    context["accumulated_content"].append(msg.content)
+                    full_text_so_far = "".join(context["accumulated_content"])
                     try:
                         await self.redis_client.send_agent_text_message(
                             session_id,
                             full_text_so_far,
-                            message_id
+                            context["message_id"]
                         )
                     except Exception as e:
                         logger.warning(f"❌ Redis publish failed (non-fatal): {e}")
 
-        # Send completion signal to clear thinking status
+            # 6. Handle tool messages (hook)
+            elif node_name == "execute_tools" and isinstance(msg, ToolMessage):
+                self._handle_tool_message(msg, context)
+
+        # 7. Send completion signal (shared)
         try:
-            await self.redis_client.send_system_message(
-                session_id,
-                "thinking",
-                None
-            )
+            await self.redis_client.send_system_message(session_id, "thinking", None)
         except Exception as e:
             logger.warning(f"❌ Failed to publish completion signal (non-fatal): {e}")
 
-        # Combine accumulated content
-        final_text = "".join(accumulated_content)
-
-        # Extract structured outputs (same logic as current run method)
-        for msg in all_messages:
-            if isinstance(msg, ToolMessage):
-                if msg.name == "save_recipe" and "recipe" in str(msg.content):
-                    try:
-                        import json
-                        import ast
-                        tool_result = ast.literal_eval(msg.content)
-                        if tool_result.get("success") and "recipe" in tool_result:
-                            saved_recipes.append(tool_result["recipe"])
-                    except Exception as e:
-                        logger.error(f"Error parsing save_recipe result: {e}")
-
-        response_text = final_text or "I apologize, I couldn't generate a response."
-
-        return {
-            "response": response_text,
-            "structured_outputs": saved_recipes,
-            "message_id": message_id  # Return message ID for reference
-        }
+        # 8. Build response (hook)
+        return self._build_response(context)

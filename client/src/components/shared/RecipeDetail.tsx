@@ -27,6 +27,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // TODO: Move this to a global config context/provider
     const fetchFeatures = async () => {
       const response = await config.getFeatures();
       if (response.data?.instacart_enabled) {

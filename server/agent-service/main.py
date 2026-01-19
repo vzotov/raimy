@@ -13,7 +13,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.services import database_service  # type: ignore
 from agents.prompts import COOKING_ASSISTANT_PROMPT, RECIPE_CREATOR_PROMPT  # type: ignore
-from agents.langgraph_agent import LangGraphAgent  # type: ignore
+from agents import KitchenAgent, RecipeCreatorAgent  # type: ignore
+from agents.base_agent import BaseAgent  # type: ignore
 from agents.mcp_tools import load_mcp_tools_for_langchain  # type: ignore
 
 load_dotenv()
@@ -22,7 +23,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Cache of agent instances by session type
-agent_instances: Dict[str, LangGraphAgent] = {}
+agent_instances: Dict[str, BaseAgent] = {}
 
 
 def format_recipe_context(recipe_data: Dict[str, Any]) -> str:
@@ -76,34 +77,31 @@ INSTRUCTIONS:
 ⚠️  IMPORTANT: The session name and ingredients are ALREADY SET in the database.
    DO NOT call set_session_name() or set_ingredients() - this data is already saved.
 
-🔴 CRITICAL: Guide through ONE step at a time. Wait for user confirmation before moving to next step.
-
-**When STARTING a new step:**
-1. Highlight ingredients for THIS step with update_ingredients() (set highlighted=true)
-2. State the instruction clearly and concisely
-3. STOP - do NOT continue, do NOT mark ingredients as used, do NOT move to next step
-4. Wait for user to respond before doing anything else
+🔴 CRITICAL: ONE response = ONE update_ingredients call + text instruction TOGETHER
 
 **When user says "done", "next", or confirms completion:**
-1. Mark previously highlighted ingredients as used with update_ingredients() (set used=true, highlighted=false)
-2. Move to the next step: highlight new ingredients and give instruction
-3. STOP again - wait for user confirmation
+Your response MUST contain BOTH in ONE message:
+1. ONE update_ingredients call that does BOTH:
+   - Mark previous step's ingredients: highlighted=false, used=true
+   - Highlight current step's ingredients: highlighted=true
+2. Your spoken instruction text for the current step
+
+❌ WRONG: Tool call only (no text) → then another response with text + tool
+✅ CORRECT: Tool call + text instruction in SAME response
 
 **Timer rules:**
 - For passive cooking steps (bake, simmer, rest, chill), use set_timer() tool
-- Do NOT set timers for active steps (whisking, mixing, chopping, etc.)
+- Include set_timer in the SAME response as update_ingredients and text
 
-**Critical stopping rules:**
-- After giving ONE step instruction, STOP completely
-- Do NOT call any more tools until user responds
-- Do NOT combine multiple steps or tool calls in one turn
-- Do NOT mark ingredients as used in the same turn you highlight them
-- Each user message should result in exactly ONE step instruction
+**Critical rules:**
+- NEVER make a tool-only response without text
+- NEVER call update_ingredients twice in one turn
+- After your instruction, STOP and wait for user to respond
 
 **General rules:**
 - Do NOT mention duration in your text - just state the instruction
-- Do NOT add meta-commentary like "Great, step X is done" or "Proceeding to step Y"
-- Just give the next instruction directly when user says they're ready
+- Do NOT add meta-commentary like "Great, step X is done"
+- Just give the next instruction directly
 
 Start with ONLY the first step, then STOP.
 """
@@ -111,15 +109,73 @@ Start with ONLY the first step, then STOP.
     return context
 
 
-async def get_agent(session_type: str = "recipe-creator") -> LangGraphAgent:
+def calculate_current_step(recipe: Dict[str, Any], ingredients: List[Dict]) -> Optional[Dict]:
     """
-    Get or create LangGraph agent instance for the specified session type
+    Calculate current step from recipe and ingredient state (kitchen mode only)
+
+    Determines which step the user is on based on which ingredients have been used.
+
+    Args:
+        recipe: Recipe data with steps and ingredients
+        ingredients: Current ingredient state from session
+
+    Returns:
+        Current step state dict or None if all steps complete
+    """
+    if not recipe:
+        return None
+
+    steps = recipe.get("steps", [])
+    recipe_ingredients = recipe.get("ingredients", [])
+
+    if not steps:
+        return None
+
+    # Map ingredients to steps (simple text matching)
+    step_ingredients: Dict[int, List[str]] = {}
+    for i, step in enumerate(steps):
+        instruction = step.get("instruction", "").lower()
+        step_ingredients[i] = [
+            ing.get("name", "") for ing in recipe_ingredients
+            if ing.get("name", "").lower() in instruction
+        ]
+
+    # Find used ingredients from session state
+    used = {ing.get("name", "") for ing in ingredients if ing.get("used")}
+
+    # Find current step based on used ingredients
+    for i, step in enumerate(steps):
+        step_ings = set(step_ingredients.get(i, []))
+        if not step_ings.issubset(used):
+            # This step's ingredients not all used yet - this is current step
+            tools_to_call = []
+            if step_ingredients.get(i):
+                tools_to_call.append("update_ingredients")
+            if step.get("duration"):
+                tools_to_call.append("set_timer")
+
+            return {
+                "index": i,
+                "instruction": step.get("instruction", ""),
+                "ingredients": step_ingredients.get(i, []),
+                "duration_minutes": step.get("duration"),
+                "tools_to_call": tools_to_call,
+                "tools_called": []
+            }
+
+    # All steps complete
+    return None
+
+
+async def get_agent(session_type: str = "recipe-creator") -> BaseAgent:
+    """
+    Get or create agent instance for the specified session type
 
     Args:
         session_type: Session type ("kitchen" or "recipe-creator")
 
     Returns:
-        LangGraphAgent instance with session-type-specific tools
+        Agent instance (KitchenAgent or RecipeCreatorAgent) with session-type-specific tools
     """
     global agent_instances
 
@@ -136,10 +192,14 @@ async def get_agent(session_type: str = "recipe-creator") -> LangGraphAgent:
     logger.info(f"🔄 Creating new agent instance for session_type='{session_type}'")
     mcp_tools = await load_mcp_tools_for_langchain(session_type=session_type)
 
-    agent = LangGraphAgent(mcp_tools=mcp_tools)
+    if session_type == "kitchen":
+        agent = KitchenAgent(mcp_tools=mcp_tools)
+    else:  # recipe-creator
+        agent = RecipeCreatorAgent(mcp_tools=mcp_tools)
+
     agent_instances[session_type] = agent
 
-    logger.info(f"✅ Initialized LangGraph agent for '{session_type}' with {len(mcp_tools)} tools")
+    logger.info(f"✅ Initialized {type(agent).__name__} for '{session_type}' with {len(mcp_tools)} tools")
     return agent
 
 
@@ -265,13 +325,30 @@ async def agent_chat(request: ChatRequest):
         # Get LangGraph agent instance with session-type-specific tools
         agent = await get_agent(session_type=session_type)
 
+        # Calculate current step for kitchen mode (enables tool deduplication)
+        current_step = None
+        if session_type == "kitchen" and recipe_data:
+            current_step = calculate_current_step(recipe_data, ingredients)
+            if current_step:
+                logger.debug(f"📍 Current step: {current_step.get('index')} - {current_step.get('instruction')[:50]}...")
+
         # Run agent with streaming to generate response
-        agent_result = await agent.run_streaming(
-            message=request.message,
-            message_history=messages,
-            system_prompt=system_prompt,
-            session_id=request.session_id
-        )
+        # Kitchen agent accepts current_step, recipe-creator does not
+        if session_type == "kitchen":
+            agent_result = await agent.run_streaming(
+                message=request.message,
+                message_history=messages,
+                system_prompt=system_prompt,
+                session_id=request.session_id,
+                current_step=current_step
+            )
+        else:
+            agent_result = await agent.run_streaming(
+                message=request.message,
+                message_history=messages,
+                system_prompt=system_prompt,
+                session_id=request.session_id
+            )
 
         # Extract response and structured outputs
         agent_response = agent_result["response"]

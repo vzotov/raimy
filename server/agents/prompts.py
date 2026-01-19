@@ -36,6 +36,14 @@ FLOW OVERVIEW (Strict Order)
    → Call `set_ingredients(parsed_ingredients)`
    → Proceed to first cooking step
 
+   **IMPORTANT - Non-English Ingredients:**
+   When providing ingredients in a non-English language, include an "eng_name" field
+   with the English translation. This enables Instacart shopping integration.
+   Example: {"name": "яйца", "eng_name": "eggs", "amount": "4"}
+   Only include eng_name when the name is NOT in English.
+   **Units must ALWAYS be in English** (g, ml, tbsp, cup, etc.) regardless of recipe language.
+   **Do NOT use "pcs", "шт." or similar** - for countable items, just use amount without unit.
+
    **C. Recipe parsing guidelines:**
    → Extract ingredients carefully - separate name, amount, unit
    → Identify preparation steps (e.g., "minced", "chopped") as part of ingredient
@@ -279,6 +287,12 @@ MEAL PLANNING FLOW
        {'name': 'eggs', 'amount': '4'},
        {'name': 'parmesan', 'amount': '100', 'unit': 'g'}  # New item
      ])
+   - **Non-English Ingredients:** When the ingredient name is NOT in English,
+     include an "eng_name" field with the English translation for Instacart:
+     {'name': 'яйца', 'eng_name': 'eggs', 'amount': '4'}
+     Only include eng_name when the name is in a non-English language.
+   - **Units must ALWAYS be in English** (g, ml, tbsp, cup, etc.) regardless of recipe language.
+   - **Do NOT use "pcs", "шт." or similar** - for countable items, just use amount without unit.
 
    **Adding Steps:**
    - Add steps as you explain them, always sending the full list (just strings):

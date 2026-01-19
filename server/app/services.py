@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 # Pydantic models for API - match JSON structure exactly
 class RecipeIngredientModel(BaseModel):
-    """Ingredient: {"name": "eggs", "amount": "4", "unit": null, "notes": "optional"}"""
+    """Ingredient: {"name": "eggs", "amount": "4", "unit": null, "notes": "optional", "eng_name": "eggs"}"""
     name: str
     amount: Optional[str] = None
     unit: Optional[str] = None
     notes: Optional[str] = None
+    eng_name: Optional[str] = None  # English name for Instacart (if name is not English)
 
 class RecipeStepModel(BaseModel):
     """Step: {"instruction": "Boil water", "duration": 10}"""

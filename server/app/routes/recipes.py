@@ -195,8 +195,10 @@ async def generate_instacart_link(
     # Transform ingredients to Instacart format
     instacart_ingredients = []
     for ingredient in recipe.get("ingredients", []):
+        # Use eng_name for Instacart search if available, fall back to name
+        search_name = ingredient.get("eng_name") or ingredient.get("name", "")
         line_item = {
-            "name": ingredient.get("name", ""),
+            "name": search_name,
             "display_text": _format_display_text(ingredient)
         }
 

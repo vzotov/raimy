@@ -63,6 +63,12 @@ export function useWebSocket({
         console.log('✅ WebSocket connected');
         setIsConnected(true);
         setError(null);
+
+        // Send "client_ready" signal to backend to indicate we're ready to receive messages
+        // This prevents race condition where backend sends greeting before frontend is ready
+        ws.send(JSON.stringify({ type: 'client_ready' }));
+        console.log('📤 Sent client_ready signal');
+
         onConnect?.();
       };
 

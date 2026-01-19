@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 # Pydantic models for API - match JSON structure exactly
 class RecipeIngredientModel(BaseModel):
-    """Ingredient: {"name": "eggs", "amount": "4", "unit": null, "notes": "optional"}"""
+    """Ingredient: {"name": "eggs", "amount": "4", "unit": null, "notes": "optional", "eng_name": "eggs"}"""
     name: str
     amount: Optional[str] = None
     unit: Optional[str] = None
     notes: Optional[str] = None
+    eng_name: Optional[str] = None  # English name for Instacart (if name is not English)
 
 class RecipeStepModel(BaseModel):
     """Step: {"instruction": "Boil water", "duration": 10}"""
@@ -213,12 +214,37 @@ class DatabaseService:
                     "tags": recipe.tags,
                     "user_id": recipe.user_id,
                     "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
+                    "instacart_link_url": recipe.instacart_link_url,
                     "created_at": recipe.created_at,
                     "updated_at": recipe.updated_at,
                 }
             except Exception as e:
                 logger.error(f"Error getting recipe {recipe_id}: {e}", exc_info=True)
                 return None
+
+    async def update_recipe_instacart_link(self, recipe_id: str, instacart_link_url: str) -> bool:
+        """Update recipe's cached Instacart link URL"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(Recipe).where(Recipe.id == recipe_id)
+                )
+                recipe = result.scalar_one_or_none()
+
+                if not recipe:
+                    return False
+
+                recipe.instacart_link_url = instacart_link_url
+                recipe.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"Cached Instacart link for recipe {recipe_id}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error updating Instacart link for recipe {recipe_id}: {e}", exc_info=True)
+                return False
 
     async def save_user(self, user_data: Dict[str, Any]) -> bool:
         """Save or update user data in PostgreSQL"""

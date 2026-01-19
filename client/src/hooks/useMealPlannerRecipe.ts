@@ -51,6 +51,15 @@ function parseTimeString(timeStr: string): number | undefined {
   return num;
 }
 
+function createEmptyRecipe(): Recipe {
+  return {
+    id: '',
+    name: '',
+    ingredients: [],
+    steps: [],
+  };
+}
+
 function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
   switch (action.type) {
     case 'SET_RECIPE':
@@ -60,47 +69,24 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
       };
 
     case 'SET_METADATA': {
-      if (!state.recipe) {
-        // Create new recipe during initial creation
-        const newRecipe: Recipe = {
-          id: '',
-          name: action.payload.name,
-          description: action.payload.description,
-          total_time_minutes: action.payload.total_time_minutes,
-          difficulty: action.payload.difficulty,
-          servings: action.payload.servings,
-          tags: action.payload.tags,
-          ingredients: [],
-          steps: [],
-          user_id: undefined,
-          chat_session_id: undefined,
-          created_at: undefined,
-          updated_at: undefined,
-        };
-        return { ...state, recipe: newRecipe, isRecipeChanged: true };
-      }
-
-      // Update existing recipe
+      const baseRecipe = state.recipe || createEmptyRecipe();
       return {
         ...state,
         recipe: {
-          ...state.recipe,
+          ...baseRecipe,
           ...action.payload,
-          updated_at: new Date().toISOString(),
+          updated_at: state.recipe ? new Date().toISOString() : undefined,
         },
         isRecipeChanged: true,
       };
     }
 
     case 'SET_INGREDIENTS': {
-      if (!state.recipe) {
-        // No recipe yet, just ignore ingredients
-        return state;
-      }
+      const baseRecipe = state.recipe || createEmptyRecipe();
       return {
         ...state,
         recipe: {
-          ...state.recipe,
+          ...baseRecipe,
           ingredients: action.payload,
         },
         isRecipeChanged: true,
@@ -108,14 +94,11 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
     }
 
     case 'SET_STEPS': {
-      if (!state.recipe) {
-        // No recipe yet, just ignore steps
-        return state;
-      }
+      const baseRecipe = state.recipe || createEmptyRecipe();
       return {
         ...state,
         recipe: {
-          ...state.recipe,
+          ...baseRecipe,
           steps: action.payload,
         },
         isRecipeChanged: true,

@@ -1,13 +1,14 @@
 """
-LangGraph-based Agent for Chat Assistance
+Base Agent Class for LangGraph-based Agents
 
-This module implements a stateful agent using LangGraph for processing
-chat messages with tool calling capabilities.
+This module provides the abstract base class for all LangGraph-based agents,
+containing shared functionality for tool calling, streaming, and Redis communication.
 """
 import os
 import sys
 import logging
 import uuid
+from abc import ABC, abstractmethod
 from typing import List, Dict, Annotated, TypedDict, Optional
 
 from langgraph.graph import StateGraph, END
@@ -32,8 +33,10 @@ class AgentState(TypedDict):
     has_generated_text: bool  # Track if LLM has generated text output
 
 
-class LangGraphAgent:
-    """LangGraph-based chat agent with tool calling"""
+class BaseAgent(ABC):
+    """Abstract base class for LangGraph-based chat agents with tool calling"""
+
+    MODEL="gpt-5-mini"
 
     def __init__(self, mcp_tools: Optional[List] = None):
         """
@@ -43,15 +46,19 @@ class LangGraphAgent:
             mcp_tools: List of MCP tools converted to LangChain format
         """
         self.mcp_tools = mcp_tools or []
+
+        # Model is configurable via environment variable
         self.llm = ChatOpenAI(
-            model="gpt-5-mini",
+            model=self.MODEL,
             temperature=0.7,
             api_key=os.getenv("OPENAI_API_KEY")
         )
+        logger.info(f"🤖 Using OpenAI model: {self.MODEL}")
 
         # Bind tools to LLM if available
+        # Enable parallel_tool_calls to allow multiple tools in one response
         if self.mcp_tools:
-            self.llm = self.llm.bind_tools(self.mcp_tools)
+            self.llm = self.llm.bind_tools(self.mcp_tools, parallel_tool_calls=True)
 
         # Build the graph
         self.graph = self._build_graph()
@@ -79,8 +86,16 @@ class LangGraphAgent:
                     "end": END
                 }
             )
-            # Go back to call_llm after executing tools
-            workflow.add_edge("execute_tools", "call_llm")
+            # After tools, decide whether to call LLM again or end
+            # If text was already generated with the tools, we're done
+            workflow.add_conditional_edges(
+                "execute_tools",
+                self._should_continue_after_tools,
+                {
+                    "continue": "call_llm",
+                    "end": END
+                }
+            )
         else:
             # No tools, just end after LLM call
             workflow.add_edge("call_llm", END)
@@ -127,19 +142,37 @@ class LangGraphAgent:
         """
         last_message = state["messages"][-1]
 
-        # If we've already generated text output, stop (don't continue loop)
-        # This prevents agent from making more tool calls after giving instruction
+        # Always execute tool calls if present, even if text was also generated
+        # This handles parallel tool calls where model returns text + tools together
+        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+            return "tools"
+
+        # No tool calls - we're done
+        return "end"
+
+    def _should_continue_after_tools(self, state: AgentState) -> str:
+        """
+        Determine if we should call LLM again after executing tools
+
+        Args:
+            state: Current agent state
+
+        Returns:
+            "continue" to call LLM again, "end" to finish
+        """
+        # If we've already generated text output, don't call LLM again
+        # This prevents unnecessary additional LLM calls after tools execute
         if state.get("has_generated_text", False):
             return "end"
 
-        # Check if the last message has tool calls
-        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-            return "tools"
-        return "end"
+        # No text generated yet, continue to LLM to get response
+        return "continue"
 
+    @abstractmethod
     def _get_tool_status_message(self, tool_name: str) -> str:
         """
-        Get user-friendly status message for a tool execution
+        Get user-friendly status message for a tool execution.
+        Must be implemented by subclasses.
 
         Args:
             tool_name: Name of the tool being executed
@@ -147,13 +180,7 @@ class LangGraphAgent:
         Returns:
             User-friendly status message
         """
-        status_messages = {
-            "set_ingredients": "gathering ingredients",
-            "update_ingredients": "thinking",
-            "set_timer": "setting timer",
-            "set_session_name": "preparing recipe"
-        }
-        return status_messages.get(tool_name, f"using {tool_name}")
+        pass
 
     async def _execute_tools_node(self, state: AgentState) -> Dict:
         """
@@ -288,7 +315,6 @@ class LangGraphAgent:
         accumulated_content = []
         saved_recipes = []
         all_messages = []
-        current_chunk_buffer = ""
 
         # Generate unique message ID for this streaming response
         message_id = f"msg-{uuid.uuid4()}"
@@ -307,24 +333,6 @@ class LangGraphAgent:
             # Get current node name
             node_name = metadata.get("langgraph_node", "")
 
-            # Send status updates when entering execute_tools node
-            if node_name and node_name != current_node:
-                current_node = node_name
-
-                if node_name == "execute_tools" and isinstance(msg, AIMessage):
-                    # Check if there are tool calls to determine the message
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        tool_name = msg.tool_calls[0].get("name", "")
-                        status_msg = self._get_tool_status_message(tool_name)
-                        try:
-                            await self.redis_client.send_system_message(
-                                session_id,
-                                "thinking",
-                                status_msg
-                            )
-                        except Exception as e:
-                            logger.warning(f"❌ Failed to publish tool status (non-fatal): {e}")
-
             # Filter for LLM-generated content from call_llm node
             if node_name == "call_llm" and isinstance(msg, AIMessage):
                 # Handle token streaming
@@ -332,38 +340,17 @@ class LangGraphAgent:
                     # Accumulate for final save
                     accumulated_content.append(msg.content)
 
-                    # Buffer small chunks to reduce Redis calls
-                    current_chunk_buffer += msg.content
-
-                    # Publish when buffer reaches ~50 chars or we have a complete word
-                    if len(current_chunk_buffer) >= 50 or msg.content.endswith((" ", "\n", ".", "!", "?")):
-                        # Get full accumulated text
-                        full_text_so_far = "".join(accumulated_content)
-
-                        # Publish accumulated text to Redis
-                        try:
-                            await self.redis_client.send_agent_text_message(
-                                session_id,
-                                full_text_so_far,
-                                message_id
-                            )
-                        except Exception as e:
-                            logger.warning(f"❌ Redis publish failed (non-fatal): {e}")
-
-                        # Reset buffer
-                        current_chunk_buffer = ""
-
-        # Flush any remaining buffer
-        if current_chunk_buffer:
-            full_text_final = "".join(accumulated_content)
-            try:
-                await self.redis_client.send_agent_text_message(
-                    session_id,
-                    full_text_final,
-                    message_id
-                )
-            except Exception as e:
-                logger.warning(f"❌ Redis publish failed (non-fatal): {e}")
+                    # Publish immediately for faster TTFT (time to first token)
+                    # No buffering - users see content as soon as it arrives
+                    full_text_so_far = "".join(accumulated_content)
+                    try:
+                        await self.redis_client.send_agent_text_message(
+                            session_id,
+                            full_text_so_far,
+                            message_id
+                        )
+                    except Exception as e:
+                        logger.warning(f"❌ Redis publish failed (non-fatal): {e}")
 
         # Send completion signal to clear thinking status
         try:

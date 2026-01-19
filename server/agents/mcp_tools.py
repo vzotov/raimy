@@ -8,7 +8,7 @@ import os
 import json
 import logging
 import httpx
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, Union
 from langchain_core.tools import Tool, StructuredTool
 from pydantic import BaseModel, Field, create_model
 
@@ -115,19 +115,55 @@ async def fetch_mcp_tools(mcp_url: str, session_type: Optional[str] = None) -> L
         return []
 
 
-def _create_tool_function(tool_name: str, mcp_url: str) -> Callable:
+def _create_tool_function(tool_name: str, mcp_url: str, input_schema: Dict[str, Any]) -> Callable:
     """
     Create a function that calls the MCP tool via HTTP
 
     Args:
         tool_name: Name of the MCP tool
         mcp_url: URL of the MCP server
+        input_schema: JSON schema for type coercion
 
     Returns:
         Async function that calls the tool
     """
+    # Extract expected types from schema for coercion
+    schema_types = {}
+    for field_name, field_schema in input_schema.get("properties", {}).items():
+        schema_types[field_name] = field_schema.get("type", "string")
+
     async def tool_function(**kwargs) -> Dict[str, Any]:
         """Execute MCP tool via HTTP"""
+        # Coerce types to match MCP schema expectations
+        # Normalizes Union types to the expected single type for consistent output
+        coerced_kwargs = {}
+        for key, value in kwargs.items():
+            expected_type = schema_types.get(key)
+            if value is not None:
+                if expected_type == "integer":
+                    # Normalize to int
+                    if isinstance(value, str):
+                        try:
+                            value = int(value)
+                        except ValueError:
+                            pass
+                    elif isinstance(value, float):
+                        value = int(value)
+                elif expected_type == "number":
+                    # Normalize to float
+                    if isinstance(value, str):
+                        try:
+                            value = float(value)
+                        except ValueError:
+                            pass
+                    elif isinstance(value, int):
+                        value = float(value)
+                elif expected_type == "string":
+                    # Normalize to string
+                    if not isinstance(value, str):
+                        value = str(value)
+            coerced_kwargs[key] = value
+
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
@@ -138,7 +174,7 @@ def _create_tool_function(tool_name: str, mcp_url: str) -> Callable:
                         "method": "tools/call",
                         "params": {
                             "name": tool_name,
-                            "arguments": kwargs
+                            "arguments": coerced_kwargs
                         }
                     },
                     headers={
@@ -212,10 +248,12 @@ def _convert_mcp_schema_to_pydantic(
         field_description = field_schema.get("description", "")
 
         # Map JSON schema types to Python types
+        # Use Union types for numeric fields to accept both string and numeric inputs
+        # This prevents validation errors when LLM sends "4" vs 4
         python_type = {
             "string": str,
-            "integer": int,
-            "number": float,
+            "integer": Union[int, str],  # Accept both int and string
+            "number": Union[float, int, str],  # Accept float, int, or string
             "boolean": bool,
             "array": List,
             "object": Dict
@@ -273,8 +311,8 @@ def convert_mcp_tools_to_langchain(
             # Create Pydantic model for tool arguments
             args_schema = _convert_mcp_schema_to_pydantic(tool_name, input_schema)
 
-            # Create function that calls MCP tool
-            tool_function = _create_tool_function(tool_name, mcp_url)
+            # Create function that calls MCP tool (pass schema for type coercion)
+            tool_function = _create_tool_function(tool_name, mcp_url, input_schema)
 
             # Create LangChain StructuredTool
             langchain_tool = StructuredTool(

@@ -16,6 +16,7 @@ from .routes.timers import create_timers_router
 from .routes.recipes import create_recipes_router
 from .routes.debug import create_debug_router
 from .routes.chat_sessions import create_chat_sessions_router
+from .routes.config import router as config_router
 from core.auth_client import auth_client
 from core.redis_client import get_redis_client
 from agents.auth_proxy import router as auth_proxy_router
@@ -468,57 +469,70 @@ async def websocket_chat_endpoint(
         # Get agent service URL from environment
         agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
 
-        # Check if this is a new session (no messages) and send static greeting
-        session_data = await database_service.get_chat_session(session_id)
-        if session_data:
+        # Track if greeting has been sent (to avoid duplicates on reconnect)
+        greeting_sent = False
+
+        # Helper function to send greeting for new sessions
+        async def send_greeting_if_needed():
+            nonlocal greeting_sent
+            if greeting_sent:
+                return
+
+            session_data = await database_service.get_chat_session(session_id)
+            if not session_data:
+                return
+
             messages = session_data.get("messages", [])
             session_type = session_data.get("session_type", "recipe-creator")
 
-            # If session has no messages, send static greeting without calling LLM
-            if len(messages) == 0:
-                recipe_id = session_data.get("recipe_id")
-                recipe_name = None
+            # Only send greeting if session has no messages
+            if len(messages) > 0:
+                greeting_sent = True  # Already has messages, no greeting needed
+                return
 
-                # If recipe_id exists for kitchen, fetch and customize greeting
-                if recipe_id and session_type == "kitchen":
-                    logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
+            recipe_id = session_data.get("recipe_id")
 
-                    # Fetch recipe data
-                    recipe_data = await database_service.get_recipe_by_id(recipe_id)
+            # If recipe_id exists for kitchen, fetch and customize greeting
+            if recipe_id and session_type == "kitchen":
+                logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
+                recipe_data = await database_service.get_recipe_by_id(recipe_id)
 
-                    if recipe_data:
-                        recipe_name = recipe_data.get("name")
-                        logger.info(f"✅ Loaded recipe: {recipe_name}")
-                        greeting = f"Hi! I'm Raimy, your cooking assistant. I've loaded the recipe for {recipe_name}. Are you ready to start cooking?"
-                    else:
-                        logger.warning(f"⚠️  Recipe {recipe_id} not found, using default greeting")
-                        greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                if recipe_data:
+                    recipe_name = recipe_data.get("name")
+                    logger.info(f"✅ Loaded recipe: {recipe_name}")
+                    greeting = f"Hi! I'm Raimy, your cooking assistant. I've loaded the recipe for {recipe_name}. Are you ready to start cooking?"
                 else:
-                    # Select greeting based on session type
-                    if session_type == "kitchen":
-                        greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
-                    else:
-                        greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
+                    logger.warning(f"⚠️  Recipe {recipe_id} not found, using default greeting")
+                    greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+            else:
+                # Select greeting based on session type
+                if session_type == "kitchen":
+                    greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
+                else:
+                    greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
 
-                # Save greeting to database (as structured TextContent)
-                try:
-                    await database_service.add_message_to_session(
-                        session_id=session_id,
-                        role="assistant",
-                        content={"type": "text", "content": greeting}
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to save greeting to database: {e}")
+            # Save greeting to database (as structured TextContent)
+            try:
+                await database_service.add_message_to_session(
+                    session_id=session_id,
+                    role="assistant",
+                    content={"type": "text", "content": greeting}
+                )
+            except Exception as e:
+                logger.error(f"Failed to save greeting to database: {e}")
 
-                # Send greeting as agent message
-                await connection_manager.send_message(session_id, {
-                    "type": "agent_message",
-                    "content": {
-                        "type": "text",
-                        "content": greeting
-                    },
-                    "message_id": f"greeting-{session_id}"
-                })
+            # Send greeting as agent message
+            await connection_manager.send_message(session_id, {
+                "type": "agent_message",
+                "content": {
+                    "type": "text",
+                    "content": greeting
+                },
+                "message_id": f"greeting-{session_id}"
+            })
+
+            greeting_sent = True
+            logger.info(f"✅ Sent greeting for session {session_id}")
 
         # Listen for messages from client
         while True:
@@ -530,6 +544,12 @@ async def websocket_chat_endpoint(
             # Extract message content
             message_type = data.get("type")
             content = data.get("content")
+
+            # Handle client_ready signal - send greeting after frontend confirms it's ready
+            if message_type == "client_ready":
+                logger.info(f"📡 Client ready signal received for session {session_id}")
+                await send_greeting_if_needed()
+                continue
 
             if message_type == "user_message" and content:
                 try:
@@ -617,6 +637,7 @@ app.include_router(create_timers_router(None))
 app.include_router(create_recipes_router(None))
 app.include_router(create_chat_sessions_router(None))
 app.include_router(create_debug_router())
+app.include_router(config_router)
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)
 

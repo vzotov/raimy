@@ -99,8 +99,11 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
     Each ingredient must include:
     - name (str): Ingredient name (REQUIRED)
     - At least ONE of: amount (str) OR unit (str) (at least one is REQUIRED)
+    - unit MUST ALWAYS be in English (g, ml, tbsp, cup, etc.) regardless of recipe language
+    - Do NOT use "pcs", "шт." or similar - for countable items, just use amount without unit
 
     OPTIONAL FIELDS:
+    - eng_name (str): English name for Instacart (only if name is NOT in English)
     - highlighted (bool): Whether to highlight (default: false, don't set initially)
     - used (bool): Whether ingredient is used (default: false, don't set initially)
 
@@ -115,7 +118,8 @@ async def set_ingredients(ingredients: List[dict], session_id: str) -> dict:
         set_ingredients([
             {"name": "eggs", "amount": "4"},
             {"name": "salt", "unit": "to taste"},
-            {"name": "milk", "amount": "200", "unit": "ml"}
+            {"name": "milk", "amount": "200", "unit": "ml"},
+            {"name": "яйца", "eng_name": "eggs", "amount": "4"}
         ])
     """
     print(f"🔧 MCP TOOL: set_ingredients({len(ingredients)} items, session={session_id})")
@@ -362,7 +366,10 @@ async def set_recipe_ingredients(
                     Each ingredient MUST have:
                       - name (str, REQUIRED)
                       - At least ONE of: amount (str) OR unit (str)
+                      - unit MUST ALWAYS be in English (g, ml, tbsp, cup, etc.)
+                      - Do NOT use "pcs", "шт." - for countable items, just use amount
                     Optional fields:
+                      - eng_name (str): English name for Instacart (only if name is NOT in English)
                       - notes (str)
         session_id: Session ID (auto-injected)
 
@@ -371,7 +378,7 @@ async def set_recipe_ingredients(
             {"name": "spaghetti", "amount": "400", "unit": "g"},
             {"name": "eggs", "amount": "4"},
             {"name": "salt", "unit": "to taste"},
-            {"name": "parmesan", "amount": "100", "unit": "g"}
+            {"name": "яйца", "eng_name": "eggs", "amount": "4"}
         ])
     """
     print(f"🔧 MCP TOOL: set_recipe_ingredients({len(ingredients)} items, session={session_id})")

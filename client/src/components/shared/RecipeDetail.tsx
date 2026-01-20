@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
@@ -10,7 +10,8 @@ import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
 import { useKitchenSessions } from '@/hooks/useSessions';
-import { config, recipes } from '@/lib/api';
+import { recipes } from '@/lib/api';
+import { useConfig } from '@/providers/ConfigProvider';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeDetailProps {
@@ -20,22 +21,11 @@ interface RecipeDetailProps {
 export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const router = useRouter();
   const { createSession } = useKitchenSessions();
+  const config = useConfig();
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isOrderingIngredients, setIsOrderingIngredients] = useState(false);
-  const [instacartEnabled, setInstacartEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // TODO: Move this to a global config context/provider
-    const fetchFeatures = async () => {
-      const response = await config.getFeatures();
-      if (response.data?.instacart_enabled) {
-        setInstacartEnabled(true);
-      }
-    };
-    fetchFeatures();
-  }, []);
 
   const handleSendToKitchen = async () => {
     try {
@@ -223,7 +213,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
               )}
             </button>
 
-            {instacartEnabled && (
+            {config.instacart_enabled && (
               <button
                 onClick={handleOrderIngredients}
                 disabled={isOrderingIngredients || !recipe.ingredients?.length}
@@ -239,7 +229,9 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
                     <InstacartCarrotIcon className="w-6 h-6" />
                     <span className="flex flex-col items-start leading-tight">
                       <span>Order Ingredients</span>
-                      <span className="text-xs text-text/60">via Instacart</span>
+                      <span className="text-xs text-text/60">
+                        via Instacart
+                      </span>
                     </span>
                   </>
                 )}

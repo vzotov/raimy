@@ -310,6 +310,26 @@ class RedisClient:
             }
         )
 
+    async def send_recipe_nutrition_message(self, session_id: str, nutrition: dict):
+        """
+        Send recipe nutrition message to update session.recipe.
+
+        Args:
+            session_id: Session ID
+            nutrition: Nutrition data dict (e.g., {"calories": 850, "carbs": 65, "fats": 32, "proteins": 45})
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_nutrition",
+                    "nutrition": nutrition
+                }
+            }
+        )
+
     def is_agent_message(self, message: dict, content_type: str = None) -> bool:
         """
         Check if a message is an agent message, optionally with specific content type

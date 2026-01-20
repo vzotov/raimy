@@ -9,6 +9,7 @@ interface UseRecipeCreatorStateParams {
   sessionId: string;
   initialMessages?: SessionMessage[];
   initialRecipe?: Recipe | null;
+  initialIsChanged?: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ export function useRecipeCreatorState({
   sessionId,
   initialMessages = [],
   initialRecipe,
+  initialIsChanged = false,
 }: UseRecipeCreatorStateParams) {
   // Get base chat functionality
   const {
@@ -40,7 +42,7 @@ export function useRecipeCreatorState({
     setRecipe,
     resetChangedFlag,
     clearRecipe,
-  } = useMealPlannerRecipe(initialRecipe);
+  } = useMealPlannerRecipe(initialRecipe, initialIsChanged);
 
   /**
    * Handle meal planner-specific messages first, then delegate to chat handler

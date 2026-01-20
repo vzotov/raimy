@@ -3,7 +3,7 @@
  * Supports multiple message types with type-safe content.
  */
 
-import type { RecipeIngredient, RecipeStep } from './recipe';
+import type { RecipeIngredient, RecipeNutrition, RecipeStep } from './recipe';
 
 // Message content variants
 export type TextContent = {
@@ -68,10 +68,17 @@ export type RecipeStepsUpdate = {
   steps: RecipeStep[];
 };
 
+export type RecipeNutritionUpdate = {
+  type: 'recipe_update';
+  action: 'set_nutrition';
+  nutrition: RecipeNutrition;
+};
+
 export type RecipeUpdateContent =
   | RecipeMetadataUpdate
   | RecipeIngredientsUpdate
-  | RecipeStepsUpdate;
+  | RecipeStepsUpdate
+  | RecipeNutritionUpdate;
 
 export type TimerContent = {
   type: 'timer';

@@ -12,6 +12,14 @@ export interface RecipeStep {
   duration?: number;
 }
 
+export interface RecipeNutrition {
+  calories?: number; // total for full recipe
+  carbs?: number; // grams
+  fats?: number; // grams
+  proteins?: number; // grams
+  // extensible for future: fiber, sodium, etc.
+}
+
 export interface Recipe {
   id: string; // Empty string '' for unsaved recipes
   name: string;
@@ -22,6 +30,7 @@ export interface Recipe {
   difficulty?: string;
   servings?: number;
   tags?: string[];
+  nutrition?: RecipeNutrition; // Nutrition data for full recipe
   user_id?: string; // Populated after save
   chat_session_id?: string;
   created_at?: string; // Populated after save

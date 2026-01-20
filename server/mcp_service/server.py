@@ -455,6 +455,60 @@ async def set_recipe_steps(
 
 
 @mcp.tool(tags={"recipe-creator"})
+async def set_recipe_nutrition(
+    session_id: str,
+    calories: Optional[int] = None,
+    carbs: Optional[int] = None,
+    fats: Optional[int] = None,
+    proteins: Optional[int] = None,
+) -> dict:
+    """
+    Set the nutritional information for the recipe.
+
+    Call this in PARALLEL with other recipe tools (set_recipe_metadata, set_recipe_ingredients,
+    set_recipe_steps) when you have the nutrition data available.
+
+    All values are for the FULL RECIPE (not per serving). Frontend handles per-serving calculations.
+
+    Args:
+        calories: Total calories for the full recipe (integer)
+        carbs: Total carbohydrates in grams (integer)
+        fats: Total fats in grams (integer)
+        proteins: Total proteins in grams (integer)
+        session_id: Session ID (auto-injected)
+
+    Example:
+        set_recipe_nutrition(
+            calories=850,
+            carbs=65,
+            fats=32,
+            proteins=45
+        )
+    """
+    logger.info(f"🔧 MCP TOOL: set_recipe_nutrition(calories={calories}, carbs={carbs}, fats={fats}, proteins={proteins}, session={session_id})")
+
+    try:
+        # Build nutrition dict with only non-None values
+        nutrition = {}
+        if calories is not None:
+            nutrition["calories"] = calories
+        if carbs is not None:
+            nutrition["carbs"] = carbs
+        if fats is not None:
+            nutrition["fats"] = fats
+        if proteins is not None:
+            nutrition["proteins"] = proteins
+
+        await redis_client.send_recipe_nutrition_message(session_id, nutrition)
+
+        logger.info(f"✅ set_recipe_nutrition: Set nutrition data")
+        return {"success": True, "message": "Nutrition data set"}
+    except Exception as e:
+        logger.error(f"❌ set_recipe_nutrition error: {str(e)}")
+        return {"success": False, "message": f"Error: {str(e)}"}
+
+
+@mcp.tool(tags={"recipe-creator"})
 async def save_recipe(session_id: str) -> dict:
     """
     Save the current recipe to the user's recipe collection.

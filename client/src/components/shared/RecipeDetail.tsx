@@ -9,6 +9,7 @@ import HourglassIcon from '@/components/icons/HourglassIcon';
 import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
+import NutritionSection from '@/components/shared/NutritionSection';
 import { useKitchenSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import { useConfig } from '@/providers/ConfigProvider';
@@ -141,6 +142,17 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Nutrition */}
+      {recipe.nutrition && (
+        <div className="mb-8 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-xl font-semibold text-text mb-4">Nutrition</h2>
+          <NutritionSection
+            nutrition={recipe.nutrition}
+            servings={recipe.servings}
+          />
         </div>
       )}
 

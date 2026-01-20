@@ -39,6 +39,7 @@ class RecipeModel(BaseModel):
     difficulty: Optional[str] = None
     servings: Optional[int] = None
     tags: Optional[List[str]] = None
+    nutrition: Optional[Dict[str, int]] = None  # {"calories": 850, "carbs": 65, "fats": 32, "proteins": 45}
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None
@@ -141,6 +142,7 @@ class DatabaseService:
                         "difficulty": recipe.difficulty,
                         "servings": recipe.servings,
                         "tags": recipe.tags,
+                        "nutrition": recipe.nutrition,
                         "user_id": recipe.user_id,
                         "created_at": recipe.created_at,
                         "updated_at": recipe.updated_at,
@@ -178,6 +180,7 @@ class DatabaseService:
                         "difficulty": recipe.difficulty,
                         "servings": recipe.servings,
                         "tags": recipe.tags,
+                        "nutrition": recipe.nutrition,
                         "user_id": recipe.user_id,
                         "created_at": recipe.created_at,
                         "updated_at": recipe.updated_at,
@@ -212,6 +215,7 @@ class DatabaseService:
                     "difficulty": recipe.difficulty,
                     "servings": recipe.servings,
                     "tags": recipe.tags,
+                    "nutrition": recipe.nutrition,
                     "user_id": recipe.user_id,
                     "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
                     "instacart_link_url": recipe.instacart_link_url,
@@ -441,6 +445,7 @@ class DatabaseService:
                     "ingredients": session.ingredients or [],
                     "recipe": session.recipe or None,
                     "recipe_id": str(session.recipe_id) if session.recipe_id else None,
+                    "recipe_changed": session.recipe_changed,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -660,12 +665,17 @@ class DatabaseService:
                     # Replace entire steps array
                     recipe["steps"] = update_data.get("steps", [])
 
+                elif action == "set_nutrition":
+                    # Set nutrition data
+                    recipe["nutrition"] = update_data.get("nutrition", {})
+
                 session.recipe = recipe
                 flag_modified(session, "recipe")
+                session.recipe_changed = True
                 session.updated_at = datetime.utcnow()
 
                 await db.commit()
-                logger.info(f"💾 Recipe updated: action={action}, recipe={recipe}")
+                logger.info(f"💾 Recipe updated: action={action}, recipe_changed=True")
                 return True
 
             except Exception as e:
@@ -742,11 +752,13 @@ class DatabaseService:
                     db_recipe.difficulty = recipe_json.get("difficulty", "medium")
                     db_recipe.servings = recipe_json.get("servings", 4)
                     db_recipe.tags = recipe_json.get("tags", [])
+                    db_recipe.nutrition = recipe_json.get("nutrition")
 
                     flag_modified(db_recipe, "ingredients")
                     flag_modified(db_recipe, "steps")
 
                     await db.commit()
+                    await db.refresh(db_recipe)
                     recipe_id = str(db_recipe.id)
                 else:
                     # Create new recipe
@@ -761,6 +773,7 @@ class DatabaseService:
                         difficulty=recipe_json.get("difficulty", "medium"),
                         servings=recipe_json.get("servings", 4),
                         tags=recipe_json.get("tags", []),
+                        nutrition=recipe_json.get("nutrition"),
                         user_id=owner_email,
                         chat_session_id=session_id
                     )
@@ -773,7 +786,16 @@ class DatabaseService:
                     # Link recipe to session
                     await self.update_session_recipe_id(session_id, recipe_id)
 
-                logger.info(f"✅ Recipe saved: {recipe_id}")
+                # Reset recipe_changed flag after successful save
+                session_result = await db.execute(
+                    select(ChatSession).where(ChatSession.id == session_id)
+                )
+                session = session_result.scalar_one_or_none()
+                if session:
+                    session.recipe_changed = False
+                    await db.commit()
+
+                logger.info(f"✅ Recipe saved: {recipe_id}, recipe_changed=False")
 
                 return {
                     "recipe_id": recipe_id,
@@ -787,6 +809,7 @@ class DatabaseService:
                         "difficulty": db_recipe.difficulty,
                         "servings": db_recipe.servings,
                         "tags": db_recipe.tags or [],
+                        "nutrition": db_recipe.nutrition,
                         "user_id": db_recipe.user_id,
                         "chat_session_id": str(db_recipe.chat_session_id) if db_recipe.chat_session_id else None,
                         "created_at": db_recipe.created_at.isoformat() if db_recipe.created_at else None,

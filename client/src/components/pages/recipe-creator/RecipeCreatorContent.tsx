@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import RecipeCreatorChat from '@/components/pages/recipe-creator/RecipeCreatorChat';
+import type { Recipe } from '@/types/recipe';
 
 interface RecipeCreatorContentProps {
   id: string;
@@ -27,12 +28,17 @@ export default async function RecipeCreatorContent({
     const session = data.session;
 
     // Transform recipe to include id from session.recipe_id
-    const recipeWithId = session.recipe
-      ? {
-          ...session.recipe,
-          id: session.recipe_id || null,
-        }
-      : null;
+    let recipeWithId: Recipe | null = null;
+
+    if (session.recipe) {
+      recipeWithId = {
+        ...session.recipe,
+        id: session.recipe_id || '',
+      };
+    }
+
+    // Use recipe_changed flag from backend as source of truth
+    const initialIsChanged = session.recipe_changed ?? false;
 
     return (
       <RecipeCreatorChat
@@ -40,6 +46,7 @@ export default async function RecipeCreatorContent({
         sessionName={session.session_name}
         initialMessages={session.messages || []}
         initialRecipe={recipeWithId}
+        initialIsChanged={initialIsChanged}
       />
     );
   } catch (error) {

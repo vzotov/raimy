@@ -91,6 +91,20 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
             ))}
           </div>
 
+          {/* Nutrition - calories only for compact view */}
+          {recipe.nutrition?.calories && (
+            <div className="text-sm text-text/60 mb-4">
+              {recipe.nutrition.calories} cal
+              {recipe.servings && recipe.servings > 1 && (
+                <span className="text-text/40">
+                  {' '}
+                  ({Math.round(recipe.nutrition.calories / recipe.servings)} per
+                  serving)
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Spacer to push buttons to bottom */}
           <div className="flex-1"></div>
 

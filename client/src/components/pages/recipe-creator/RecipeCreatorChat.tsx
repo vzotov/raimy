@@ -16,6 +16,7 @@ interface RecipeCreatorChatProps {
   sessionName: string;
   initialMessages?: SessionMessage[];
   initialRecipe?: Recipe | null;
+  initialIsChanged?: boolean;
 }
 
 export default function RecipeCreatorChat({
@@ -23,6 +24,7 @@ export default function RecipeCreatorChat({
   sessionName,
   initialMessages = [],
   initialRecipe,
+  initialIsChanged = false,
 }: RecipeCreatorChatProps) {
   // Use composed state hook
   const { state, handleMessage, addMessage, setRecipe, resetChangedFlag } =
@@ -30,6 +32,7 @@ export default function RecipeCreatorChat({
       sessionId,
       initialMessages,
       initialRecipe,
+      initialIsChanged,
     });
 
   console.log('[RecipeCreatorChat] State:', initialRecipe);

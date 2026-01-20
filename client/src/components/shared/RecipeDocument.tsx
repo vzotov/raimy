@@ -1,6 +1,8 @@
 import ClockIcon from '@/components/icons/ClockIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import SaveIcon from '@/components/icons/SaveIcon';
+import NutritionSection from '@/components/shared/NutritionSection';
+import SectionTitle from '@/components/shared/SectionTitle';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeDocumentProps {
@@ -112,12 +114,21 @@ export default function RecipeDocument({
           </div>
         )}
 
+        {/* Nutrition Section */}
+        {recipe.nutrition && (
+          <div className="mb-8">
+            <SectionTitle>Nutrition</SectionTitle>
+            <NutritionSection
+              nutrition={recipe.nutrition}
+              servings={recipe.servings}
+            />
+          </div>
+        )}
+
         {/* Ingredients Section */}
         {recipe.ingredients && recipe.ingredients.length > 0 && (
           <div className="mb-8">
-            <h2 className="sticky top-0 bg-surface z-10 text-xl font-semibold text-text mb-4 border-b border-accent/20 pb-2">
-              Ingredients
-            </h2>
+            <SectionTitle>Ingredients</SectionTitle>
             <ul className="space-y-2">
               {recipe.ingredients.map((ingredient, idx) => (
                 <li key={idx} className="flex items-start gap-3 text-text/80">
@@ -146,9 +157,7 @@ export default function RecipeDocument({
         {/* Instructions Section */}
         {recipe.steps && recipe.steps.length > 0 && (
           <div className="mb-8">
-            <h2 className="sticky top-0 bg-surface z-10 text-xl font-semibold text-text mb-4 border-b border-accent/20 pb-2">
-              Instructions
-            </h2>
+            <SectionTitle>Instructions</SectionTitle>
             <ol className="space-y-4">
               {recipe.steps.map((step, idx) => (
                 <li key={idx} className="flex gap-3">

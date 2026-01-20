@@ -1,6 +1,11 @@
 import { useCallback, useReducer } from 'react';
 import type { RecipeUpdateContent } from '@/types/chat-message-types';
-import type { Recipe, RecipeIngredient, RecipeStep } from '@/types/recipe';
+import type {
+  Recipe,
+  RecipeIngredient,
+  RecipeNutrition,
+  RecipeStep,
+} from '@/types/recipe';
 
 interface RecipeState {
   recipe: Recipe | null;
@@ -22,6 +27,7 @@ type RecipeAction =
     }
   | { type: 'SET_INGREDIENTS'; payload: RecipeIngredient[] }
   | { type: 'SET_STEPS'; payload: RecipeStep[] }
+  | { type: 'SET_NUTRITION'; payload: RecipeNutrition }
   | { type: 'RESET_CHANGED_FLAG' }
   | { type: 'CLEAR_RECIPE' };
 
@@ -105,6 +111,18 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
       };
     }
 
+    case 'SET_NUTRITION': {
+      const baseRecipe = state.recipe || createEmptyRecipe();
+      return {
+        ...state,
+        recipe: {
+          ...baseRecipe,
+          nutrition: action.payload,
+        },
+        isRecipeChanged: true,
+      };
+    }
+
     case 'RESET_CHANGED_FLAG':
       return {
         ...state,
@@ -123,13 +141,13 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
   }
 }
 
-export function useMealPlannerRecipe(initialRecipe?: Recipe | null) {
-  // Determine initial state: if recipe exists but has no id, it's unsaved
-  const initialIsRecipeChanged = !!(initialRecipe && !initialRecipe.id);
-
+export function useMealPlannerRecipe(
+  initialRecipe?: Recipe | null,
+  initialIsChanged?: boolean,
+) {
   const [state, dispatch] = useReducer(recipeReducer, {
     recipe: initialRecipe || null,
-    isRecipeChanged: initialIsRecipeChanged,
+    isRecipeChanged: initialIsChanged ?? false,
   });
 
   const applyRecipeUpdate = useCallback(
@@ -166,6 +184,14 @@ export function useMealPlannerRecipe(initialRecipe?: Recipe | null) {
           dispatch({
             type: 'SET_STEPS',
             payload: update.steps,
+          });
+          break;
+        }
+
+        case 'set_nutrition': {
+          dispatch({
+            type: 'SET_NUTRITION',
+            payload: update.nutrition,
           });
           break;
         }

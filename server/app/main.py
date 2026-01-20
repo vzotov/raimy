@@ -453,6 +453,14 @@ async def websocket_chat_endpoint(
                         steps=content.get("steps", [])
                     )
 
+                case "set_nutrition":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_nutrition",
+                        nutrition=content.get("nutrition", {})
+                    )
+
         async def handle_session_name_message(content: dict):
             """Handle session_name message - save to session.session_name"""
             session_name = content.get("name")

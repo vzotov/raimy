@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, JSON
+from sqlalchemy import Column, String, ForeignKey, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base, TimestampMixin
@@ -15,6 +15,7 @@ class ChatSession(Base, TimestampMixin):
     ingredients = Column(JSON, nullable=True)
     recipe = Column(JSON, nullable=True)  # Work-in-progress recipe data
     recipe_id = Column(UUID(as_uuid=True), ForeignKey("recipes.id", ondelete="SET NULL"), nullable=True)  # Saved recipe reference
+    recipe_changed = Column(Boolean, nullable=False, default=False)  # Track unsaved recipe changes
 
     # Relationships
     user = relationship("User", back_populates="chat_sessions")

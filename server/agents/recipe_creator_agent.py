@@ -26,6 +26,7 @@ class RecipeCreatorAgent(BaseAgent):
             "set_recipe_metadata": "setting up recipe",
             "set_recipe_ingredients": "adding ingredients",
             "set_recipe_steps": "writing steps",
+            "set_recipe_nutrition": "calculating nutrition",
             "save_recipe": "saving recipe",
             "generate_session_name": "naming session"
         }

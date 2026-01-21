@@ -132,15 +132,18 @@ deploy_code() {
     echo -e "${YELLOW}Deploying application code...${NC}"
 
     # Create tarball of project (excluding node_modules, .git, etc.)
+    # COPYFILE_DISABLE=1 prevents macOS from including extended attributes (._* files)
+    # which can cause null byte corruption when extracted on Linux
     cd ..
-    tar --exclude='./client/node_modules' \
+    COPYFILE_DISABLE=1 tar --exclude='./client/node_modules' \
         --exclude='./client/.next' \
         --exclude='./.git' \
         --exclude='./venv' \
-        --exclude='./__pycache__' \
+        --exclude='*/__pycache__' \
         --exclude='*.pyc' \
         --exclude='./.env' \
         --exclude='./.env.*' \
+        --exclude='._*' \
         -czf /tmp/raimy-deploy.tar.gz .
     cd deploy
 

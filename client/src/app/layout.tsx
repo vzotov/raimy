@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 import LayoutContent from '@/components/LayoutContent';
 import Providers from '@/providers/Providers';
-import GoogleAnalytics from '@/components/GoogleAnalytics';
 
 const inter = Inter({
   subsets: ['latin'],

@@ -1,4 +1,4 @@
-import type { Ingredient } from '@/components/shared/IngredientList';
+import type { KitchenIngredient } from '@/components/pages/kitchen/KitchenIngredientList';
 import type { Timer } from '@/components/shared/TimerList';
 import type { ChatAction, ChatState } from './chatTypes';
 
@@ -6,7 +6,7 @@ import type { ChatAction, ChatState } from './chatTypes';
  * Kitchen-specific state extends base chat state
  */
 export interface KitchenMessageState extends ChatState {
-  ingredients: Ingredient[];
+  ingredients: KitchenIngredient[];
   timers: Timer[];
 }
 
@@ -15,6 +15,6 @@ export interface KitchenMessageState extends ChatState {
  */
 export type KitchenMessageAction =
   | ChatAction
-  | { type: 'SET_INGREDIENTS'; payload: Ingredient[] }
-  | { type: 'UPDATE_INGREDIENTS'; payload: Ingredient[] }
+  | { type: 'SET_INGREDIENTS'; payload: KitchenIngredient[] }
+  | { type: 'UPDATE_INGREDIENTS'; payload: KitchenIngredient[] }
   | { type: 'ADD_TIMER'; payload: Timer };

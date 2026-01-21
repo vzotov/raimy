@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
-import RecipeCreatorContent from '@/components/pages/recipe-creator/RecipeCreatorContent';
 import KitchenChatSkeleton from '@/components/pages/kitchen/KitchenChatSkeleton';
+import RecipeCreatorContent from '@/components/pages/recipe-creator/RecipeCreatorContent';
 
 interface RecipeCreatorSessionPageProps {
   params: Promise<{

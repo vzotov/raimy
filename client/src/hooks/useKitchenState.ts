@@ -1,5 +1,5 @@
 import { useCallback, useReducer } from 'react';
-import type { Ingredient } from '@/components/shared/IngredientList';
+import type { KitchenIngredient } from '@/components/pages/kitchen/KitchenIngredientList';
 import { useChatState } from '@/hooks/useChatState';
 import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import {
@@ -16,7 +16,7 @@ import type { SessionMessage } from '@/types/chat-session';
 interface UseKitchenStateParams {
   sessionId: string;
   initialMessages?: SessionMessage[];
-  initialIngredients?: Ingredient[];
+  initialIngredients?: KitchenIngredient[];
 }
 
 /**

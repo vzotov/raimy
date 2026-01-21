@@ -1,8 +1,8 @@
 'use client';
 
-import Script from 'next/script';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, Suspense } from 'react';
+import Script from 'next/script';
+import { Suspense, useEffect } from 'react';
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
 
@@ -13,7 +13,8 @@ function GoogleAnalyticsInner() {
   useEffect(() => {
     if (!GA_MEASUREMENT_ID || !window.gtag) return;
 
-    const url = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+    const url =
+      pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
     window.gtag('config', GA_MEASUREMENT_ID, {
       page_path: url,
     });

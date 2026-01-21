@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
-import KitchenContent from '@/components/pages/kitchen/KitchenContent';
 import KitchenChatSkeleton from '@/components/pages/kitchen/KitchenChatSkeleton';
+import KitchenContent from '@/components/pages/kitchen/KitchenContent';
 
 interface KitchenSessionPageProps {
   params: Promise<{

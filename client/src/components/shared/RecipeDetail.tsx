@@ -6,8 +6,8 @@ import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
-import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
+import InstacartButton from '@/components/shared/InstacartButton';
 import UsersIcon from '@/components/icons/UsersIcon';
 import IngredientList from '@/components/shared/IngredientList';
 import NutritionSection from '@/components/shared/NutritionSection';
@@ -163,6 +163,15 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
         <div className="mb-8 px-4 sm:px-6 lg:px-8">
           <h2 className="text-xl font-semibold text-text mb-4">Ingredients</h2>
           <IngredientList ingredients={recipe.ingredients} />
+          {config.instacart_enabled && (
+            <div className="mt-4">
+              <InstacartButton
+                onClick={handleOrderIngredients}
+                disabled={!recipe.ingredients?.length}
+                loading={isOrderingIngredients}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -200,31 +209,6 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
                 </>
               )}
             </button>
-
-            {config.instacart_enabled && (
-              <button
-                onClick={handleOrderIngredients}
-                disabled={isOrderingIngredients || !recipe.ingredients?.length}
-                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isOrderingIngredients ? (
-                  <>
-                    <HourglassIcon className="animate-spin w-5 h-5" />
-                    Opening...
-                  </>
-                ) : (
-                  <>
-                    <InstacartCarrotIcon className="w-6 h-6" />
-                    <span className="flex flex-col items-start leading-tight">
-                      <span>Order Ingredients</span>
-                      <span className="text-xs text-text/60">
-                        via Instacart
-                      </span>
-                    </span>
-                  </>
-                )}
-              </button>
-            )}
 
             {recipe.chat_session_id && (
               <button

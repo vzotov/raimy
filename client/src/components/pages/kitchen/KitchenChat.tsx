@@ -2,10 +2,11 @@
 
 import classNames from 'classnames';
 import { useCallback } from 'react';
+import KitchenIngredientList, {
+  type KitchenIngredient,
+} from '@/components/pages/kitchen/KitchenIngredientList';
 import Chat from '@/components/shared/chat/Chat';
-import IngredientList, {
-  type Ingredient,
-} from '@/components/shared/IngredientList';
+import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SessionMessage } from '@/types/chat-session';
@@ -14,7 +15,7 @@ interface KitchenChatProps {
   sessionId: string;
   sessionName: string;
   initialMessages?: SessionMessage[];
-  initialIngredients?: Ingredient[];
+  initialIngredients?: KitchenIngredient[];
 }
 
 export default function KitchenChat({
@@ -29,6 +30,9 @@ export default function KitchenChat({
     initialMessages,
     initialIngredients,
   });
+
+  // Update document title when session name changes via WebSocket
+  useChatSessionTitle(state.sessionName);
 
   // WebSocket connection
   const { isConnected, error, sendMessage } = useWebSocket({
@@ -87,7 +91,7 @@ export default function KitchenChat({
               <h2 className="flex-shrink-0 text-lg font-semibold text-text pr-4">
                 Ingredients
               </h2>
-              <IngredientList ingredients={state.ingredients} />
+              <KitchenIngredientList ingredients={state.ingredients} />
             </div>
           </div>
         )}

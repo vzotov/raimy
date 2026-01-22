@@ -1,7 +1,5 @@
 import type { MessageContent } from '@/types/chat-message-types';
-import IngredientList from './IngredientList';
 import MessageConfirmationButtons from './MessageConfirmationButtons';
-import RecipeMessage from './RecipeMessage';
 
 export interface MessageRendererProps {
   content: MessageContent;
@@ -49,23 +47,6 @@ export default function MessageRenderer({
           )}
         </div>
       );
-
-    case 'ingredients':
-      return (
-        <IngredientList
-          title={content.title}
-          items={content.items}
-          isUser={isUser}
-        />
-      );
-
-    case 'recipe':
-      return <RecipeMessage recipe={content} isUser={isUser} />;
-
-    case 'recipe_update':
-      // recipe_update messages are not rendered in chat - they only update the sidebar
-      // They are handled separately in MealPlannerChat
-      return null;
 
     default:
       // TypeScript exhaustiveness check - if we miss a case, this will error

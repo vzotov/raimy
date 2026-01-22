@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import Chat from '@/components/shared/chat/Chat';
 import RecipeDocument from '@/components/shared/RecipeDocument';
 import SlidingPanel from '@/components/shared/SlidingPanel';
+import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { chatSessions } from '@/lib/api';
@@ -35,7 +36,8 @@ export default function RecipeCreatorChat({
       initialIsChanged,
     });
 
-  console.log('[RecipeCreatorChat] State:', initialRecipe);
+  // Update document title when session name changes via WebSocket
+  useChatSessionTitle(state.sessionName);
 
   // UI-specific state (moved from hook)
   const [isRecipeVisible, setIsRecipeVisible] = useState(false);

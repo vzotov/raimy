@@ -1,8 +1,9 @@
-import ClockIcon from '@/components/icons/ClockIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import SaveIcon from '@/components/icons/SaveIcon';
+import IngredientList from '@/components/shared/IngredientList';
 import NutritionSection from '@/components/shared/NutritionSection';
 import SectionTitle from '@/components/shared/SectionTitle';
+import StepList from '@/components/shared/StepList';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeDocumentProps {
@@ -129,28 +130,7 @@ export default function RecipeDocument({
         {recipe.ingredients && recipe.ingredients.length > 0 && (
           <div className="mb-8">
             <SectionTitle>Ingredients</SectionTitle>
-            <ul className="space-y-2">
-              {recipe.ingredients.map((ingredient, idx) => (
-                <li key={idx} className="flex items-start gap-3 text-text/80">
-                  <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
-                  <span>
-                    {ingredient.amount && (
-                      <span className="font-medium">{ingredient.amount} </span>
-                    )}
-                    {ingredient.unit && (
-                      <span className="text-text/60">{ingredient.unit} </span>
-                    )}
-                    <span>{ingredient.name}</span>
-                    {ingredient.notes && (
-                      <span className="text-text/60 text-sm italic">
-                        {' '}
-                        ({ingredient.notes})
-                      </span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <IngredientList ingredients={recipe.ingredients} />
           </div>
         )}
 
@@ -158,26 +138,7 @@ export default function RecipeDocument({
         {recipe.steps && recipe.steps.length > 0 && (
           <div className="mb-8">
             <SectionTitle>Instructions</SectionTitle>
-            <ol className="space-y-4">
-              {recipe.steps.map((step, idx) => (
-                <li key={idx} className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-primary/20 text-primary text-sm font-medium rounded-full flex items-center justify-center">
-                    {idx + 1}
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-text/80 leading-relaxed">
-                      {step.instruction}
-                    </p>
-                    {step.duration && (
-                      <p className="text-text/60 text-sm mt-1 flex items-center gap-1">
-                        <ClockIcon className="inline-block w-4 h-4" />{' '}
-                        {step.duration} min
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <StepList steps={recipe.steps} />
           </div>
         )}
       </div>

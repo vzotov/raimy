@@ -6,10 +6,12 @@ import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
-import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
+import IngredientList from '@/components/shared/IngredientList';
+import InstacartButton from '@/components/shared/InstacartButton';
 import NutritionSection from '@/components/shared/NutritionSection';
+import StepList from '@/components/shared/StepList';
 import { useKitchenSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import { useConfig } from '@/providers/ConfigProvider';
@@ -95,7 +97,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   return (
     <>
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-text/10 py-4 mb-6">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-text/10 py-4 sm:py-6 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-text px-4 sm:px-6 lg:px-8">
           {recipe.name}
         </h1>
@@ -157,46 +159,29 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       )}
 
       {/* Ingredients */}
-      <div className="mb-8 px-4 sm:px-6 lg:px-8">
-        <h2 className="text-xl font-semibold text-text mb-4">Ingredients</h2>
-        <ul className="space-y-2">
-          {recipe.ingredients?.map((ingredient, index) => (
-            <li key={index} className="flex items-center text-text/80">
-              <span className="w-2 h-2 bg-primary rounded-full mr-3"></span>
-              {ingredient.amount && `${ingredient.amount} `}
-              {ingredient.unit && `${ingredient.unit} `}
-              {ingredient.name}
-              {ingredient.notes && (
-                <span className="text-text/60 text-sm ml-2">
-                  ({ingredient.notes})
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {recipe.ingredients && recipe.ingredients.length > 0 && (
+        <div className="mb-8 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-xl font-semibold text-text mb-4">Ingredients</h2>
+          <IngredientList ingredients={recipe.ingredients} />
+          {config.instacart_enabled && (
+            <div className="mt-4">
+              <InstacartButton
+                onClick={handleOrderIngredients}
+                disabled={!recipe.ingredients?.length}
+                loading={isOrderingIngredients}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Steps */}
-      <div className="mb-8 px-4 sm:px-6 lg:px-8">
-        <h2 className="text-xl font-semibold text-text mb-4">Instructions</h2>
-        <div className="space-y-4">
-          {recipe.steps?.map((step, index) => (
-            <div key={index} className="flex items-start">
-              <span className="bg-primary/20 text-primary text-sm font-medium px-3 py-1 rounded-full mr-4 mt-1 flex-shrink-0">
-                {index + 1}
-              </span>
-              <div className="flex-1">
-                <p className="text-text/80">{step.instruction}</p>
-                {step.duration && (
-                  <p className="text-text/60 text-sm mt-1">
-                    Time: {step.duration} min
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
+      {recipe.steps && recipe.steps.length > 0 && (
+        <div className="mb-8 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-xl font-semibold text-text mb-4">Instructions</h2>
+          <StepList steps={recipe.steps} />
         </div>
-      </div>
+      )}
 
       {/* Sticky Action Buttons */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-text/10 py-4 mt-8">
@@ -224,31 +209,6 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
                 </>
               )}
             </button>
-
-            {config.instacart_enabled && (
-              <button
-                onClick={handleOrderIngredients}
-                disabled={isOrderingIngredients || !recipe.ingredients?.length}
-                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isOrderingIngredients ? (
-                  <>
-                    <HourglassIcon className="animate-spin w-5 h-5" />
-                    Opening...
-                  </>
-                ) : (
-                  <>
-                    <InstacartCarrotIcon className="w-6 h-6" />
-                    <span className="flex flex-col items-start leading-tight">
-                      <span>Order Ingredients</span>
-                      <span className="text-xs text-text/60">
-                        via Instacart
-                      </span>
-                    </span>
-                  </>
-                )}
-              </button>
-            )}
 
             {recipe.chat_session_id && (
               <button

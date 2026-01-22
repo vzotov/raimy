@@ -40,7 +40,9 @@ export default function NutritionSection({
         )}
         {nutrition.carbs && (
           <div className="text-center">
-            <div className="text-xl font-bold text-text">{nutrition.carbs}g</div>
+            <div className="text-xl font-bold text-text">
+              {nutrition.carbs}g
+            </div>
             <div className="text-xs text-text/60">Carbs</div>
           </div>
         )}

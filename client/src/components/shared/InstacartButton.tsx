@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 

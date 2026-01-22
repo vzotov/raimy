@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import './globals.css';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
 import LayoutContent from '@/components/LayoutContent';
+import { DEFAULT_TITLE, TITLE_TEMPLATE } from '@/constants/metadata';
 import Providers from '@/providers/Providers';
 
 const inter = Inter({
@@ -12,7 +13,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Raimy',
+  title: {
+    template: TITLE_TEMPLATE,
+    default: DEFAULT_TITLE,
+  },
   description: 'Kitchen Assistant. Vibe cooking with AI agent.',
   keywords: [
     'cooking',

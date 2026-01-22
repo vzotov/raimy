@@ -7,9 +7,9 @@ import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
-import InstacartButton from '@/components/shared/InstacartButton';
 import UsersIcon from '@/components/icons/UsersIcon';
 import IngredientList from '@/components/shared/IngredientList';
+import InstacartButton from '@/components/shared/InstacartButton';
 import NutritionSection from '@/components/shared/NutritionSection';
 import StepList from '@/components/shared/StepList';
 import { useKitchenSessions } from '@/hooks/useSessions';
@@ -97,7 +97,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   return (
     <>
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-text/10 py-4 mb-6">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-text/10 py-4 sm:py-6 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-text px-4 sm:px-6 lg:px-8">
           {recipe.name}
         </h1>

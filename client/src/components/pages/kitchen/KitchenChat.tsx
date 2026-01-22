@@ -6,6 +6,7 @@ import KitchenIngredientList, {
   type KitchenIngredient,
 } from '@/components/pages/kitchen/KitchenIngredientList';
 import Chat from '@/components/shared/chat/Chat';
+import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SessionMessage } from '@/types/chat-session';
@@ -29,6 +30,9 @@ export default function KitchenChat({
     initialMessages,
     initialIngredients,
   });
+
+  // Update document title when session name changes via WebSocket
+  useChatSessionTitle(state.sessionName);
 
   // WebSocket connection
   const { isConnected, error, sendMessage } = useWebSocket({

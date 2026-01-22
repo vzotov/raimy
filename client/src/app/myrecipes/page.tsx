@@ -1,6 +1,10 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import RecipeList from '@/components/pages/myrecipes/RecipeList';
 import { RecipeListSkeleton } from '@/components/pages/myrecipes/RecipeListSkeleton';
+export const metadata: Metadata = {
+  title: 'My Recipes',
+};
 
 export default function MyRecipesPage() {
   return (

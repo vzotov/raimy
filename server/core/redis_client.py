@@ -8,9 +8,12 @@ This module provides a shared Redis client for:
 import os
 import json
 import asyncio
+import logging
 from typing import Optional, AsyncIterator
 import redis.asyncio as redis
 from redis.asyncio.client import PubSub
+
+logger = logging.getLogger(__name__)
 
 
 class RedisClient:
@@ -36,20 +39,20 @@ class RedisClient:
 
             for attempt in range(3):
                 try:
-                    print(f"🔄 Connecting to Redis at {self.redis_url} (attempt {attempt + 1}/3)")
+                    logger.warning(f"🔄 Connecting to Redis at {self.redis_url} (attempt {attempt + 1}/3)")
                     self._client = await redis.from_url(
                         self.redis_url,
                         encoding="utf-8",
                         decode_responses=True
                     )
                     await self._client.ping()
-                    print("✅ Redis connection established")
+                    logger.warning("✅ Redis connection established")
                     return
                 except Exception as e:
-                    print(f"❌ Redis connection failed (attempt {attempt + 1}): {e}")
+                    logger.error(f"❌ Redis connection failed (attempt {attempt + 1}): {e}")
                     if attempt < 2:
                         wait_time = 2 ** attempt
-                        print(f"⏳ Waiting {wait_time}s before retry...")
+                        logger.warning(f"⏳ Waiting {wait_time}s before retry...")
                         await asyncio.sleep(wait_time)
 
             raise ConnectionError("Failed to connect to Redis after 3 attempts")
@@ -65,7 +68,6 @@ class RedisClient:
         await self._ensure_connected()
         message_json = json.dumps(message)
         await self._client.publish(channel, message_json)
-        print(f"📤 Published to Redis channel '{channel}': {message.get('content', {}).get('type', 'unknown')}")
 
     async def subscribe(self, channel: str) -> AsyncIterator[dict]:
         """
@@ -82,28 +84,24 @@ class RedisClient:
 
         try:
             await pubsub.subscribe(channel)
-            print(f"📥 Subscribed to Redis channel '{channel}'")
 
             async for message in pubsub.listen():
                 if message["type"] == "message":
                     try:
                         data = json.loads(message["data"])
-                        print(f"📬 Received from Redis channel '{channel}': {data.get('content', {}).get('type', 'unknown')}")
                         yield data
                     except json.JSONDecodeError as e:
-                        print(f"❌ Failed to decode Redis message: {e}")
+                        logger.error(f"❌ Failed to decode Redis message: {e}")
                         continue
         finally:
             await pubsub.unsubscribe(channel)
             await pubsub.close()
-            print(f"📭 Unsubscribed from Redis channel '{channel}'")
 
     async def close(self):
         """Close Redis connection"""
         if self._client:
             await self._client.close()
             self._client = None
-            print("🔌 Redis connection closed")
 
     async def send_system_message(self, session_id: str, message_type: str, message: str):
         """

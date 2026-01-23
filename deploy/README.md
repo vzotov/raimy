@@ -62,7 +62,7 @@ Internet → nginx (port 80/443)
            /api → raimy-api (8000)
                    ├─ auth-service (8001)
                    ├─ mcp-service (8002)
-                   ├─ raimy-bot (8003)
+                   ├─ agent-service (8003)
                    ├─ PostgreSQL (5432)
                    └─ Redis (6379)
 ```

@@ -14,8 +14,9 @@ RUN pip install --no-cache-dir -r server/agent-service/requirements.txt
 # Copy entire server directory structure (needed for shared modules)
 COPY server/ ./server/
 
-# Set PYTHONPATH to include server directory
-ENV PYTHONPATH=/app/server
+# Set PYTHONPATH to include both server directory (for shared modules like core/, app/)
+# and agent-service directory (for local modules like agents/, config.py, mcp/)
+ENV PYTHONPATH=/app/server:/app/server/agent-service
 
 # Expose port
 EXPOSE 8003

@@ -19,7 +19,7 @@ from .routes.chat_sessions import create_chat_sessions_router
 from .routes.config import router as config_router
 from core.auth_client import auth_client
 from core.redis_client import get_redis_client
-from agents.auth_proxy import router as auth_proxy_router
+from .routes.auth_proxy import router as auth_proxy_router
 from .services import database_service
 
 
@@ -183,13 +183,10 @@ import sys
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
     format='%(levelname)s:     %(name)s - %(message)s',
     stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 
 @app.get("/", tags=["Root"])
 async def root():
@@ -475,7 +472,7 @@ async def websocket_chat_endpoint(
         redis_task = asyncio.create_task(redis_listener())
 
         # Get agent service URL from environment
-        agent_url = os.getenv("AGENT_SERVICE_URL", "http://raimy-bot:8003")
+        agent_url = os.getenv("AGENT_SERVICE_URL", "http://agent-service:8003")
 
         # Track if greeting has been sent (to avoid duplicates on reconnect)
         greeting_sent = False

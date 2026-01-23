@@ -103,7 +103,7 @@ services:
     environment:
       - PYTHONPATH=/app/server
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - AGENT_SERVICE_URL=http://raimy-bot:8003
+      - AGENT_SERVICE_URL=http://agent-service:8003
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       - REDIS_URL=redis://redis:6379
@@ -132,7 +132,7 @@ services:
       redis:
         condition: service_healthy
 
-  raimy-bot:
+  agent-service:
     build:
       context: .
       dockerfile: server/agent-service/Dockerfile

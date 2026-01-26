@@ -822,5 +822,45 @@ class DatabaseService:
                 logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
                 raise
 
+    async def save_session_recipe(self, session_id: str, recipe: Dict[str, Any]) -> bool:
+        """
+        Save full recipe object to session.recipe field.
+        Used by kitchen agent to persist accumulated recipe.
+
+        Args:
+            session_id: Session ID
+            recipe: Full recipe object
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        logger.info(f"📝 save_session_recipe: session={session_id}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.recipe = recipe
+                flag_modified(session, "recipe")
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"💾 Recipe saved to session: {recipe.get('name')}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
+                return False
+
+
 # Global instance
 database_service = DatabaseService()

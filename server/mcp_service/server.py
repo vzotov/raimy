@@ -292,7 +292,7 @@ async def set_session_name(session_name: str, session_id: str) -> dict:
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"recipe-creator"})
+@mcp.tool(tags={"recipe-creator", "kitchen"})
 async def set_recipe_metadata(
     session_id: str,
     name: str,
@@ -303,10 +303,12 @@ async def set_recipe_metadata(
     tags: Optional[str] = None,
 ) -> dict:
     """
-    Set or update recipe metadata in the meal planner sidebar.
+    Set or update recipe metadata (name, description, difficulty, time, servings, tags).
 
-    Use this to initialize a recipe or update its properties. This replaces
-    ALL metadata fields, so include all values you want to keep.
+    **KITCHEN MODE**: When user names a recipe to cook, use this FIRST to create the recipe.
+    Call in PARALLEL with set_recipe_ingredients and set_recipe_steps.
+
+    **RECIPE CREATOR MODE**: Use to build recipe metadata in the sidebar.
 
     Args:
         name: Recipe name (REQUIRED)
@@ -350,19 +352,21 @@ async def set_recipe_metadata(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"recipe-creator"})
+@mcp.tool(tags={"recipe-creator", "kitchen"})
 async def set_recipe_ingredients(
     session_id: str,
     ingredients: List[dict],
 ) -> dict:
     """
-    Set the complete ingredients list for the meal planner recipe.
+    Set the complete ingredients list for the recipe.
 
-    This REPLACES the entire ingredients list. To add or modify ingredients,
-    send the full updated list including existing items.
+    **KITCHEN MODE**: Call in PARALLEL with set_recipe_metadata and set_recipe_steps
+    when user names a recipe to cook.
+
+    **RECIPE CREATOR MODE**: Use to build the ingredient list in the sidebar.
 
     Args:
-        ingredients: Complete list of ingredients (use same structure as set_ingredients tool)
+        ingredients: Complete list of ingredients
                     Each ingredient MUST have:
                       - name (str, REQUIRED)
                       - At least ONE of: amount (str) OR unit (str)
@@ -399,16 +403,18 @@ async def set_recipe_ingredients(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"recipe-creator"})
+@mcp.tool(tags={"recipe-creator", "kitchen"})
 async def set_recipe_steps(
     session_id: str,
     steps: List[dict],
 ) -> dict:
     """
-    Set the complete cooking steps for the meal planner recipe.
+    Set the complete cooking steps for the recipe.
 
-    This REPLACES the entire steps list. To add or modify steps,
-    send the full updated list including existing items.
+    **KITCHEN MODE**: Call in PARALLEL with set_recipe_metadata and set_recipe_ingredients
+    when user names a recipe to cook.
+
+    **RECIPE CREATOR MODE**: Use to build the steps list in the sidebar.
 
     Args:
         steps: Complete list of cooking steps. Each step must have:
@@ -454,7 +460,7 @@ async def set_recipe_steps(
         return {"success": False, "message": f"Error: {str(e)}"}
 
 
-@mcp.tool(tags={"recipe-creator"})
+@mcp.tool(tags={"recipe-creator", "kitchen"})
 async def set_recipe_nutrition(
     session_id: str,
     calories: Optional[int] = None,

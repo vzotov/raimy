@@ -5,7 +5,10 @@ Specializes in guiding users through cooking recipes step-by-step,
 managing ingredients, and setting timers.
 
 Includes step state tracking to prevent duplicate tool calls within a single step.
+Supports recipe generation via Redis subscription when no recipe exists.
 """
+import asyncio
+import json
 import uuid
 import logging
 from typing import List, Dict, Any, Optional, TypedDict
@@ -30,9 +33,11 @@ class KitchenStepState(TypedDict):
 
 
 class KitchenAgentState(AgentState):
-    """Extended state for kitchen mode with step tracking"""
+    """Extended state for kitchen mode with step tracking and recipe generation"""
 
     current_step: Optional[KitchenStepState]
+    recipe: Optional[Dict[str, Any]]  # Recipe object - same structure as DB-loaded
+    recipe_generation_mode: bool  # True when generating recipe, False when guiding
 
 
 class KitchenAgent(BaseAgent):
@@ -41,6 +46,14 @@ class KitchenAgent(BaseAgent):
     # Tools that should only be called once per step
     DEDUPE_TOOLS = {"update_ingredients", "set_timer"}
 
+    # Recipe creation tools that trigger Redis subscription
+    RECIPE_TOOLS = {
+        "set_recipe_metadata",
+        "set_recipe_ingredients",
+        "set_recipe_steps",
+        "set_recipe_nutrition",
+    }
+
     def _get_tool_status_message(self, tool_name: str) -> str:
         """Get user-friendly status message for kitchen tool execution"""
         status_messages = {
@@ -48,6 +61,10 @@ class KitchenAgent(BaseAgent):
             "update_ingredients": "updating ingredients",
             "set_timer": "setting timer",
             "set_session_name": "preparing recipe",
+            "set_recipe_metadata": "creating recipe",
+            "set_recipe_ingredients": "adding ingredients",
+            "set_recipe_steps": "writing steps",
+            "set_recipe_nutrition": "calculating nutrition",
         }
         return status_messages.get(tool_name, "thinking")
 
@@ -231,6 +248,49 @@ Start with ONLY the first step, then STOP.
         # All steps complete
         return None
 
+    def _accumulate_recipe_from_message(self, recipe: Dict, message: dict) -> Dict:
+        """
+        Accumulate recipe data from Redis message.
+        Same logic as API service's handle_recipe_update_message().
+
+        Args:
+            recipe: Current recipe object to update
+            message: Redis message dictionary
+
+        Returns:
+            Updated recipe object
+        """
+        content = message.get("content", {})
+        if content.get("type") != "recipe_update":
+            return recipe
+
+        action = content.get("action")
+
+        if action == "set_metadata":
+            if content.get("name"):
+                recipe["name"] = content.get("name")
+            if content.get("description"):
+                recipe["description"] = content.get("description")
+            if content.get("difficulty"):
+                recipe["difficulty"] = content.get("difficulty")
+            if content.get("total_time_minutes"):
+                recipe["total_time_minutes"] = content.get("total_time_minutes")
+            if content.get("servings"):
+                recipe["servings"] = content.get("servings")
+            if content.get("tags"):
+                recipe["tags"] = content.get("tags")
+
+        elif action == "set_ingredients":
+            recipe["ingredients"] = content.get("ingredients", [])
+
+        elif action == "set_steps":
+            recipe["steps"] = content.get("steps", [])
+
+        elif action == "set_nutrition":
+            recipe["nutrition"] = content.get("nutrition", {})
+
+        return recipe
+
     def _should_skip_tool(
         self, tool_name: str, current_step: Optional[KitchenStepState]
     ) -> bool:
@@ -242,87 +302,268 @@ Start with ONLY the first step, then STOP.
         return tool_name in current_step.get("tools_called", [])
 
     async def _execute_tools_node(self, state: KitchenAgentState) -> Dict:
-        """Execute tool calls with step-aware deduplication"""
+        """Execute tool calls with step-aware deduplication and Redis subscription for recipe tools"""
         last_message = state["messages"][-1]
         tool_results = []
 
-        # Get current step state
+        # Get current state
         current_step = state.get("current_step") or {}
         tools_called = list(current_step.get("tools_called", []))
+        recipe = dict(state.get("recipe") or {})
 
         if not hasattr(last_message, "tool_calls"):
             return {"messages": tool_results}
 
-        for tool_call in last_message.tool_calls:
-            tool_name = tool_call.get("name")
-            tool_args = tool_call.get("args", {})
-            tool_id = tool_call.get("id", "")
+        # Check if any recipe creation tools are being called
+        has_recipe_tools = any(
+            tc.get("name") in self.RECIPE_TOOLS
+            for tc in last_message.tool_calls
+        )
 
-            logger.debug(f"🔧 Tool call: {tool_name}")
+        if has_recipe_tools:
+            # Subscribe to Redis and execute tools concurrently
+            recipe = await self._execute_with_redis_subscription(
+                state, last_message.tool_calls, tool_results, tools_called, recipe
+            )
+        else:
+            # Normal tool execution
+            for tool_call in last_message.tool_calls:
+                tool_name = tool_call.get("name")
+                tool_args = tool_call.get("args", {})
+                tool_id = tool_call.get("id", "")
 
-            # Check if tool should be skipped (already called for this step)
-            if self._should_skip_tool(tool_name, current_step):
-                logger.info(
-                    f"⏭️ Skipping {tool_name} - already called for step {current_step.get('index')}"
-                )
-                tool_results.append(
-                    ToolMessage(
-                        content='{"success":true,"message":"Already called for this step"}',
-                        tool_call_id=tool_id,
-                        name=tool_name,
+                logger.debug(f"🔧 Tool call: {tool_name}")
+
+                # Check if tool should be skipped (already called for this step)
+                if self._should_skip_tool(tool_name, current_step):
+                    logger.info(
+                        f"⏭️ Skipping {tool_name} - already called for step {current_step.get('index')}"
                     )
-                )
-                continue
-
-            # Publish status message
-            status_message = self._get_tool_status_message(tool_name)
-            try:
-                await self.redis_client.send_system_message(
-                    state["session_id"], "thinking", status_message
-                )
-            except Exception as e:
-                logger.warning(f"❌ Failed to publish tool status: {e}")
-
-            # Inject session_id
-            tool_args["session_id"] = state["session_id"]
-
-            # Find and execute the tool
-            tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
-
-            if tool:
-                try:
-                    result = await tool.ainvoke(tool_args)
                     tool_results.append(
                         ToolMessage(
-                            content=str(result), tool_call_id=tool_id, name=tool_name
-                        )
-                    )
-                    # Track that we called this tool for deduplication
-                    if tool_name in self.DEDUPE_TOOLS:
-                        tools_called.append(tool_name)
-                except Exception as e:
-                    tool_results.append(
-                        ToolMessage(
-                            content=f"Error executing {tool_name}: {str(e)}",
+                            content='{"success":true,"message":"Already called for this step"}',
                             tool_call_id=tool_id,
                             name=tool_name,
                         )
                     )
-            else:
-                tool_results.append(
-                    ToolMessage(
-                        content=f"Tool {tool_name} not found",
-                        tool_call_id=tool_id,
-                        name=tool_name,
+                    continue
+
+                # Publish status message
+                status_message = self._get_tool_status_message(tool_name)
+                try:
+                    await self.redis_client.send_system_message(
+                        state["session_id"], "thinking", status_message
                     )
-                )
+                except Exception as e:
+                    logger.warning(f"❌ Failed to publish tool status: {e}")
+
+                # Inject session_id
+                tool_args["session_id"] = state["session_id"]
+
+                # Find and execute the tool
+                tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
+
+                if tool:
+                    try:
+                        result = await tool.ainvoke(tool_args)
+                        tool_results.append(
+                            ToolMessage(
+                                content=str(result), tool_call_id=tool_id, name=tool_name
+                            )
+                        )
+                        # Track that we called this tool for deduplication
+                        if tool_name in self.DEDUPE_TOOLS:
+                            tools_called.append(tool_name)
+                    except Exception as e:
+                        tool_results.append(
+                            ToolMessage(
+                                content=f"Error executing {tool_name}: {str(e)}",
+                                tool_call_id=tool_id,
+                                name=tool_name,
+                            )
+                        )
+                else:
+                    tool_results.append(
+                        ToolMessage(
+                            content=f"Tool {tool_name} not found",
+                            tool_call_id=tool_id,
+                            name=tool_name,
+                        )
+                    )
+
+        # Check if recipe is complete (has required fields)
+        recipe_complete = all([
+            recipe.get("name"),
+            recipe.get("ingredients"),
+            recipe.get("steps")
+        ])
 
         # Update current_step with new tools_called
         updated_step = (
             {**current_step, "tools_called": tools_called} if current_step else None
         )
 
-        return {"messages": tool_results, "current_step": updated_step}
+        return {
+            "messages": tool_results,
+            "current_step": updated_step,
+            "recipe": recipe if recipe else None,
+            "recipe_generation_mode": not recipe_complete,
+        }
+
+    async def _execute_with_redis_subscription(
+        self,
+        state: KitchenAgentState,
+        tool_calls: List,
+        tool_results: List,
+        tools_called: List,
+        recipe: Dict,
+    ) -> Dict:
+        """
+        Execute tools while subscribed to Redis to capture recipe updates.
+
+        Args:
+            state: Current agent state
+            tool_calls: List of tool calls to execute
+            tool_results: List to append tool results to
+            tools_called: List of tools called for deduplication
+            recipe: Current recipe object to accumulate into
+
+        Returns:
+            Updated recipe object with accumulated data from Redis messages
+        """
+        session_id = state["session_id"]
+        channel = f"session:{session_id}"
+        current_step = state.get("current_step") or {}
+
+        # Create a dedicated Redis connection for subscription
+        await self.redis_client._ensure_connected()
+        pubsub = self.redis_client._client.pubsub()
+        await pubsub.subscribe(channel)
+
+        try:
+            # Collect Redis messages in this list
+            collected_messages = []
+            stop_collecting = asyncio.Event()
+
+            async def collect_messages():
+                """Background task to collect Redis messages"""
+                try:
+                    async for message in pubsub.listen():
+                        if stop_collecting.is_set():
+                            break
+                        if message["type"] == "message":
+                            try:
+                                data = json.loads(message["data"])
+                                if self.redis_client.is_agent_message(data, "recipe_update"):
+                                    collected_messages.append(data)
+                                    logger.debug(f"📥 Collected recipe_update message: {data.get('content', {}).get('action')}")
+                            except json.JSONDecodeError:
+                                pass
+                except asyncio.CancelledError:
+                    pass
+
+            # Start message collector in background
+            collector_task = asyncio.create_task(collect_messages())
+
+            # Execute all tools
+            for tool_call in tool_calls:
+                tool_name = tool_call.get("name")
+                tool_args = tool_call.get("args", {})
+                tool_id = tool_call.get("id", "")
+
+                logger.debug(f"🔧 Tool call: {tool_name}")
+
+                # Check if tool should be skipped (already called for this step)
+                if self._should_skip_tool(tool_name, current_step):
+                    logger.info(
+                        f"⏭️ Skipping {tool_name} - already called for step {current_step.get('index')}"
+                    )
+                    tool_results.append(
+                        ToolMessage(
+                            content='{"success":true,"message":"Already called for this step"}',
+                            tool_call_id=tool_id,
+                            name=tool_name,
+                        )
+                    )
+                    continue
+
+                # Publish status message
+                status_message = self._get_tool_status_message(tool_name)
+                try:
+                    await self.redis_client.send_system_message(
+                        state["session_id"], "thinking", status_message
+                    )
+                except Exception as e:
+                    logger.warning(f"❌ Failed to publish tool status: {e}")
+
+                # Inject session_id
+                tool_args["session_id"] = state["session_id"]
+
+                # Find and execute the tool
+                tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
+
+                if tool:
+                    try:
+                        result = await tool.ainvoke(tool_args)
+                        tool_results.append(
+                            ToolMessage(
+                                content=str(result), tool_call_id=tool_id, name=tool_name
+                            )
+                        )
+                        # Track that we called this tool for deduplication
+                        if tool_name in self.DEDUPE_TOOLS:
+                            tools_called.append(tool_name)
+                    except Exception as e:
+                        tool_results.append(
+                            ToolMessage(
+                                content=f"Error executing {tool_name}: {str(e)}",
+                                tool_call_id=tool_id,
+                                name=tool_name,
+                            )
+                        )
+                else:
+                    tool_results.append(
+                        ToolMessage(
+                            content=f"Tool {tool_name} not found",
+                            tool_call_id=tool_id,
+                            name=tool_name,
+                        )
+                    )
+
+            # Give Redis a moment to deliver messages
+            await asyncio.sleep(0.1)
+
+            # Stop collector
+            stop_collecting.set()
+            collector_task.cancel()
+            try:
+                await collector_task
+            except asyncio.CancelledError:
+                pass
+
+            # Accumulate recipe from collected messages
+            for msg in collected_messages:
+                recipe = self._accumulate_recipe_from_message(recipe, msg)
+
+            logger.info(f"📦 Accumulated recipe from {len(collected_messages)} messages: {recipe.get('name', 'unnamed')}")
+
+            # If recipe was accumulated, save to DB for persistence
+            if recipe and recipe.get("name"):
+                try:
+                    # Import here to avoid circular dependency
+                    import sys
+                    sys.path.insert(0, '/app')
+                    from app.services import database_service
+                    await database_service.save_session_recipe(session_id, recipe)
+                    logger.info(f"💾 Persisted accumulated recipe to DB")
+                except Exception as e:
+                    logger.error(f"❌ Failed to persist recipe: {e}")
+
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+
+        return recipe
 
     async def run_streaming(
         self,
@@ -354,24 +595,31 @@ Start with ONLY the first step, then STOP.
             )
         )
 
-        # Calculate current step for tool deduplication
+        # Recipe comes from session_data (loaded from DB if recipe_id exists)
         recipe_data = session_data.get("recipe")
-        ingredients = session_data.get("ingredients", [])
+        has_valid_recipe = recipe_data and recipe_data.get("steps")
+
+        # Calculate current step only if we have a valid recipe
         current_step = None
-        if recipe_data:
+        if has_valid_recipe:
+            ingredients = session_data.get("ingredients", [])
             current_step = self._calculate_current_step(recipe_data, ingredients)
             if current_step:
                 logger.debug(
                     f"📍 Current step: {current_step.get('index')} - {current_step.get('instruction')[:50]}..."
                 )
+        else:
+            logger.info("🍳 No recipe found - entering recipe generation mode")
 
-        # Create initial state with current_step for kitchen mode
+        # Create initial state with recipe tracking for kitchen mode
         initial_state: KitchenAgentState = {
             "messages": langchain_messages,
             "session_id": session_id,
             "system_prompt": system_prompt,
             "has_generated_text": False,
             "current_step": current_step,
+            "recipe": recipe_data,  # Same object, whether loaded or empty/None
+            "recipe_generation_mode": not has_valid_recipe,
         }
 
         accumulated_content = []

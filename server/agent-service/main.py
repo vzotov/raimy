@@ -14,6 +14,8 @@ import uvicorn
 
 from app.services import database_service
 from agents.registry import get_agent
+from agents.recipe_creator.agent import RecipeCreatorAgent, RecipeEvent
+from core.redis_client import get_redis_client
 
 load_dotenv()
 
@@ -24,6 +26,9 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Get Redis client for recipe creator events
+redis_client = get_redis_client()
 
 # FastAPI app
 app = FastAPI(
@@ -50,7 +55,6 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Response model for chat endpoint"""
     response: str
-    structured_outputs: List[Dict] = []
     message_id: Optional[str] = None
     session_id: str
 
@@ -59,6 +63,100 @@ class ChatResponse(BaseModel):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "agent", "version": "3.0.0"}
+
+
+async def _handle_recipe_creator_events(
+    agent: RecipeCreatorAgent,
+    request: ChatRequest,
+    messages: List[Dict],
+    session_data: Dict,
+) -> ChatResponse:
+    """
+    Handle recipe creator agent events and convert them to Redis messages.
+
+    Returns:
+        ChatResponse with final text and structured outputs
+    """
+    text_response = ""
+    message_id = None
+    recipe_data = {}
+
+    async for event in agent.run_streaming(
+        message=request.message,
+        message_history=messages,
+        session_id=request.session_id,
+        session_data=session_data,
+    ):
+        logger.debug(f"📤 Recipe event: {event.type}")
+
+        match event.type:
+            case "thinking":
+                await redis_client.send_system_message(
+                    request.session_id, "thinking", event.data
+                )
+
+            case "session_name":
+                await redis_client.send_session_name_message(
+                    request.session_id, event.data
+                )
+
+            case "metadata":
+                recipe_data.update(event.data)
+                await redis_client.send_recipe_metadata_message(
+                    request.session_id,
+                    name=event.data.get("name"),
+                    description=event.data.get("description"),
+                    difficulty=event.data.get("difficulty"),
+                    total_time_minutes=event.data.get("total_time_minutes"),
+                    servings=event.data.get("servings"),
+                    tags=event.data.get("tags"),
+                )
+
+            case "ingredients":
+                recipe_data["ingredients"] = event.data
+                await redis_client.send_recipe_ingredients_message(
+                    request.session_id, event.data
+                )
+
+            case "steps":
+                recipe_data["steps"] = event.data
+                await redis_client.send_recipe_steps_message(
+                    request.session_id, event.data
+                )
+
+            case "nutrition":
+                recipe_data["nutrition"] = event.data
+                await redis_client.send_recipe_nutrition_message(
+                    request.session_id, event.data
+                )
+
+            case "text":
+                text_response = event.data.get("content", "")
+                message_id = event.data.get("message_id")
+                await redis_client.send_agent_text_message(
+                    request.session_id, text_response, message_id
+                )
+
+            case "complete":
+                # Clear thinking indicator
+                await redis_client.send_system_message(
+                    request.session_id, "thinking", None
+                )
+
+    # Save agent text response to database
+    if text_response:
+        await database_service.add_message_to_session(
+            session_id=request.session_id,
+            role="assistant",
+            content={"type": "text", "content": text_response},
+        )
+
+    # Recipe data is already persisted via Redis → app/main.py → database_service
+    return ChatResponse(
+        response=text_response or "I'm here to help with recipes!",
+        message_id=message_id,
+        session_id=request.session_id,
+    )
 
 
 @app.post("/agent/chat", response_model=ChatResponse)
@@ -83,6 +181,10 @@ async def agent_chat(request: ChatRequest):
         messages = session_data.get("messages", [])
         session_type = session_data.get("session_type", "recipe-creator")
 
+        # Log if we have a recipe in session (saved via Redis → database flow)
+        if session_data.get("recipe"):
+            logger.info(f"📝 Found existing recipe in session: {session_data['recipe'].get('name')}")
+
         # Load recipe data if recipe_id is present (for kitchen sessions)
         recipe_id = session_data.get("recipe_id")
         if recipe_id:
@@ -104,7 +206,13 @@ async def agent_chat(request: ChatRequest):
         # Get agent for this session type (cached)
         agent = await get_agent(session_type=session_type)
 
-        # Run agent with streaming
+        # Handle recipe creator differently - it yields events
+        if isinstance(agent, RecipeCreatorAgent):
+            return await _handle_recipe_creator_events(
+                agent, request, messages, session_data
+            )
+
+        # Kitchen agent uses the old interface (returns AgentResponse)
         agent_result = await agent.run_streaming(
             message=request.message,
             message_history=messages,
@@ -120,37 +228,36 @@ async def agent_chat(request: ChatRequest):
         )
 
         # Save structured recipe messages
-        for recipe_data in agent_result.structured_outputs:
-            recipe_message = {
-                "type": "recipe",
-                "recipe_id": recipe_data.get("recipe_id"),
-                "name": recipe_data.get("name"),
-                "description": recipe_data.get("description"),
-                "ingredients": [
-                    {"name": ing} for ing in recipe_data.get("ingredients", [])
-                ],
-                "steps": [
-                    {
-                        "step_number": i + 1,
-                        "instruction": step.get("instruction", ""),
-                        "duration_minutes": step.get("duration_minutes"),
-                    }
-                    for i, step in enumerate(recipe_data.get("steps", []))
-                ],
-                "total_time_minutes": recipe_data.get("total_time_minutes"),
-                "difficulty": recipe_data.get("difficulty"),
-                "servings": recipe_data.get("servings"),
-                "tags": recipe_data.get("tags", []),
-            }
-            await database_service.add_message_to_session(
-                session_id=request.session_id,
-                role="assistant",
-                content=recipe_message,
-            )
+        # for recipe_data in agent_result.structured_outputs:
+        #     recipe_message = {
+        #         "type": "recipe",
+        #         "recipe_id": recipe_data.get("recipe_id"),
+        #         "name": recipe_data.get("name"),
+        #         "description": recipe_data.get("description"),
+        #         "ingredients": [
+        #             {"name": ing} for ing in recipe_data.get("ingredients", [])
+        #         ],
+        #         "steps": [
+        #             {
+        #                 "step_number": i + 1,
+        #                 "instruction": step.get("instruction", ""),
+        #                 "duration_minutes": step.get("duration_minutes"),
+        #             }
+        #             for i, step in enumerate(recipe_data.get("steps", []))
+        #         ],
+        #         "total_time_minutes": recipe_data.get("total_time_minutes"),
+        #         "difficulty": recipe_data.get("difficulty"),
+        #         "servings": recipe_data.get("servings"),
+        #         "tags": recipe_data.get("tags", []),
+        #     }
+        #     await database_service.add_message_to_session(
+        #         session_id=request.session_id,
+        #         role="assistant",
+        #         content=recipe_message,
+        #     )
 
         return ChatResponse(
             response=agent_result.text,
-            structured_outputs=agent_result.structured_outputs,
             message_id=agent_result.message_id,
             session_id=request.session_id,
         )
@@ -160,11 +267,8 @@ async def agent_chat(request: ChatRequest):
     except Exception as e:
         logger.error(f"Error in agent_chat: {e}", exc_info=True)
 
-        # Publish error to Redis (import from shared server/core module)
+        # Publish error to Redis
         try:
-            from core.redis_client import get_redis_client
-
-            redis_client = get_redis_client()
             await redis_client.publish(
                 f"session:{request.session_id}",
                 {

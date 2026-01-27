@@ -42,7 +42,6 @@ class AgentResponse:
     """Response from agent execution"""
 
     text: str  # Message to send to user
-    structured_outputs: List[Dict]  # Saved recipes, etc.
     message_id: str  # Unique message ID
 
 
@@ -250,13 +249,10 @@ class BaseAgent(ABC):
         }
 
         accumulated_content = []
-        saved_recipes = []
-        all_messages = []
         message_id = f"msg-{uuid.uuid4()}"
 
         # Stream through the graph
         async for msg, metadata in self.graph.astream(initial_state, stream_mode="messages"):
-            all_messages.append(msg)
             node_name = metadata.get("langgraph_node", "")
 
             if node_name == "call_llm" and isinstance(msg, AIMessage):
@@ -276,22 +272,8 @@ class BaseAgent(ABC):
         except Exception as e:
             logger.warning(f"❌ Failed to publish completion signal: {e}")
 
-        # Extract structured outputs from tool messages
-        for msg in all_messages:
-            if isinstance(msg, ToolMessage):
-                if msg.name == "save_recipe" and "recipe" in str(msg.content):
-                    try:
-                        import ast
-
-                        tool_result = ast.literal_eval(msg.content)
-                        if tool_result.get("success") and "recipe" in tool_result:
-                            saved_recipes.append(tool_result["recipe"])
-                    except Exception as e:
-                        logger.error(f"Error parsing save_recipe result: {e}")
-
         final_text = "".join(accumulated_content)
         return AgentResponse(
             text=final_text or "I apologize, I couldn't generate a response.",
-            structured_outputs=saved_recipes,
             message_id=message_id,
         )

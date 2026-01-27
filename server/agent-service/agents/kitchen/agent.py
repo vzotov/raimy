@@ -623,15 +623,12 @@ Start with ONLY the first step, then STOP.
         }
 
         accumulated_content = []
-        saved_recipes = []
-        all_messages = []
         message_id = f"msg-{uuid.uuid4()}"
 
         # Stream through the graph
         async for msg, metadata in self.graph.astream(
             initial_state, stream_mode="messages"
         ):
-            all_messages.append(msg)
             node_name = metadata.get("langgraph_node", "")
 
             if node_name == "call_llm" and isinstance(msg, AIMessage):
@@ -654,6 +651,5 @@ Start with ONLY the first step, then STOP.
         final_text = "".join(accumulated_content)
         return AgentResponse(
             text=final_text or "I apologize, I couldn't generate a response.",
-            structured_outputs=saved_recipes,
             message_id=message_id,
         )

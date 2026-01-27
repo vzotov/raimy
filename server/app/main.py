@@ -581,17 +581,7 @@ async def websocket_chat_endpoint(
                             }
                         )
 
-                        if response.status_code == 200:
-                            agent_response = response.json()
-
-                            # Send each structured output as a separate message
-                            for idx, structured_output in enumerate(agent_response.get("structured_outputs", [])):
-                                await connection_manager.send_message(session_id, {
-                                    "type": "agent_message",
-                                    "content": structured_output,  # Already properly structured
-                                    "message_id": f"{agent_response.get('message_id')}_{idx}"
-                                })
-                        else:
+                        if response.status_code != 200:
                             logger.error(f"Agent service error: {response.status_code}")
                             await connection_manager.send_message(session_id, {
                                 "type": "system",

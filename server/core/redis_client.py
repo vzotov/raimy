@@ -328,6 +328,35 @@ class RedisClient:
             }
         )
 
+    async def send_step_update_message(
+        self,
+        session_id: str,
+        step_index: int,
+        step_instruction: str,
+        total_steps: int
+    ):
+        """
+        Send step update message for kitchen cooking guidance.
+
+        Args:
+            session_id: Session ID
+            step_index: Current step index (0-based)
+            step_instruction: Step instruction text
+            total_steps: Total number of steps in recipe
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "step_update",
+                    "step_index": step_index,
+                    "step_instruction": step_instruction,
+                    "total_steps": total_steps
+                }
+            }
+        )
+
     def is_agent_message(self, message: dict, content_type: str = None) -> bool:
         """
         Check if a message is an agent message, optionally with specific content type

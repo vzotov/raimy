@@ -14,7 +14,8 @@ import uvicorn
 
 from app.services import database_service
 from agents.registry import get_agent
-from agents.recipe_creator.agent import RecipeCreatorAgent, RecipeEvent
+from agents.recipe_creator.agent import RecipeCreatorAgent
+from agents.kitchen.agent import KitchenAgent
 from core.redis_client import get_redis_client
 
 load_dotenv()
@@ -63,6 +64,110 @@ class ChatResponse(BaseModel):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "agent", "version": "3.0.0"}
+
+
+async def _handle_kitchen_events(
+    agent: KitchenAgent,
+    request: ChatRequest,
+    messages: List[Dict],
+    session_data: Dict,
+) -> ChatResponse:
+    """
+    Handle kitchen agent events and convert them to Redis messages.
+
+    Returns:
+        ChatResponse with final text
+    """
+    text_response = ""
+    message_id = None
+    new_agent_state = None
+
+    async for event in agent.run_streaming(
+        message=request.message,
+        message_history=messages,
+        session_id=request.session_id,
+        session_data=session_data,
+    ):
+        logger.debug(f"📤 Kitchen event: {event.type}")
+
+        match event.type:
+            case "thinking":
+                await redis_client.send_system_message(
+                    request.session_id, "thinking", event.data
+                )
+
+            case "ingredients_highlight":
+                # Update ingredients in database
+                await redis_client.send_ingredients_message(
+                    request.session_id,
+                    items=event.data,
+                    action="update",
+                )
+
+            case "timer":
+                await redis_client.send_timer_message(
+                    request.session_id,
+                    duration=event.data["duration"],
+                    label=event.data["label"],
+                )
+
+            case "session_name":
+                await redis_client.send_session_name_message(
+                    request.session_id, event.data
+                )
+
+            case "recipe_created":
+                # Save full recipe to session
+                recipe = event.data
+                await database_service.save_session_recipe(
+                    request.session_id, recipe
+                )
+                logger.info(f"📝 Saved recipe to session: {recipe.get('name')}")
+
+            case "ingredients_set":
+                # Set initial cooking ingredients
+                await redis_client.send_ingredients_message(
+                    request.session_id,
+                    items=event.data,
+                    action="set",
+                )
+
+            case "agent_state":
+                # Store for persistence after loop
+                new_agent_state = event.data
+
+            case "text":
+                text_response = event.data.get("content", "")
+                message_id = event.data.get("message_id")
+                await redis_client.send_agent_text_message(
+                    request.session_id, text_response, message_id
+                )
+
+            case "complete":
+                await redis_client.send_system_message(
+                    request.session_id, "thinking", None
+                )
+
+    # Save agent text response to database
+    if text_response:
+        await database_service.add_message_to_session(
+            session_id=request.session_id,
+            role="assistant",
+            content={"type": "text", "content": text_response},
+        )
+
+    # Persist agent state if changed
+    if new_agent_state is not None:
+        await database_service.update_agent_state(
+            request.session_id,
+            new_agent_state,
+        )
+
+    return ChatResponse(
+        response=text_response or "I'm here to help you cook!",
+        message_id=message_id,
+        session_id=request.session_id,
+    )
 
 
 async def _handle_recipe_creator_events(
@@ -206,61 +311,19 @@ async def agent_chat(request: ChatRequest):
         # Get agent for this session type (cached)
         agent = await get_agent(session_type=session_type)
 
-        # Handle recipe creator differently - it yields events
+        # Handle agents with generator streaming
         if isinstance(agent, RecipeCreatorAgent):
             return await _handle_recipe_creator_events(
                 agent, request, messages, session_data
             )
 
-        # Kitchen agent uses the old interface (returns AgentResponse)
-        agent_result = await agent.run_streaming(
-            message=request.message,
-            message_history=messages,
-            session_id=request.session_id,
-            session_data=session_data,
-        )
+        if isinstance(agent, KitchenAgent):
+            return await _handle_kitchen_events(
+                agent, request, messages, session_data
+            )
 
-        # Save agent text response to database
-        await database_service.add_message_to_session(
-            session_id=request.session_id,
-            role="assistant",
-            content={"type": "text", "content": agent_result.text},
-        )
-
-        # Save structured recipe messages
-        # for recipe_data in agent_result.structured_outputs:
-        #     recipe_message = {
-        #         "type": "recipe",
-        #         "recipe_id": recipe_data.get("recipe_id"),
-        #         "name": recipe_data.get("name"),
-        #         "description": recipe_data.get("description"),
-        #         "ingredients": [
-        #             {"name": ing} for ing in recipe_data.get("ingredients", [])
-        #         ],
-        #         "steps": [
-        #             {
-        #                 "step_number": i + 1,
-        #                 "instruction": step.get("instruction", ""),
-        #                 "duration_minutes": step.get("duration_minutes"),
-        #             }
-        #             for i, step in enumerate(recipe_data.get("steps", []))
-        #         ],
-        #         "total_time_minutes": recipe_data.get("total_time_minutes"),
-        #         "difficulty": recipe_data.get("difficulty"),
-        #         "servings": recipe_data.get("servings"),
-        #         "tags": recipe_data.get("tags", []),
-        #     }
-        #     await database_service.add_message_to_session(
-        #         session_id=request.session_id,
-        #         role="assistant",
-        #         content=recipe_message,
-        #     )
-
-        return ChatResponse(
-            response=agent_result.text,
-            message_id=agent_result.message_id,
-            session_id=request.session_id,
-        )
+        # Fallback for unknown agent types (shouldn't happen)
+        raise HTTPException(status_code=500, detail=f"Unknown agent type: {type(agent)}")
 
     except HTTPException:
         raise

@@ -1,569 +1,492 @@
 """
 Kitchen Agent for Active Cooking Guidance
 
-Specializes in guiding users through cooking recipes step-by-step,
-managing ingredients, and setting timers.
-
-Includes step state tracking to prevent duplicate tool calls within a single step.
-Supports recipe generation via Redis subscription when no recipe exists.
+Uses generator streaming (like recipe creator) with:
+- Intent analysis for routing user messages
+- Recipe creation (delegates to RecipeCreatorAgent)
+- Step-by-step cooking guidance with hybrid tracking
+- Current step persistence via agent_state column
 """
-import asyncio
-import json
+
+import os
 import uuid
 import logging
-from typing import List, Dict, Any, Optional, TypedDict
+from dataclasses import dataclass
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    TypedDict,
+    Annotated,
+)
 
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, StateGraph
+from langgraph.graph.message import add_messages
 
-from ..base import BaseAgent, AgentState, AgentResponse
-from .prompt import KITCHEN_PROMPT
+from .prompt import (
+    KITCHEN_SYSTEM_PROMPT,
+    ANALYZE_INTENT_PROMPT,
+    GENERATE_STEP_GUIDANCE_PROMPT,
+    ANSWER_QUESTION_PROMPT,
+    HANDLE_RECIPE_REQUEST_PROMPT,
+    GENERAL_RESPONSE_PROMPT,
+)
+from .schemas import (
+    KitchenIntentAnalysis,
+    StepGuidanceResponse,
+    QuestionResponse,
+)
+from ..recipe_creator.agent import RecipeCreatorAgent
 
 logger = logging.getLogger(__name__)
 
 
-class KitchenStepState(TypedDict):
-    """State for tracking the current cooking step"""
+@dataclass
+class KitchenEvent:
+    """Event emitted during kitchen agent processing"""
 
-    index: int  # Current step index (0-based)
-    instruction: str  # Step instruction text
-    ingredients: List[str]  # Ingredients for this step
-    duration_minutes: Optional[int]  # Timer duration if needed
-    tools_to_call: List[str]  # Tools that should be called
-    tools_called: List[str]  # Tools already called this step
+    type: Literal[
+        "text",                  # Conversational response
+        "thinking",              # Status messages
+        "ingredients_highlight", # Ingredient state changes (update)
+        "ingredients_set",       # Initial ingredient setup
+        "timer",                 # Set cooking timer
+        "session_name",          # Session name update
+        "recipe_created",        # Full recipe object for DB persistence
+        "agent_state",           # State to persist
+        "complete",              # End of response
+    ]
+    data: Any
 
 
-class KitchenAgentState(AgentState):
-    """Extended state for kitchen mode with step tracking and recipe generation"""
+class KitchenAgentState(TypedDict):
+    """State for the kitchen agent graph"""
 
-    current_step: Optional[KitchenStepState]
-    recipe: Optional[Dict[str, Any]]  # Recipe object - same structure as DB-loaded
-    recipe_generation_mode: bool  # True when generating recipe, False when guiding
+    messages: Annotated[List[BaseMessage], add_messages]
+    session_id: str
+    user_message: str
+
+    # Recipe data (from session)
+    recipe: Optional[Dict[str, Any]]
+    current_step: Optional[int]  # None = not started, 0+ = step index
+    ingredients: Optional[List[Dict]]
+
+    # Analysis results
+    intent: Optional[Literal[
+        "get_recipe", "start_cooking", "next_step",
+        "previous_step", "ask_question", "set_timer", "general_chat"
+    ]]
+    recipe_request: Optional[str]
+    question: Optional[str]
+    timer_minutes: Optional[int]
+    timer_label: Optional[str]
+
+    # Response data
+    text_response: Optional[str]
+    ingredients_to_update: Optional[List[Dict]]
+    timer_to_set: Optional[Dict]
+    new_step_index: Optional[int]
 
 
-class KitchenAgent(BaseAgent):
-    """Agent for active kitchen cooking guidance with step tracking"""
+# Thinking messages for nodes
+THINKING_MESSAGES = {
+    "get_recipe": "Creating recipe",
+    "step_action": "Preparing guidance",
+    "question": "Thinking",
+    "timer": "Setting timer",
+}
 
-    # Tools that should only be called once per step
-    DEDUPE_TOOLS = {"update_ingredients", "set_timer"}
 
-    # Recipe creation tools that trigger Redis subscription
-    RECIPE_TOOLS = {
-        "set_recipe_metadata",
-        "set_recipe_ingredients",
-        "set_recipe_steps",
-        "set_recipe_nutrition",
-    }
+class KitchenAgent:
+    """Agent for active kitchen cooking guidance with generator streaming"""
 
-    def _get_tool_status_message(self, tool_name: str) -> str:
-        """Get user-friendly status message for kitchen tool execution"""
-        status_messages = {
-            "set_ingredients": "gathering ingredients",
-            "update_ingredients": "updating ingredients",
-            "set_timer": "setting timer",
-            "set_session_name": "preparing recipe",
-            "set_recipe_metadata": "creating recipe",
-            "set_recipe_ingredients": "adding ingredients",
-            "set_recipe_steps": "writing steps",
-            "set_recipe_nutrition": "calculating nutrition",
-        }
-        return status_messages.get(tool_name, "thinking")
+    MODEL = "gpt-4o-mini"
 
-    def build_system_prompt(self, session_data: Dict[str, Any]) -> str:
-        """
-        Build system prompt with recipe context for kitchen mode.
+    def __init__(self):
+        """Initialize the kitchen agent"""
+        self.llm = ChatOpenAI(
+            model=self.MODEL,
+            temperature=0.7,
+            api_key=os.getenv("OPENAI_API_KEY"),
+        )
+        self.recipe_creator = RecipeCreatorAgent()
+        logger.info(f"🍳 KitchenAgent initialized with model: {self.MODEL}")
+        self.graph = self._build_graph()
 
-        Args:
-            session_data: Session data containing recipe and ingredients
+    def _build_graph(self) -> StateGraph:
+        """Build the LangGraph workflow for kitchen guidance"""
+        workflow = StateGraph(KitchenAgentState)
 
-        Returns:
-            Complete system prompt with recipe context injected
-        """
-        system_prompt = KITCHEN_PROMPT
+        # Add nodes
+        workflow.add_node("analyze", self._analyze_intent)
+        workflow.add_node("get_recipe", self._get_recipe)
+        workflow.add_node("step_action", self._step_action)
+        workflow.add_node("question", self._answer_question)
+        workflow.add_node("timer", self._set_timer)
+        workflow.add_node("respond", self._generate_response)
 
-        # Add recipe context if available
-        recipe_data = session_data.get("recipe")
-        if recipe_data:
-            recipe_context = self._format_recipe_context(recipe_data)
-            system_prompt = system_prompt + "\n\n" + recipe_context
+        # Entry point
+        workflow.set_entry_point("analyze")
 
-        # Add current ingredients state if resuming session
-        ingredients = session_data.get("ingredients", [])
-        if ingredients:
-            ingredient_context = self._format_ingredient_context(ingredients)
-            system_prompt = system_prompt + ingredient_context
+        # Route from analyze based on intent
+        workflow.add_conditional_edges(
+            "analyze",
+            self._route_intent,
+            {
+                "get_recipe": "get_recipe",
+                "step_action": "step_action",
+                "question": "question",
+                "timer": "timer",
+                "respond": "respond",
+            },
+        )
 
-        return system_prompt
+        # All nodes except get_recipe end after respond
+        workflow.add_edge("step_action", "respond")
+        workflow.add_edge("question", "respond")
+        workflow.add_edge("timer", "respond")
+        workflow.add_edge("respond", END)
 
-    def _format_recipe_context(self, recipe_data: Dict[str, Any]) -> str:
-        """Format recipe data for system prompt injection"""
-        recipe_name = recipe_data.get("name", "Unknown Recipe")
-        description = recipe_data.get("description", "")
-        ingredients = recipe_data.get("ingredients", [])
-        steps = recipe_data.get("steps", [])
+        # get_recipe ends directly (handles its own events via RecipeCreatorAgent)
+        workflow.add_edge("get_recipe", END)
 
-        context = f"""
-────────────────────────────────────────
-RECIPE TO COOK: {recipe_name}
-────────────────────────────────────────
+        return workflow.compile()
 
-The user has selected this recipe to cook. Guide them through it step-by-step.
+    def _format_message_history(self, messages: List[BaseMessage]) -> str:
+        """Format message history for prompts"""
+        if not messages:
+            return "(No previous messages)"
 
-**Recipe Name:** {recipe_name}
-"""
-        if description:
-            context += f"**Description:** {description}\n"
+        formatted = []
+        for msg in messages[-6:]:  # Last 6 messages for context
+            role = "User" if isinstance(msg, HumanMessage) else "Assistant"
+            formatted.append(f"{role}: {msg.content}")
+        return "\n".join(formatted)
 
-        context += "\n**Ingredients:**\n"
+    def _format_ingredients_list(self, recipe: Dict[str, Any]) -> str:
+        """Format ingredients list for prompts with name clearly separated"""
+        ingredients = recipe.get("ingredients", [])
+        if not ingredients:
+            return "(No ingredients)"
+
+        lines = []
         for ing in ingredients:
-            name = ing.get("name", "")
             amount = ing.get("amount", "")
             unit = ing.get("unit", "")
-            notes = ing.get("notes", "")
+            name = ing.get("name", "")
+            # Format: NAME: "ingredient name" (amount unit)
+            # This makes it clear the name is just the quoted part
+            amount_str = f"{amount} {unit}".strip()
+            if amount_str:
+                line = f'- NAME: "{name}" ({amount_str})'
+            else:
+                line = f'- NAME: "{name}"'
+            lines.append(line)
+        return "\n".join(lines)
 
-            ing_line = f"- {name}"
-            if amount:
-                ing_line = f"- {amount} {unit} {name}" if unit else f"- {amount} {name}"
-            if notes:
-                ing_line += f" ({notes})"
-            context += ing_line + "\n"
+    def _format_all_steps(self, recipe: Dict[str, Any]) -> str:
+        """Format all steps for prompts"""
+        steps = recipe.get("steps", [])
+        if not steps:
+            return "(No steps)"
 
-        context += "\n**Cooking Steps (guide through ONE step at a time):**\n"
+        lines = []
         for i, step in enumerate(steps, 1):
             instruction = step.get("instruction", "")
-            duration = step.get("duration")
-
-            context += f"{i}. {instruction}"
+            duration = step.get("duration_minutes") or step.get("duration")
+            line = f"{i}. {instruction}"
             if duration:
-                context += f" [TIMER: {duration} minutes]"
-            context += "\n"
+                line += f" [{duration} min]"
+            lines.append(line)
+        return "\n".join(lines)
 
-        context += """
-────────────────────────────────────────
-INSTRUCTIONS:
-────────────────────────────────────────
-⚠️  IMPORTANT: The session name and ingredients are ALREADY SET in the database.
-   DO NOT call set_session_name() or set_ingredients() - this data is already saved.
+    async def _analyze_intent(self, state: KitchenAgentState) -> Dict:
+        """Analyze user message to determine intent"""
+        recipe = state.get("recipe")
+        current_step = state.get("current_step")
 
-🔴 CRITICAL: ONE response = ONE update_ingredients call + text instruction TOGETHER
+        # Prepare context
+        has_recipe = recipe is not None and recipe.get("steps")
+        recipe_name = recipe.get("name", "None") if recipe else "None"
 
-**When user says "done", "next", or confirms completion:**
-Your response MUST contain BOTH in ONE message:
-1. ONE update_ingredients call that does BOTH:
-   - Mark previous step's ingredients: highlighted=false, used=true
-   - Highlight current step's ingredients: highlighted=true
-2. Your spoken instruction text for the current step
-
-❌ WRONG: Tool call only (no text) → then another response with text + tool
-✅ CORRECT: Tool call + text instruction in SAME response
-
-**Timer rules:**
-- For passive cooking steps (bake, simmer, rest, chill), use set_timer() tool
-- Include set_timer in the SAME response as update_ingredients and text
-
-**Critical rules:**
-- NEVER make a tool-only response without text
-- NEVER call update_ingredients twice in one turn
-- After your instruction, STOP and wait for user to respond
-
-**General rules:**
-- Do NOT mention duration in your text - just state the instruction
-- Do NOT add meta-commentary like "Great, step X is done"
-- Just give the next instruction directly
-
-Start with ONLY the first step, then STOP.
-"""
-        return context
-
-    def _format_ingredient_context(self, ingredients: List[Dict]) -> str:
-        """Format current ingredient state for prompt context"""
-        context = "\n\n**CURRENT SESSION STATE:**\n"
-        context += f"Ingredients for this recipe ({len(ingredients)} total):\n"
-        for ing in ingredients:
-            status = ""
-            if ing.get("used"):
-                status = " [USED]"
-            elif ing.get("highlighted"):
-                status = " [CURRENTLY USING]"
-            context += f"- {ing['name']}: {ing.get('amount', '')} {ing.get('unit', '')}{status}\n"
-        context += "\nContinue guiding from where the session left off.\n"
-        return context
-
-    def _calculate_current_step(
-        self, recipe: Dict[str, Any], ingredients: List[Dict]
-    ) -> Optional[KitchenStepState]:
-        """
-        Calculate current step from recipe and ingredient state.
-
-        Determines which step the user is on based on which ingredients have been used.
-
-        Args:
-            recipe: Recipe data with steps and ingredients
-            ingredients: Current ingredient state from session
-
-        Returns:
-            Current step state dict or None if all steps complete
-        """
-        if not recipe:
-            return None
-
-        steps = recipe.get("steps", [])
-        recipe_ingredients = recipe.get("ingredients", [])
-
-        if not steps:
-            return None
-
-        # Map ingredients to steps (simple text matching)
-        step_ingredients: Dict[int, List[str]] = {}
-        for i, step in enumerate(steps):
-            instruction = step.get("instruction", "").lower()
-            step_ingredients[i] = [
-                ing.get("name", "")
-                for ing in recipe_ingredients
-                if ing.get("name", "").lower() in instruction
-            ]
-
-        # Find used ingredients from session state
-        used = {ing.get("name", "") for ing in ingredients if ing.get("used")}
-
-        # Find current step based on used ingredients
-        for i, step in enumerate(steps):
-            step_ings = set(step_ingredients.get(i, []))
-            if not step_ings.issubset(used):
-                # This step's ingredients not all used yet - this is current step
-                tools_to_call = []
-                if step_ingredients.get(i):
-                    tools_to_call.append("update_ingredients")
-                if step.get("duration"):
-                    tools_to_call.append("set_timer")
-
-                return {
-                    "index": i,
-                    "instruction": step.get("instruction", ""),
-                    "ingredients": step_ingredients.get(i, []),
-                    "duration_minutes": step.get("duration"),
-                    "tools_to_call": tools_to_call,
-                    "tools_called": [],
-                }
-
-        # All steps complete
-        return None
-
-    def _accumulate_recipe_from_message(self, recipe: Dict, message: dict) -> Dict:
-        """
-        Accumulate recipe data from Redis message.
-        Same logic as API service's handle_recipe_update_message().
-
-        Args:
-            recipe: Current recipe object to update
-            message: Redis message dictionary
-
-        Returns:
-            Updated recipe object
-        """
-        content = message.get("content", {})
-        if content.get("type") != "recipe_update":
-            return recipe
-
-        action = content.get("action")
-
-        if action == "set_metadata":
-            if content.get("name"):
-                recipe["name"] = content.get("name")
-            if content.get("description"):
-                recipe["description"] = content.get("description")
-            if content.get("difficulty"):
-                recipe["difficulty"] = content.get("difficulty")
-            if content.get("total_time_minutes"):
-                recipe["total_time_minutes"] = content.get("total_time_minutes")
-            if content.get("servings"):
-                recipe["servings"] = content.get("servings")
-            if content.get("tags"):
-                recipe["tags"] = content.get("tags")
-
-        elif action == "set_ingredients":
-            recipe["ingredients"] = content.get("ingredients", [])
-
-        elif action == "set_steps":
-            recipe["steps"] = content.get("steps", [])
-
-        elif action == "set_nutrition":
-            recipe["nutrition"] = content.get("nutrition", {})
-
-        return recipe
-
-    def _should_skip_tool(
-        self, tool_name: str, current_step: Optional[KitchenStepState]
-    ) -> bool:
-        """Check if tool should be skipped (already called for this step)"""
-        if not current_step:
-            return False
-        if tool_name not in self.DEDUPE_TOOLS:
-            return False
-        return tool_name in current_step.get("tools_called", [])
-
-    async def _execute_tools_node(self, state: KitchenAgentState) -> Dict:
-        """Execute tool calls with step-aware deduplication and Redis subscription for recipe tools"""
-        last_message = state["messages"][-1]
-        tool_results = []
-
-        # Get current state
-        current_step = state.get("current_step") or {}
-        tools_called = list(current_step.get("tools_called", []))
-        recipe = dict(state.get("recipe") or {})
-
-        if not hasattr(last_message, "tool_calls"):
-            return {"messages": tool_results}
-
-        # Check if any recipe creation tools are being called
-        has_recipe_tools = any(
-            tc.get("name") in self.RECIPE_TOOLS
-            for tc in last_message.tool_calls
-        )
-
-        if has_recipe_tools:
-            # Subscribe to Redis and execute tools concurrently
-            recipe = await self._execute_with_redis_subscription(
-                state, last_message.tool_calls, tool_results, tools_called, recipe
-            )
+        if current_step is not None and recipe:
+            steps = recipe.get("steps", [])
+            if 0 <= current_step < len(steps):
+                current_step_info = f"Step {current_step + 1} of {len(steps)}"
+            else:
+                current_step_info = "Completed all steps"
         else:
-            # Normal tool execution
-            for tool_call in last_message.tool_calls:
-                tool_name = tool_call.get("name")
-                tool_args = tool_call.get("args", {})
-                tool_id = tool_call.get("id", "")
+            current_step_info = "Not started"
 
-                logger.debug(f"🔧 Tool call: {tool_name}")
+        message_history = self._format_message_history(state["messages"][:-1])
 
-                # Check if tool should be skipped (already called for this step)
-                if self._should_skip_tool(tool_name, current_step):
-                    logger.info(
-                        f"⏭️ Skipping {tool_name} - already called for step {current_step.get('index')}"
-                    )
-                    tool_results.append(
-                        ToolMessage(
-                            content='{"success":true,"message":"Already called for this step"}',
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        )
-                    )
-                    continue
-
-                # Publish status message
-                status_message = self._get_tool_status_message(tool_name)
-                try:
-                    await self.redis_client.send_system_message(
-                        state["session_id"], "thinking", status_message
-                    )
-                except Exception as e:
-                    logger.warning(f"❌ Failed to publish tool status: {e}")
-
-                # Inject session_id
-                tool_args["session_id"] = state["session_id"]
-
-                # Find and execute the tool
-                tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
-
-                if tool:
-                    try:
-                        result = await tool.ainvoke(tool_args)
-                        tool_results.append(
-                            ToolMessage(
-                                content=str(result), tool_call_id=tool_id, name=tool_name
-                            )
-                        )
-                        # Track that we called this tool for deduplication
-                        if tool_name in self.DEDUPE_TOOLS:
-                            tools_called.append(tool_name)
-                    except Exception as e:
-                        tool_results.append(
-                            ToolMessage(
-                                content=f"Error executing {tool_name}: {str(e)}",
-                                tool_call_id=tool_id,
-                                name=tool_name,
-                            )
-                        )
-                else:
-                    tool_results.append(
-                        ToolMessage(
-                            content=f"Tool {tool_name} not found",
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        )
-                    )
-
-        # Check if recipe is complete (has required fields)
-        recipe_complete = all([
-            recipe.get("name"),
-            recipe.get("ingredients"),
-            recipe.get("steps")
-        ])
-
-        # Update current_step with new tools_called
-        updated_step = (
-            {**current_step, "tools_called": tools_called} if current_step else None
+        prompt = ANALYZE_INTENT_PROMPT.format(
+            has_recipe=has_recipe,
+            current_step_info=current_step_info,
+            recipe_name=recipe_name,
+            message_history=message_history,
+            user_message=state["user_message"],
         )
+
+        llm_with_output = self.llm.with_structured_output(KitchenIntentAnalysis)
+        result: KitchenIntentAnalysis = await llm_with_output.ainvoke(prompt)
+
+        logger.info(f"📊 Kitchen intent: {result.intent}")
 
         return {
-            "messages": tool_results,
-            "current_step": updated_step,
-            "recipe": recipe if recipe else None,
-            "recipe_generation_mode": not recipe_complete,
+            "intent": result.intent,
+            "recipe_request": result.recipe_request,
+            "question": result.question,
+            "timer_minutes": result.timer_minutes,
+            "timer_label": result.timer_label,
         }
 
-    async def _execute_with_redis_subscription(
-        self,
-        state: KitchenAgentState,
-        tool_calls: List,
-        tool_results: List,
-        tools_called: List,
-        recipe: Dict,
-    ) -> Dict:
+    def _route_intent(self, state: KitchenAgentState) -> str:
+        """Route based on analyzed intent"""
+        intent = state.get("intent")
+
+        if intent == "get_recipe":
+            return "get_recipe"
+        if intent in ("start_cooking", "next_step", "previous_step"):
+            return "step_action"
+        if intent == "ask_question":
+            return "question"
+        if intent == "set_timer":
+            return "timer"
+        return "respond"
+
+    async def _get_recipe(self, state: KitchenAgentState) -> Dict:
         """
-        Execute tools while subscribed to Redis to capture recipe updates.
-
-        Args:
-            state: Current agent state
-            tool_calls: List of tool calls to execute
-            tool_results: List to append tool results to
-            tools_called: List of tools called for deduplication
-            recipe: Current recipe object to accumulate into
-
-        Returns:
-            Updated recipe object with accumulated data from Redis messages
+        Handle recipe acquisition by delegating to RecipeCreatorAgent.
+        Sets text_response to indicate recipe creation was triggered.
         """
-        session_id = state["session_id"]
-        channel = f"session:{session_id}"
-        current_step = state.get("current_step") or {}
+        # The actual recipe generation happens in run_streaming where we
+        # iterate over RecipeCreatorAgent.run_streaming() and yield events
+        recipe_request = state.get("recipe_request") or state["user_message"]
 
-        # Create a dedicated Redis connection for subscription
-        await self.redis_client._ensure_connected()
-        pubsub = self.redis_client._client.pubsub()
-        await pubsub.subscribe(channel)
+        return {
+            "recipe_request": recipe_request,
+            "text_response": "__RECIPE_CREATION__",  # Special marker
+        }
 
-        try:
-            # Collect Redis messages in this list
-            collected_messages = []
-            stop_collecting = asyncio.Event()
+    async def _step_action(self, state: KitchenAgentState) -> Dict:
+        """Handle step navigation (start, next, previous)"""
+        intent = state.get("intent")
+        recipe = state.get("recipe")
+        current_step = state.get("current_step")
 
-            async def collect_messages():
-                """Background task to collect Redis messages"""
-                try:
-                    async for message in pubsub.listen():
-                        if stop_collecting.is_set():
-                            break
-                        if message["type"] == "message":
-                            try:
-                                data = json.loads(message["data"])
-                                if self.redis_client.is_agent_message(data, "recipe_update"):
-                                    collected_messages.append(data)
-                                    logger.debug(f"📥 Collected recipe_update message: {data.get('content', {}).get('action')}")
-                            except json.JSONDecodeError:
-                                pass
-                except asyncio.CancelledError:
-                    pass
+        if not recipe or not recipe.get("steps"):
+            return {
+                "text_response": "I don't have a recipe loaded yet. What would you like to cook?",
+            }
 
-            # Start message collector in background
-            collector_task = asyncio.create_task(collect_messages())
+        steps = recipe.get("steps", [])
+        total_steps = len(steps)
 
-            # Execute all tools
-            for tool_call in tool_calls:
-                tool_name = tool_call.get("name")
-                tool_args = tool_call.get("args", {})
-                tool_id = tool_call.get("id", "")
+        # Calculate new step index
+        if intent == "start_cooking":
+            new_step = 0
+        elif intent == "next_step":
+            if current_step is None:
+                new_step = 0
+            elif current_step >= total_steps - 1:
+                # Completed all steps - mark all ingredients as used
+                all_used = [
+                    {"name": ing.get("name"), "highlighted": False, "used": True}
+                    for ing in recipe.get("ingredients", [])
+                ]
+                return {
+                    "text_response": "You've completed all the steps! Enjoy your meal!",
+                    "new_step_index": current_step,
+                    "ingredients_to_update": all_used,
+                }
+            else:
+                new_step = current_step + 1
+        elif intent == "previous_step":
+            if current_step is None or current_step <= 0:
+                new_step = 0
+            else:
+                new_step = current_step - 1
+        else:
+            new_step = current_step if current_step is not None else 0
 
-                logger.debug(f"🔧 Tool call: {tool_name}")
+        # Get step data
+        step_data = steps[new_step]
+        step_instruction = step_data.get("instruction", "")
+        step_duration = step_data.get("duration_minutes") or step_data.get("duration")
 
-                # Check if tool should be skipped (already called for this step)
-                if self._should_skip_tool(tool_name, current_step):
-                    logger.info(
-                        f"⏭️ Skipping {tool_name} - already called for step {current_step.get('index')}"
-                    )
-                    tool_results.append(
-                        ToolMessage(
-                            content='{"success":true,"message":"Already called for this step"}',
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        )
-                    )
-                    continue
+        # Generate step guidance using LLM
+        prompt = GENERATE_STEP_GUIDANCE_PROMPT.format(
+            recipe_name=recipe.get("name", "Recipe"),
+            step_number=new_step + 1,
+            total_steps=total_steps,
+            step_instruction=step_instruction,
+            step_duration=f"{step_duration} minutes" if step_duration else "No specific duration",
+            ingredients_list=self._format_ingredients_list(recipe),
+            all_steps=self._format_all_steps(recipe),
+            user_message=state["user_message"],
+        )
 
-                # Publish status message
-                status_message = self._get_tool_status_message(tool_name)
-                try:
-                    await self.redis_client.send_system_message(
-                        state["session_id"], "thinking", status_message
-                    )
-                except Exception as e:
-                    logger.warning(f"❌ Failed to publish tool status: {e}")
+        llm_with_output = self.llm.with_structured_output(StepGuidanceResponse)
+        guidance: StepGuidanceResponse = await llm_with_output.ainvoke(prompt)
 
-                # Inject session_id
-                tool_args["session_id"] = state["session_id"]
+        # Build ingredient updates
+        # Highlighted ingredients take precedence - filter them out from mark_as_used
+        highlighted_set = set(guidance.ingredients_to_highlight)
+        ingredients_to_update = []
 
-                # Find and execute the tool
-                tool = next((t for t in self.mcp_tools if t.name == tool_name), None)
+        for ing_name in guidance.ingredients_to_mark_used:
+            # Skip if this ingredient is also being highlighted (LLM mistake)
+            if ing_name in highlighted_set:
+                logger.warning(f"⚠️ Ingredient '{ing_name}' in both lists, keeping highlight only")
+                continue
+            ingredients_to_update.append({
+                "name": ing_name,
+                "highlighted": False,
+                "used": True,
+            })
 
-                if tool:
-                    try:
-                        result = await tool.ainvoke(tool_args)
-                        tool_results.append(
-                            ToolMessage(
-                                content=str(result), tool_call_id=tool_id, name=tool_name
-                            )
-                        )
-                        # Track that we called this tool for deduplication
-                        if tool_name in self.DEDUPE_TOOLS:
-                            tools_called.append(tool_name)
-                    except Exception as e:
-                        tool_results.append(
-                            ToolMessage(
-                                content=f"Error executing {tool_name}: {str(e)}",
-                                tool_call_id=tool_id,
-                                name=tool_name,
-                            )
-                        )
-                else:
-                    tool_results.append(
-                        ToolMessage(
-                            content=f"Tool {tool_name} not found",
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        )
-                    )
+        for ing_name in guidance.ingredients_to_highlight:
+            ingredients_to_update.append({
+                "name": ing_name,
+                "highlighted": True,
+            })
 
-            # Give Redis a moment to deliver messages
-            await asyncio.sleep(0.1)
+        # Build timer if suggested
+        timer_to_set = None
+        if guidance.suggested_timer_minutes:
+            timer_to_set = {
+                "duration": guidance.suggested_timer_minutes * 60,  # Convert to seconds
+                "label": guidance.timer_label or f"Step {new_step + 1}",
+            }
 
-            # Stop collector
-            stop_collecting.set()
-            collector_task.cancel()
-            try:
-                await collector_task
-            except asyncio.CancelledError:
-                pass
+        return {
+            "text_response": guidance.spoken_response,
+            "ingredients_to_update": ingredients_to_update if ingredients_to_update else None,
+            "timer_to_set": timer_to_set,
+            "new_step_index": new_step,
+        }
 
-            # Accumulate recipe from collected messages
-            for msg in collected_messages:
-                recipe = self._accumulate_recipe_from_message(recipe, msg)
+    async def _answer_question(self, state: KitchenAgentState) -> Dict:
+        """Answer a question about the current step or recipe"""
+        recipe = state.get("recipe")
+        current_step = state.get("current_step")
+        question = state.get("question") or state["user_message"]
 
-            logger.info(f"📦 Accumulated recipe from {len(collected_messages)} messages: {recipe.get('name', 'unnamed')}")
+        if not recipe:
+            return {
+                "text_response": "I don't have a recipe loaded yet. What would you like to cook?",
+            }
 
-            # If recipe was accumulated, save to DB for persistence
-            if recipe and recipe.get("name"):
-                try:
-                    # Import here to avoid circular dependency
-                    import sys
-                    sys.path.insert(0, '/app')
-                    from app.services import database_service
-                    await database_service.save_session_recipe(session_id, recipe)
-                    logger.info(f"💾 Persisted accumulated recipe to DB")
-                except Exception as e:
-                    logger.error(f"❌ Failed to persist recipe: {e}")
+        steps = recipe.get("steps", [])
+        total_steps = len(steps)
 
-        finally:
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
+        # Get current step info
+        if current_step is not None and 0 <= current_step < total_steps:
+            step_instruction = steps[current_step].get("instruction", "")
+            step_number = current_step + 1
+        else:
+            step_instruction = "Not started yet"
+            step_number = 0
 
-        return recipe
+        prompt = ANSWER_QUESTION_PROMPT.format(
+            recipe_name=recipe.get("name", "Recipe"),
+            step_number=step_number,
+            total_steps=total_steps,
+            step_instruction=step_instruction,
+            all_steps=self._format_all_steps(recipe),
+            ingredients_list=self._format_ingredients_list(recipe),
+            question=question,
+        )
+
+        llm_with_output = self.llm.with_structured_output(QuestionResponse)
+        response: QuestionResponse = await llm_with_output.ainvoke(prompt)
+
+        return {
+            "text_response": response.answer,
+        }
+
+    async def _set_timer(self, state: KitchenAgentState) -> Dict:
+        """Handle explicit timer request"""
+        timer_minutes = state.get("timer_minutes")
+        timer_label = state.get("timer_label")
+
+        if not timer_minutes:
+            return {
+                "text_response": "How many minutes should I set the timer for?",
+            }
+
+        timer_to_set = {
+            "duration": timer_minutes * 60,  # Convert to seconds
+            "label": timer_label or "Timer",
+        }
+
+        return {
+            "text_response": f"Timer set for {timer_minutes} minutes.",
+            "timer_to_set": timer_to_set,
+        }
+
+    async def _generate_response(self, state: KitchenAgentState) -> Dict:
+        """Generate a general response for chat or other intents"""
+        # If we already have a text response, don't generate another
+        if state.get("text_response"):
+            return {}
+
+        recipe = state.get("recipe")
+        current_step = state.get("current_step")
+
+        has_recipe = recipe is not None and recipe.get("steps")
+        recipe_name = recipe.get("name", "None") if recipe else "None"
+
+        if current_step is not None and recipe:
+            steps = recipe.get("steps", [])
+            if 0 <= current_step < len(steps):
+                current_step_info = f"Step {current_step + 1} of {len(steps)}"
+            else:
+                current_step_info = "Completed"
+        else:
+            current_step_info = "Not started"
+
+        message_history = self._format_message_history(state["messages"][:-1])
+
+        prompt = GENERAL_RESPONSE_PROMPT.format(
+            has_recipe=has_recipe,
+            recipe_name=recipe_name,
+            current_step_info=current_step_info,
+            message_history=message_history,
+            user_message=state["user_message"],
+        )
+
+        response = await self.llm.ainvoke(prompt)
+
+        return {
+            "text_response": response.content,
+        }
+
+    def _extract_text_content(self, content: Any) -> str:
+        """Extract plain text from message content"""
+        if isinstance(content, dict):
+            if content.get("type") == "text":
+                return content.get("content", "")
+            return ""
+        return content
+
+    def _convert_message_history(self, message_history: List[Dict]) -> List[BaseMessage]:
+        """Convert database message history to LangChain format"""
+        langchain_messages = []
+        for msg in message_history:
+            text_content = self._extract_text_content(msg["content"])
+            if text_content:
+                if msg["role"] == "user":
+                    langchain_messages.append(HumanMessage(content=text_content))
+                elif msg["role"] == "assistant":
+                    langchain_messages.append(AIMessage(content=text_content))
+        return langchain_messages
 
     async def run_streaming(
         self,
@@ -571,85 +494,197 @@ Start with ONLY the first step, then STOP.
         message_history: List[Dict],
         session_id: str,
         session_data: Dict[str, Any],
-    ) -> AgentResponse:
+    ) -> AsyncGenerator[KitchenEvent, None]:
         """
-        Run the agent with streaming support and step tracking.
+        Run the agent and yield events for kitchen guidance.
 
         Args:
             message: User message to process
             message_history: Previous message history from database
             session_id: Session ID for context
-            session_data: Full session data
+            session_data: Full session data including recipe and agent_state
 
-        Returns:
-            AgentResponse with text, structured_outputs, and message_id
+        Yields:
+            KitchenEvent for each action
         """
-        # Build system prompt
-        system_prompt = self.build_system_prompt(session_data)
-
-        # Convert message history
+        # Convert message history and add new message
         langchain_messages = self._convert_message_history(message_history)
-        langchain_messages.append(
-            __import__("langchain_core.messages", fromlist=["HumanMessage"]).HumanMessage(
-                content=message
-            )
-        )
+        langchain_messages.append(HumanMessage(content=message))
 
-        # Recipe comes from session_data (loaded from DB if recipe_id exists)
+        logger.info(f"📚 Message history: {len(message_history)} messages")
+
+        # Load existing state
         recipe_data = session_data.get("recipe")
-        has_valid_recipe = recipe_data and recipe_data.get("steps")
+        agent_state = session_data.get("agent_state") or {}
+        current_step = agent_state.get("current_step")
+        ingredients = session_data.get("ingredients", [])
 
-        # Calculate current step only if we have a valid recipe
-        current_step = None
-        if has_valid_recipe:
-            ingredients = session_data.get("ingredients", [])
-            current_step = self._calculate_current_step(recipe_data, ingredients)
-            if current_step:
-                logger.debug(
-                    f"📍 Current step: {current_step.get('index')} - {current_step.get('instruction')[:50]}..."
-                )
-        else:
-            logger.info("🍳 No recipe found - entering recipe generation mode")
+        logger.info(f"📝 Session state: recipe={recipe_data.get('name') if recipe_data else None}, step={current_step}")
 
-        # Create initial state with recipe tracking for kitchen mode
+        # Create initial state
         initial_state: KitchenAgentState = {
             "messages": langchain_messages,
             "session_id": session_id,
-            "system_prompt": system_prompt,
-            "has_generated_text": False,
+            "user_message": message,
+            "recipe": recipe_data,
             "current_step": current_step,
-            "recipe": recipe_data,  # Same object, whether loaded or empty/None
-            "recipe_generation_mode": not has_valid_recipe,
+            "ingredients": ingredients,
+            "intent": None,
+            "recipe_request": None,
+            "question": None,
+            "timer_minutes": None,
+            "timer_label": None,
+            "text_response": None,
+            "ingredients_to_update": None,
+            "timer_to_set": None,
+            "new_step_index": None,
         }
 
-        accumulated_content = []
         message_id = f"msg-{uuid.uuid4()}"
+        final_step_index = current_step
 
         # Stream through the graph
-        async for msg, metadata in self.graph.astream(
-            initial_state, stream_mode="messages"
-        ):
-            node_name = metadata.get("langgraph_node", "")
+        async for event in self.graph.astream(initial_state, stream_mode="updates"):
+            for node_name, state_update in event.items():
+                if not state_update:
+                    continue
 
-            if node_name == "call_llm" and isinstance(msg, AIMessage):
-                if msg.content:
-                    accumulated_content.append(msg.content)
-                    full_text_so_far = "".join(accumulated_content)
-                    try:
-                        await self.redis_client.send_agent_text_message(
-                            session_id, full_text_so_far, message_id
+                logger.debug(f"📦 Node '{node_name}' update: {list(state_update.keys())}")
+
+                # Send thinking message for generation nodes
+                if node_name in THINKING_MESSAGES:
+                    yield KitchenEvent(type="thinking", data=THINKING_MESSAGES[node_name])
+
+                # Check for recipe creation marker
+                text_response = state_update.get("text_response")
+                if text_response == "__RECIPE_CREATION__":
+                    # Delegate to RecipeCreatorAgent
+                    recipe_request = state_update.get("recipe_request") or message
+
+                    yield KitchenEvent(type="thinking", data="Creating recipe")
+
+                    # Accumulate recipe data from RecipeCreatorAgent
+                    accumulated_recipe = {}
+
+                    # Stream events from RecipeCreatorAgent
+                    async for recipe_event in self.recipe_creator.run_streaming(
+                        message=recipe_request,
+                        message_history=message_history,
+                        session_id=session_id,
+                        session_data=session_data,
+                    ):
+                        # Accumulate recipe document parts
+                        if recipe_event.type == "metadata":
+                            accumulated_recipe.update(recipe_event.data)
+                        elif recipe_event.type == "ingredients":
+                            accumulated_recipe["ingredients"] = recipe_event.data
+                        elif recipe_event.type == "steps":
+                            accumulated_recipe["steps"] = recipe_event.data
+                        elif recipe_event.type == "nutrition":
+                            accumulated_recipe["nutrition"] = recipe_event.data
+                        elif recipe_event.type == "complete":
+                            # Ignore complete from recipe creator - we handle completion ourselves
+                            pass
+                        elif recipe_event.type == "session_name":
+                            # Pass through and also track the name
+                            yield KitchenEvent(type="session_name", data=recipe_event.data)
+                            accumulated_recipe["name"] = recipe_event.data
+                        else:
+                            # Pass through any other events (thinking, text, future types)
+                            yield KitchenEvent(type=recipe_event.type, data=recipe_event.data)
+
+                    # Check if we have a valid recipe (must have name, ingredients, and steps)
+                    has_valid_recipe = all([
+                        accumulated_recipe.get("name"),
+                        accumulated_recipe.get("ingredients"),
+                        accumulated_recipe.get("steps"),
+                    ])
+
+                    if has_valid_recipe:
+                        # Emit recipe_created with full recipe object for DB persistence
+                        yield KitchenEvent(type="recipe_created", data=accumulated_recipe)
+                        logger.info(f"📝 Recipe created: {accumulated_recipe.get('name')}")
+
+                        # Set up cooking ingredients for tracking
+                        cooking_ingredients = [
+                            {
+                                "name": ing.get("name"),
+                                "amount": ing.get("amount", ""),
+                                "unit": ing.get("unit", ""),
+                                "highlighted": False,
+                                "used": False,
+                            }
+                            for ing in accumulated_recipe["ingredients"]
+                        ]
+                        yield KitchenEvent(type="ingredients_set", data=cooking_ingredients)
+                        logger.info(f"🥗 Set up {len(cooking_ingredients)} cooking ingredients")
+
+                        # Generate "ready to start" prompt
+                        recipe_name = accumulated_recipe.get("name")
+                        ready_message = f"{recipe_name} is ready! When you're set to start cooking, just say 'let's go' or 'start'."
+                        yield KitchenEvent(
+                            type="text",
+                            data={
+                                "content": ready_message,
+                                "message_id": message_id,
+                            },
                         )
-                    except Exception as e:
-                        logger.warning(f"❌ Redis publish failed: {e}")
+                    else:
+                        # Recipe creation didn't produce a full recipe (e.g., user was just asking questions)
+                        logger.warning(f"⚠️  Recipe creation incomplete: name={accumulated_recipe.get('name')}, "
+                                     f"ingredients={bool(accumulated_recipe.get('ingredients'))}, "
+                                     f"steps={bool(accumulated_recipe.get('steps'))}")
+                        # Don't emit any events - let the conversation continue naturally
 
-        # Send completion signal
-        try:
-            await self.redis_client.send_system_message(session_id, "thinking", None)
-        except Exception as e:
-            logger.warning(f"❌ Failed to publish completion signal: {e}")
+                    # Don't continue to other state handling
+                    continue
 
-        final_text = "".join(accumulated_content)
-        return AgentResponse(
-            text=final_text or "I apologize, I couldn't generate a response.",
-            message_id=message_id,
-        )
+                # Emit ingredient updates
+                if state_update.get("ingredients_to_update"):
+                    yield KitchenEvent(
+                        type="ingredients_highlight",
+                        data=state_update["ingredients_to_update"],
+                    )
+
+                # Emit timer
+                if state_update.get("timer_to_set"):
+                    timer_data = state_update["timer_to_set"]
+                    yield KitchenEvent(
+                        type="timer",
+                        data=timer_data,
+                    )
+
+                # Track new step index for persistence
+                if state_update.get("new_step_index") is not None:
+                    final_step_index = state_update["new_step_index"]
+
+                # Emit text response
+                if text_response and text_response != "__RECIPE_CREATION__":
+                    yield KitchenEvent(
+                        type="text",
+                        data={
+                            "content": text_response,
+                            "message_id": message_id,
+                        },
+                    )
+
+        # Emit agent state for persistence if step changed
+        if final_step_index != current_step:
+            new_agent_state = {
+                "current_step": final_step_index,
+                "completed_steps": agent_state.get("completed_steps", []),
+            }
+            # Add completed step if we moved forward
+            if current_step is not None and final_step_index is not None:
+                if final_step_index > current_step:
+                    completed = list(new_agent_state.get("completed_steps", []))
+                    if current_step not in completed:
+                        completed.append(current_step)
+                    new_agent_state["completed_steps"] = completed
+
+            yield KitchenEvent(
+                type="agent_state",
+                data=new_agent_state,
+            )
+
+        yield KitchenEvent(type="complete", data=None)

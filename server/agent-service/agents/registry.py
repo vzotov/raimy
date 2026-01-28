@@ -6,20 +6,18 @@ Simple factory for creating agents based on session type.
 import logging
 from typing import Dict, Union
 
-from .base import BaseAgent
 from .kitchen.agent import KitchenAgent
 from .recipe_creator.agent import RecipeCreatorAgent
-from tools import load_mcp_tools
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_AGENT_TYPE = "recipe-creator"
 
 # Cache of agent instances by session type
-_agent_instances: Dict[str, Union[BaseAgent, RecipeCreatorAgent]] = {}
+_agent_instances: Dict[str, Union[KitchenAgent, RecipeCreatorAgent]] = {}
 
 
-async def get_agent(session_type: str = "recipe-creator") -> Union[BaseAgent, RecipeCreatorAgent]:
+async def get_agent(session_type: str = "recipe-creator") -> Union[KitchenAgent, RecipeCreatorAgent]:
     """
     Get or create a cached agent instance for the specified session type.
 
@@ -46,10 +44,10 @@ async def get_agent(session_type: str = "recipe-creator") -> Union[BaseAgent, Re
     logger.info(f"🔄 Creating new agent instance for session_type='{session_type}'")
 
     if session_type == "kitchen":
-        mcp_tools = await load_mcp_tools(session_type=session_type)
-        agent = KitchenAgent(mcp_tools=mcp_tools)
+        # KitchenAgent uses generator streaming with internal RecipeCreatorAgent
+        agent = KitchenAgent()
         logger.info(
-            f"✅ Created {agent.__class__.__name__} for '{session_type}' with {len(mcp_tools)} tools"
+            f"✅ Created {agent.__class__.__name__} for '{session_type}' (generator streaming)"
         )
     else:
         # RecipeCreatorAgent uses structured outputs, no MCP tools

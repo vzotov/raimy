@@ -446,6 +446,7 @@ class DatabaseService:
                     "recipe": session.recipe or None,
                     "recipe_id": str(session.recipe_id) if session.recipe_id else None,
                     "recipe_changed": session.recipe_changed,
+                    "agent_state": session.agent_state,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -821,6 +822,49 @@ class DatabaseService:
                 await db.rollback()
                 logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
                 raise
+
+    async def update_agent_state(
+        self,
+        session_id: str,
+        agent_state: Dict[str, Any]
+    ) -> bool:
+        """
+        Update agent_state for a session.
+        Used by kitchen agent to persist current step and other state.
+
+        Args:
+            session_id: Session ID
+            agent_state: Agent state dictionary (e.g., {"current_step": 0, "completed_steps": []})
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        logger.info(f"📝 update_agent_state: session={session_id}, state={agent_state}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.agent_state = agent_state
+                flag_modified(session, "agent_state")
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"💾 Agent state updated: current_step={agent_state.get('current_step')}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error updating agent_state: {e}", exc_info=True)
+                return False
 
     async def save_session_recipe(self, session_id: str, recipe: Dict[str, Any]) -> bool:
         """

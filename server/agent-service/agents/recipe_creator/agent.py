@@ -31,6 +31,7 @@ from langgraph.graph.message import add_messages
 from .prompt import (
     ANALYZE_REQUEST_PROMPT,
     ASK_QUESTION_PROMPT,
+    FINAL_RESPONSE_PROMPT,
     GENERATE_INGREDIENTS_PROMPT,
     GENERATE_METADATA_PROMPT,
     GENERATE_NUTRITION_PROMPT,
@@ -419,10 +420,13 @@ class RecipeCreatorAgent:
                 step_text += f"\n... and {len(state['steps']) - 5} more steps"
             existing_content += f"\n\nEXISTING STEPS:\n{step_text}"
 
+        message_history = self._format_message_history(state["messages"][:-1])
+
         prompt = GENERATE_METADATA_PROMPT.format(
             recipe_request=state.get("recipe_request") or state["user_message"],
             modification_context=self._get_modification_context(state),
             existing_content=existing_content,
+            message_history=message_history,
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeMetadata)
@@ -453,11 +457,14 @@ class RecipeCreatorAgent:
         if state.get("ingredients"):
             return {}
 
+        message_history = self._format_message_history(state["messages"][:-1])
+
         prompt = GENERATE_INGREDIENTS_PROMPT.format(
             recipe_name=state.get("name", "Recipe"),
             recipe_description=state.get("description", ""),
             servings=state.get("servings", 4),
             modification_context=self._get_modification_context(state),
+            message_history=message_history,
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeIngredients)
@@ -483,11 +490,14 @@ class RecipeCreatorAgent:
                 for ing in state["ingredients"]
             ])
 
+        message_history = self._format_message_history(state["messages"][:-1])
+
         prompt = GENERATE_STEPS_PROMPT.format(
             recipe_name=state.get("name", "Recipe"),
             recipe_description=state.get("description", ""),
             ingredients=ingredients_text or "Not yet generated",
             modification_context=self._get_modification_context(state),
+            message_history=message_history,
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeSteps)
@@ -513,10 +523,13 @@ class RecipeCreatorAgent:
                 for ing in state["ingredients"]
             ])
 
+        message_history = self._format_message_history(state["messages"][:-1])
+
         prompt = GENERATE_NUTRITION_PROMPT.format(
             recipe_name=state.get("name", "Recipe"),
             servings=state.get("servings", 4),
             ingredients=ingredients_text or "Not available",
+            message_history=message_history,
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeNutrition)
@@ -530,15 +543,31 @@ class RecipeCreatorAgent:
 
     async def _final_response(self, state: RecipeCreatorState) -> Dict:
         """Generate final text response after recipe is complete"""
-        # Check if this was a modification
-        if state.get("modification_request"):
-            return {
-                "text_response": f"I've updated the recipe with your changes. Let me know if you'd like any other adjustments!",
-                "modification_request": None,  # Clear the modification
-            }
-        return {
-            "text_response": f"Here's your recipe for {state.get('name', 'your dish')}! Let me know if you'd like any adjustments.",
-        }
+        message_history = self._format_message_history(state["messages"][:-1])
+        modification = state.get("modification_request")
+
+        # Determine action description based on whether this was a modification
+        if modification:
+            action_description = f"modified the recipe ({modification})"
+            modification_context = f"Modification made: {modification}"
+        else:
+            action_description = "created a new recipe"
+            modification_context = ""
+
+        prompt = FINAL_RESPONSE_PROMPT.format(
+            action_description=action_description,
+            recipe_name=state.get("name", "the recipe"),
+            modification_context=modification_context,
+            message_history=message_history,
+            user_message=state["user_message"],
+        )
+
+        response = await self.llm.ainvoke(prompt)
+
+        result = {"text_response": response.content}
+        if modification:
+            result["modification_request"] = None  # Clear the modification
+        return result
 
     def _extract_text_content(self, content: Any) -> str:
         """Extract plain text from message content"""
@@ -626,6 +655,16 @@ class RecipeCreatorAgent:
         # Check if this is a new recipe (no existing name) - we'll send session_name for new recipes only
         is_new_recipe = not existing_recipe.get("name")
 
+        # Track current metadata state (for partial updates, we need to emit all values)
+        current_metadata = {
+            "name": existing_recipe.get("name"),
+            "description": existing_recipe.get("description"),
+            "difficulty": existing_recipe.get("difficulty"),
+            "total_time_minutes": existing_recipe.get("total_time_minutes"),
+            "servings": existing_recipe.get("servings"),
+            "tags": existing_recipe.get("tags"),
+        }
+
         # Stream through the graph
         async for event in self.graph.astream(initial_state, stream_mode="updates"):
             for node_name, state_update in event.items():
@@ -646,6 +685,9 @@ class RecipeCreatorAgent:
                 if updated_metadata:
                     yielded_any_recipe_update = True
 
+                    # Update tracking dict with new values
+                    current_metadata.update(updated_metadata)
+
                     # Send session_name event for new recipes (not modifications)
                     if is_new_recipe and not yielded_session_name and "name" in updated_metadata:
                         yielded_session_name = True
@@ -659,9 +701,12 @@ class RecipeCreatorAgent:
                     if not yielded_metadata and len(updated_metadata) == len(metadata_fields):
                         yielded_metadata = True
 
+                    # Emit all non-null metadata values (existing + updated)
+                    # This ensures UI always gets complete metadata state
+                    emit_metadata = {k: v for k, v in current_metadata.items() if v is not None}
                     yield RecipeEvent(
                         type="metadata",
-                        data=updated_metadata,
+                        data=emit_metadata,
                     )
 
                 if not yielded_ingredients and state_update.get("ingredients"):

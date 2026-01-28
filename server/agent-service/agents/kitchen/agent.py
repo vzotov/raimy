@@ -321,6 +321,8 @@ class KitchenAgent:
         step_duration = step_data.get("duration_minutes") or step_data.get("duration")
 
         # Generate step guidance using LLM
+        message_history = self._format_message_history(state["messages"][:-1])
+
         prompt = GENERATE_STEP_GUIDANCE_PROMPT.format(
             recipe_name=recipe.get("name", "Recipe"),
             step_number=new_step + 1,
@@ -329,6 +331,7 @@ class KitchenAgent:
             step_duration=f"{step_duration} minutes" if step_duration else "No specific duration",
             ingredients_list=self._format_ingredients_list(recipe),
             all_steps=self._format_all_steps(recipe),
+            message_history=message_history,
             user_message=state["user_message"],
         )
 
@@ -394,6 +397,8 @@ class KitchenAgent:
             step_instruction = "Not started yet"
             step_number = 0
 
+        message_history = self._format_message_history(state["messages"][:-1])
+
         prompt = ANSWER_QUESTION_PROMPT.format(
             recipe_name=recipe.get("name", "Recipe"),
             step_number=step_number,
@@ -401,6 +406,7 @@ class KitchenAgent:
             step_instruction=step_instruction,
             all_steps=self._format_all_steps(recipe),
             ingredients_list=self._format_ingredients_list(recipe),
+            message_history=message_history,
             question=question,
         )
 

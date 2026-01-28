@@ -67,6 +67,9 @@ Recipe request: {recipe_request}
 {modification_context}
 {existing_content}
 
+## Message History
+{message_history}
+
 Create:
 - name: A clear, appetizing recipe name (MUST match the existing ingredients/steps if provided)
 - description: 1-2 sentence description highlighting key flavors/features
@@ -87,6 +90,9 @@ Description: {recipe_description}
 Servings: {servings}
 {modification_context}
 
+## Message History
+{message_history}
+
 Provide a complete ingredients list with:
 - name: Ingredient name (specific, e.g., "chicken thighs" not just "chicken")
 - amount: Numeric amount (e.g., "2", "1/2", "3-4")
@@ -102,6 +108,9 @@ Recipe: {recipe_name}
 Description: {recipe_description}
 Ingredients: {ingredients}
 {modification_context}
+
+## Message History
+{message_history}
 
 Create clear, actionable cooking steps:
 - instruction: One clear action per step (start with a verb)
@@ -121,6 +130,9 @@ Recipe: {recipe_name}
 Servings: {servings}
 Ingredients:
 {ingredients}
+
+## Message History
+{message_history}
 
 Provide estimated per-serving nutrition:
 - calories: Total calories
@@ -163,3 +175,22 @@ IMPORTANT:
 - DO NOT repeat any question already asked in the conversation
 - Be friendly and helpful, not interrogative
 - Give concrete dish suggestions as options, not abstract categories"""
+
+FINAL_RESPONSE_PROMPT = """You are Raimy, a friendly recipe assistant.
+
+You just {action_description} for the user.
+
+Recipe name: {recipe_name}
+{modification_context}
+
+## Message History
+{message_history}
+
+## User's Request
+{user_message}
+
+Write a brief, natural response (1-2 sentences) acknowledging what you did.
+- Be conversational and warm, not robotic
+- Reference specific details from their request when relevant
+- Vary your phrasing - don't use the same words every time
+- Don't just say "let me know if you need changes" - be more creative"""

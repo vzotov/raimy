@@ -58,6 +58,9 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
 ## All Recipe Steps:
 {all_steps}
 
+## Message History
+{message_history}
+
 ## User's Message:
 {user_message}
 
@@ -95,6 +98,9 @@ ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
 
 ## Ingredients:
 {ingredients_list}
+
+## Message History
+{message_history}
 
 ## User's Question:
 {question}

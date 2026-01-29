@@ -43,6 +43,7 @@ from .prompt import (
     TIMER_CONFIRMATION_PROMPT,
     RECIPE_READY_PROMPT,
     GREETING_PROMPT,
+    GREETING_WITH_RECIPE_PROMPT,
     GREETING_TIPS,
 )
 from .schemas import (
@@ -62,7 +63,8 @@ class KitchenEvent(AgentEvent):
     Event emitted during kitchen agent processing.
 
     Event types:
-    - "text": Conversational response
+    - "text": Conversational response (no buttons)
+    - "kitchen_step": Step guidance with next_step_prompt (shows buttons)
     - "thinking": Status messages
     - "ingredients_highlight": Ingredient state changes (update)
     - "ingredients_set": Initial ingredient setup
@@ -75,6 +77,7 @@ class KitchenEvent(AgentEvent):
 
     type: Literal[
         "text",
+        "kitchen_step",
         "thinking",
         "ingredients_highlight",
         "ingredients_set",
@@ -111,6 +114,7 @@ class KitchenAgentState(TypedDict):
 
     # Response data
     text_response: Optional[str]
+    next_step_prompt: Optional[str]
     ingredients_to_update: Optional[List[Dict]]
     timer_to_set: Optional[Dict]
     new_step_index: Optional[int]
@@ -141,31 +145,38 @@ class KitchenAgent(BaseAgent):
         logger.info(f"🍳 KitchenAgent initialized with model: {self.MODEL}")
         self.graph = self._build_graph()
 
-    async def generate_greeting(self, recipe_name: Optional[str] = None) -> str:
+    async def generate_greeting(self, recipe_name: Optional[str] = None) -> Dict[str, Any]:
         """Generate a personalized greeting for new sessions.
 
         Args:
             recipe_name: Optional recipe name if session has a pre-loaded recipe
 
         Returns:
-            LLM-generated greeting message
+            Dict with greeting, message_type, and optional next_step_prompt
         """
-        tip = random.choice(GREETING_TIPS)
-
         if recipe_name:
-            recipe_context = f"User has a recipe loaded: {recipe_name}"
+            # Recipe loaded - use recipe-specific prompt and return kitchen-step
+            prompt = GREETING_WITH_RECIPE_PROMPT.format(recipe_name=recipe_name)
+            response = await self.llm.ainvoke(prompt)
+            logger.info(f"👋 Generated kitchen greeting with recipe: {recipe_name}")
+            return {
+                "greeting": response.content,
+                "message_type": "kitchen-step",
+                "next_step_prompt": "Start cooking",
+            }
         else:
-            recipe_context = "No recipe loaded yet"
-
-        prompt = GREETING_PROMPT.format(
-            session_type="kitchen",
-            recipe_context=recipe_context,
-            tip=tip,
-        )
-
-        response = await self.llm.ainvoke(prompt)
-        logger.info(f"👋 Generated kitchen greeting (tip: {tip[:30]}...)")
-        return response.content
+            # No recipe - use tip-based prompt and return text
+            tip = random.choice(GREETING_TIPS)
+            prompt = GREETING_PROMPT.format(
+                session_type="kitchen",
+                tip=tip,
+            )
+            response = await self.llm.ainvoke(prompt)
+            logger.info(f"👋 Generated kitchen greeting (tip: {tip[:30]}...)")
+            return {
+                "greeting": response.content,
+                "message_type": "text",
+            }
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow for kitchen guidance"""
@@ -425,6 +436,7 @@ class KitchenAgent(BaseAgent):
 
         return {
             "text_response": guidance.spoken_response,
+            "next_step_prompt": guidance.next_step_prompt,
             "ingredients_to_update": ingredients_to_update if ingredients_to_update else None,
             "timer_to_set": timer_to_set,
             "new_step_index": new_step,
@@ -605,6 +617,7 @@ class KitchenAgent(BaseAgent):
             "timer_minutes": None,
             "timer_label": None,
             "text_response": None,
+            "next_step_prompt": None,
             "ingredients_to_update": None,
             "timer_to_set": None,
             "new_step_index": None,
@@ -689,15 +702,16 @@ class KitchenAgent(BaseAgent):
                         yield KitchenEvent(type="ingredients_set", data=cooking_ingredients)
                         logger.info(f"🥗 Set up {len(cooking_ingredients)} cooking ingredients")
 
-                        # Generate "ready to start" message using LLM
+                        # Generate "ready to start" message using LLM - this is a kitchen_step
                         recipe_name = accumulated_recipe.get("name")
                         prompt = RECIPE_READY_PROMPT.format(recipe_name=recipe_name)
                         ready_response = await self.llm.ainvoke(prompt)
                         yield KitchenEvent(
-                            type="text",
+                            type="kitchen_step",
                             data={
-                                "content": ready_response.content,
+                                "message": ready_response.content,
                                 "message_id": message_id,
+                                "next_step_prompt": "Start cooking",
                             },
                         )
                     else:
@@ -729,15 +743,28 @@ class KitchenAgent(BaseAgent):
                 if state_update.get("new_step_index") is not None:
                     final_step_index = state_update["new_step_index"]
 
-                # Emit text response
+                # Emit text or kitchen_step response
                 if text_response and text_response != "__RECIPE_CREATION__":
-                    yield KitchenEvent(
-                        type="text",
-                        data={
-                            "content": text_response,
-                            "message_id": message_id,
-                        },
-                    )
+                    next_step_prompt = state_update.get("next_step_prompt")
+                    if next_step_prompt:
+                        # Step guidance - emit kitchen_step with prompt
+                        yield KitchenEvent(
+                            type="kitchen_step",
+                            data={
+                                "message": text_response,
+                                "message_id": message_id,
+                                "next_step_prompt": next_step_prompt,
+                            },
+                        )
+                    else:
+                        # Regular text response (questions, timers, etc.)
+                        yield KitchenEvent(
+                            type="text",
+                            data={
+                                "content": text_response,
+                                "message_id": message_id,
+                            },
+                        )
 
         # Emit agent state for persistence if step changed
         if final_step_index != current_step:

@@ -149,6 +149,35 @@ class RedisClient:
             }
         )
 
+    async def send_kitchen_step_message(
+        self,
+        session_id: str,
+        message: str,
+        message_id: str,
+        next_step_prompt: str,
+    ):
+        """
+        Send a kitchen step message to a session (with confirmation buttons)
+
+        Args:
+            session_id: Session ID
+            message: Step guidance message
+            message_id: Unique message ID
+            next_step_prompt: Short prompt for continue button (e.g., "Let's go!")
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "kitchen-step",
+                    "message": message,
+                    "next_step_prompt": next_step_prompt,
+                },
+                "message_id": message_id
+            }
+        )
+
     async def send_recipe_save_request(self, session_id: str):
         """
         Send a recipe save request message to a session.

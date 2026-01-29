@@ -506,6 +506,10 @@ async def websocket_chat_endpoint(
                     logger.warning(f"⚠️  Recipe {recipe_id} not found")
 
             # Call agent service for LLM-generated greeting
+            greeting = "Hi! I'm Raimy. What would you like to cook today?"
+            message_type = "text"
+            next_step_prompt = None
+
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
@@ -517,18 +521,29 @@ async def websocket_chat_endpoint(
                         timeout=30.0,
                     )
                     response.raise_for_status()
-                    greeting = response.json().get("greeting", "Hello! I'm Raimy.")
+                    data = response.json()
+                    greeting = data.get("greeting", greeting)
+                    message_type = data.get("message_type", "text")
+                    next_step_prompt = data.get("next_step_prompt")
             except Exception as e:
                 logger.error(f"Failed to get greeting from agent service: {e}")
-                # Fallback greeting if agent service fails
-                greeting = "Hi! I'm Raimy. What would you like to cook today?"
 
-            # Save greeting to database (as structured TextContent)
+            # Build message content based on type
+            if message_type == "kitchen-step" and next_step_prompt:
+                message_content = {
+                    "type": "kitchen-step",
+                    "message": greeting,
+                    "next_step_prompt": next_step_prompt,
+                }
+            else:
+                message_content = {"type": "text", "content": greeting}
+
+            # Save greeting to database
             try:
                 await database_service.add_message_to_session(
                     session_id=session_id,
                     role="assistant",
-                    content={"type": "text", "content": greeting}
+                    content=message_content
                 )
             except Exception as e:
                 logger.error(f"Failed to save greeting to database: {e}")
@@ -536,10 +551,7 @@ async def websocket_chat_endpoint(
             # Send greeting as agent message
             await connection_manager.send_message(session_id, {
                 "type": "agent_message",
-                "content": {
-                    "type": "text",
-                    "content": greeting
-                },
+                "content": message_content,
                 "message_id": f"greeting-{session_id}"
             })
 

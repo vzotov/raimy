@@ -67,17 +67,24 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
 ## Instructions
 1. Generate a natural spoken instruction for this step (concise, 1-2 sentences)
 
-2. `ingredients_to_highlight`: ONLY ingredients DIRECTLY mentioned in THIS step's instruction
+2. `next_step_prompt`: Generate a short phrase the USER would say when done with this step.
+   - Must be from the user's perspective (what they'd tap to continue)
+   - Reference what they just did: "Onions are sizzling", "It's golden", "All mixed"
+   - Or what they're ready for: "Ready to flip", "Time to plate"
+   - Keep it 2-4 words, natural and specific to THIS step
+   - NEVER use generic phrases like "Let's go", "Continue", "Next", "Ready?"
+
+3. `ingredients_to_highlight`: ONLY ingredients DIRECTLY mentioned in THIS step's instruction
    - If step says "add butter" → include "butter"
    - If step says "fold the dough" but dough was made earlier → do NOT include flour
    - Only raw ingredients being actively handled RIGHT NOW
 
-3. `ingredients_to_mark_used`: Ingredients whose LAST appearance was a PREVIOUS step
+4. `ingredients_to_mark_used`: Ingredients whose LAST appearance was a PREVIOUS step
    - Look at current step and all future steps
    - If an ingredient doesn't appear in current or future → mark as used
    - Do NOT include anything in `ingredients_to_highlight`
 
-4. Timer: ONLY for passive cooking (boiling, baking, simmering). NOT for mixing/chopping.
+5. Timer: ONLY for passive cooking (boiling, baking, simmering). NOT for mixing/chopping.
 
 IMPORTANT: Only return CHANGES for this step. Do NOT re-send previous highlights.
 
@@ -161,14 +168,21 @@ RECIPE_READY_PROMPT = """Recipe "{recipe_name}" is ready.
 
 Write 1 sentence: tell them it's ready, they can start when ready. No fluff."""
 
-# Greeting prompt with tips
+# Greeting prompt with tips (no recipe loaded)
 GREETING_PROMPT = """Generate a short welcome as Raimy.
 
 Session type: {session_type}
-Recipe context: {recipe_context}
 Tip to mention: {tip}
 
 Format: "Hey, I'm Raimy! [tip]." - max 2 sentences, no fluff."""
+
+# Greeting prompt when recipe is already loaded
+GREETING_WITH_RECIPE_PROMPT = """Generate a short welcome as Raimy for someone about to cook.
+
+Recipe name: {recipe_name}
+
+Format: "Hey, I'm Raimy! Ready to make {recipe_name}?" - max 2 sentences.
+Mention the recipe name naturally. Express readiness to guide them."""
 
 # Tips for variety in greetings (kitchen-focused - about starting to cook)
 GREETING_TIPS = [

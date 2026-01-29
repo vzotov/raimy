@@ -69,6 +69,8 @@ class GreetingRequest(BaseModel):
 class GreetingResponse(BaseModel):
     """Response model for greeting endpoint"""
     greeting: str
+    message_type: str = "text"  # "text" or "kitchen-step"
+    next_step_prompt: Optional[str] = None
 
 
 @app.get("/health")
@@ -86,21 +88,26 @@ async def generate_greeting(request: GreetingRequest):
         request: Contains session_type and optional recipe_name
 
     Returns:
-        LLM-generated greeting message
+        LLM-generated greeting with message type info
     """
     try:
         agent = await get_agent(session_type=request.session_type)
 
         if isinstance(agent, KitchenAgent):
-            greeting = await agent.generate_greeting(recipe_name=request.recipe_name)
+            result = await agent.generate_greeting(recipe_name=request.recipe_name)
+            logger.info(f"👋 Generated greeting for session_type={request.session_type}")
+            return GreetingResponse(
+                greeting=result["greeting"],
+                message_type=result.get("message_type", "text"),
+                next_step_prompt=result.get("next_step_prompt"),
+            )
         elif isinstance(agent, RecipeCreatorAgent):
             greeting = await agent.generate_greeting()
+            logger.info(f"👋 Generated greeting for session_type={request.session_type}")
+            return GreetingResponse(greeting=greeting)
         else:
             # Fallback for unknown agent types
-            greeting = "Hello! I'm here to help."
-
-        logger.info(f"👋 Generated greeting for session_type={request.session_type}")
-        return GreetingResponse(greeting=greeting)
+            return GreetingResponse(greeting="Hello! I'm here to help.")
 
     except Exception as e:
         logger.error(f"Error generating greeting: {e}", exc_info=True)
@@ -122,6 +129,7 @@ async def _handle_kitchen_events(
     text_response = ""
     message_id = None
     new_agent_state = None
+    saved_content = None  # Track content for database save
 
     async for event in agent.run_streaming(
         message=request.message,
@@ -177,9 +185,27 @@ async def _handle_kitchen_events(
                 # Store for persistence after loop
                 new_agent_state = event.data
 
+            case "kitchen_step":
+                # Step guidance with prompt button
+                message = event.data.get("message", "")
+                message_id = event.data.get("message_id")
+                next_step_prompt = event.data.get("next_step_prompt", "Continue")
+                text_response = message
+                # Track content for database save
+                saved_content = {
+                    "type": "kitchen-step",
+                    "message": message,
+                    "next_step_prompt": next_step_prompt,
+                }
+                await redis_client.send_kitchen_step_message(
+                    request.session_id, message, message_id, next_step_prompt
+                )
+
             case "text":
                 text_response = event.data.get("content", "")
                 message_id = event.data.get("message_id")
+                # Track content for database save (regular text)
+                saved_content = {"type": "text", "content": text_response}
                 await redis_client.send_agent_text_message(
                     request.session_id, text_response, message_id
                 )
@@ -189,12 +215,12 @@ async def _handle_kitchen_events(
                     request.session_id, "thinking", None
                 )
 
-    # Save agent text response to database
-    if text_response:
+    # Save agent response to database with correct content type
+    if saved_content:
         await database_service.add_message_to_session(
             session_id=request.session_id,
             role="assistant",
-            content={"type": "text", "content": text_response},
+            content=saved_content,
         )
 
     # Persist agent state if changed

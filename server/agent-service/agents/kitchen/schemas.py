@@ -51,6 +51,9 @@ class StepGuidanceResponse(BaseModel):
     spoken_response: str = Field(
         description="Natural spoken instruction for this step (concise, 1-2 sentences)"
     )
+    next_step_prompt: str = Field(
+        description="Short 2-3 word phrase to continue (e.g., 'Let's go!', 'Ready?', 'Next up!')"
+    )
     ingredients_to_highlight: List[str] = Field(
         default_factory=list,
         description="Ingredient names EXACTLY as listed in recipe. Must match exactly for UI lookup."

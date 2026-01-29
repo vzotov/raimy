@@ -122,10 +122,10 @@ class KitchenAgentState(TypedDict):
 
 # Thinking messages for nodes
 THINKING_MESSAGES = {
-    "get_recipe": "Creating recipe",
-    "step_action": "Preparing guidance",
-    "question": "Thinking",
-    "timer": "Setting timer",
+    "get_recipe": "creating recipe",
+    "step_action": "preparing guidance",
+    "question": "thinking",
+    "timer": "setting timer",
 }
 
 

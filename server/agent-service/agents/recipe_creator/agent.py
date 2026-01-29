@@ -112,11 +112,11 @@ class RecipeEvent(AgentEvent):
 
 # Thinking messages for each generation node
 THINKING_MESSAGES = {
-    "gen_metadata": "Setting up recipe",
-    "gen_ingredients": "Generating ingredients",
-    "gen_steps": "Writing steps",
-    "gen_nutrition": "Calculating nutrition",
-    "modify": "Updating recipe",
+    "gen_metadata": "setting up recipe",
+    "gen_ingredients": "generating ingredients",
+    "gen_steps": "writing steps",
+    "gen_nutrition": "calculating nutrition",
+    "modify": "updating recipe",
 }
 
 

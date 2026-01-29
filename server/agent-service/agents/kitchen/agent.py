@@ -404,6 +404,8 @@ class KitchenAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(StepGuidanceResponse)
         guidance: StepGuidanceResponse = await llm_with_output.ainvoke(prompt)
 
+        logger.info(f"📋 Step {new_step + 1} guidance: highlight={guidance.ingredients_to_highlight}, used={guidance.ingredients_to_mark_used}")
+
         # Build ingredient updates
         # Highlighted ingredients take precedence - filter them out from mark_as_used
         highlighted_set = set(guidance.ingredients_to_highlight)

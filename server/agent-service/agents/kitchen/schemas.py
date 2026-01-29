@@ -52,7 +52,7 @@ class StepGuidanceResponse(BaseModel):
         description="Natural spoken instruction for this step (concise, 1-2 sentences)"
     )
     next_step_prompt: str = Field(
-        description="Short 2-3 word phrase to continue (e.g., 'Let's go!', 'Ready?', 'Next up!')"
+        description="Short phrase user would say when done (e.g., 'It's sizzling', 'All mixed', 'Ready to flip')"
     )
     ingredients_to_highlight: List[str] = Field(
         default_factory=list,

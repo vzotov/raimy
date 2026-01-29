@@ -67,31 +67,33 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
 ## Instructions
 1. Generate a natural spoken instruction for this step (concise, 1-2 sentences)
 
-2. `next_step_prompt`: Generate a short phrase the USER would say when done with this step.
+2. `next_step_prompt`: Short phrase the USER would say after completing this step.
    - Must be from the user's perspective (what they'd tap to continue)
-   - Reference what they just did: "Onions are sizzling", "It's golden", "All mixed"
-   - Or what they're ready for: "Ready to flip", "Time to plate"
+   - For completed actions: "All mixed", "It's golden", "Onions are sizzling"
+   - For parallel tasks (preheating, boiling water): reflect the action, not the result
+     Example: "Oven is on" NOT "Oven is preheated" (oven heats while user continues)
    - Keep it 2-4 words, natural and specific to THIS step
    - NEVER use generic phrases like "Let's go", "Continue", "Next", "Ready?"
 
-3. `ingredients_to_highlight`: ONLY ingredients DIRECTLY mentioned in THIS step's instruction
-   - If step says "add butter" → include "butter"
-   - If step says "fold the dough" but dough was made earlier → do NOT include flour
-   - Only raw ingredients being actively handled RIGHT NOW
+3. `ingredients_to_highlight`: Ingredients being actively used in THIS step
+   - MUST be an EXACT match from the "Ingredients in Recipe" list above
+   - Copy the name EXACTLY as written - do NOT paraphrase or use synonyms
+   - Example: if list has "whole wheat flour", return "whole wheat flour" NOT "flour" or "all-purpose flour"
 
-4. `ingredients_to_mark_used`: Ingredients whose LAST appearance was a PREVIOUS step
-   - Look at current step and all future steps
-   - If an ingredient doesn't appear in current or future → mark as used
-   - Do NOT include anything in `ingredients_to_highlight`
+4. `ingredients_to_mark_used`: Ingredients from PREVIOUS steps that are now completely done
+   - Look at steps BEFORE the current one - which ingredients were used and won't appear again?
+   - Example: if step 2 used "eggs" and current is step 3 with no more eggs needed → mark "eggs" as used
+   - MUST be an EXACT match from the "Ingredients in Recipe" list above
+   - Do NOT include ingredients being used in THIS step (those go in highlight)
 
 5. Timer: ONLY for passive cooking (boiling, baking, simmering). NOT for mixing/chopping.
 
-IMPORTANT: Only return CHANGES for this step. Do NOT re-send previous highlights.
-
-CRITICAL: Return ONLY the ingredient NAME (the quoted part), not the amount.
-- NAME: "unsalted butter" (1/2 cup) → return "unsalted butter"
-- NAME: "all-purpose flour" (1 cup) → return "all-purpose flour"
-- Copy ONLY the exact name inside quotes."""
+CRITICAL - INGREDIENT NAMES:
+- You may ONLY return ingredient names that appear EXACTLY in the "Ingredients in Recipe" list
+- NEVER invent, paraphrase, or use generic names
+- If "whole wheat flour" is in the list, return "whole wheat flour" - NOT "flour"
+- If "unsweetened almond milk" is in the list, return "unsweetened almond milk" - NOT "milk"
+- Copy-paste the exact string from the list above"""
 
 # Question answering prompt
 ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.

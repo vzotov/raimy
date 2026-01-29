@@ -20,10 +20,10 @@ export default function NutritionSection({
   if (!hasData) return null;
 
   const perServing = servings && servings > 0 ? {
-    calories: Math.round(nutrition.calories / servings),
-    proteins: Math.round(nutrition.proteins / servings),
-    carbs: Math.round(nutrition.carbs / servings),
-    fats: Math.round(nutrition.fats / servings),
+    calories: nutrition.calories ? Math.round(nutrition.calories / servings) : undefined,
+    proteins: nutrition.proteins ? Math.round(nutrition.proteins / servings) : undefined,
+    carbs: nutrition.carbs ? Math.round(nutrition.carbs / servings) : undefined,
+    fats: nutrition.fats ? Math.round(nutrition.fats / servings) : undefined,
   } : nutrition;
 
   return (

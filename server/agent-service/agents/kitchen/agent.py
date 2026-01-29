@@ -28,6 +28,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
+import random
+
 from .prompt import (
     KITCHEN_SYSTEM_PROMPT,
     ANALYZE_INTENT_PROMPT,
@@ -35,31 +37,52 @@ from .prompt import (
     ANSWER_QUESTION_PROMPT,
     HANDLE_RECIPE_REQUEST_PROMPT,
     GENERAL_RESPONSE_PROMPT,
+    NO_RECIPE_PROMPT,
+    COOKING_COMPLETE_PROMPT,
+    TIMER_QUESTION_PROMPT,
+    TIMER_CONFIRMATION_PROMPT,
+    RECIPE_READY_PROMPT,
+    GREETING_PROMPT,
+    GREETING_TIPS,
 )
 from .schemas import (
     KitchenIntentAnalysis,
     StepGuidanceResponse,
     QuestionResponse,
 )
+from ..base import AgentEvent, BaseAgent
 from ..recipe_creator.agent import RecipeCreatorAgent
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class KitchenEvent:
-    """Event emitted during kitchen agent processing"""
+class KitchenEvent(AgentEvent):
+    """
+    Event emitted during kitchen agent processing.
+
+    Event types:
+    - "text": Conversational response
+    - "thinking": Status messages
+    - "ingredients_highlight": Ingredient state changes (update)
+    - "ingredients_set": Initial ingredient setup
+    - "timer": Set cooking timer
+    - "session_name": Session name update
+    - "recipe_created": Full recipe object for DB persistence
+    - "agent_state": State to persist
+    - "complete": End of response
+    """
 
     type: Literal[
-        "text",                  # Conversational response
-        "thinking",              # Status messages
-        "ingredients_highlight", # Ingredient state changes (update)
-        "ingredients_set",       # Initial ingredient setup
-        "timer",                 # Set cooking timer
-        "session_name",          # Session name update
-        "recipe_created",        # Full recipe object for DB persistence
-        "agent_state",           # State to persist
-        "complete",              # End of response
+        "text",
+        "thinking",
+        "ingredients_highlight",
+        "ingredients_set",
+        "timer",
+        "session_name",
+        "recipe_created",
+        "agent_state",
+        "complete",
     ]
     data: Any
 
@@ -102,7 +125,7 @@ THINKING_MESSAGES = {
 }
 
 
-class KitchenAgent:
+class KitchenAgent(BaseAgent):
     """Agent for active kitchen cooking guidance with generator streaming"""
 
     MODEL = "gpt-4o-mini"
@@ -117,6 +140,32 @@ class KitchenAgent:
         self.recipe_creator = RecipeCreatorAgent()
         logger.info(f"🍳 KitchenAgent initialized with model: {self.MODEL}")
         self.graph = self._build_graph()
+
+    async def generate_greeting(self, recipe_name: Optional[str] = None) -> str:
+        """Generate a personalized greeting for new sessions.
+
+        Args:
+            recipe_name: Optional recipe name if session has a pre-loaded recipe
+
+        Returns:
+            LLM-generated greeting message
+        """
+        tip = random.choice(GREETING_TIPS)
+
+        if recipe_name:
+            recipe_context = f"User has a recipe loaded: {recipe_name}"
+        else:
+            recipe_context = "No recipe loaded yet"
+
+        prompt = GREETING_PROMPT.format(
+            session_type="kitchen",
+            recipe_context=recipe_context,
+            tip=tip,
+        )
+
+        response = await self.llm.ainvoke(prompt)
+        logger.info(f"👋 Generated kitchen greeting (tip: {tip[:30]}...)")
+        return response.content
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow for kitchen guidance"""
@@ -281,9 +330,10 @@ class KitchenAgent:
         current_step = state.get("current_step")
 
         if not recipe or not recipe.get("steps"):
-            return {
-                "text_response": "I don't have a recipe loaded yet. What would you like to cook?",
-            }
+            # Generate no-recipe response using LLM
+            prompt = NO_RECIPE_PROMPT.format(user_message=state["user_message"])
+            response = await self.llm.ainvoke(prompt)
+            return {"text_response": response.content}
 
         steps = recipe.get("steps", [])
         total_steps = len(steps)
@@ -300,8 +350,13 @@ class KitchenAgent:
                     {"name": ing.get("name"), "highlighted": False, "used": True}
                     for ing in recipe.get("ingredients", [])
                 ]
+                # Generate completion message using LLM
+                prompt = COOKING_COMPLETE_PROMPT.format(
+                    recipe_name=recipe.get("name", "your dish"),
+                )
+                response = await self.llm.ainvoke(prompt)
                 return {
-                    "text_response": "You've completed all the steps! Enjoy your meal!",
+                    "text_response": response.content,
                     "new_step_index": current_step,
                     "ingredients_to_update": all_used,
                 }
@@ -382,9 +437,10 @@ class KitchenAgent:
         question = state.get("question") or state["user_message"]
 
         if not recipe:
-            return {
-                "text_response": "I don't have a recipe loaded yet. What would you like to cook?",
-            }
+            # Generate no-recipe response using LLM
+            prompt = NO_RECIPE_PROMPT.format(user_message=state["user_message"])
+            response = await self.llm.ainvoke(prompt)
+            return {"text_response": response.content}
 
         steps = recipe.get("steps", [])
         total_steps = len(steps)
@@ -423,17 +479,25 @@ class KitchenAgent:
         timer_label = state.get("timer_label")
 
         if not timer_minutes:
-            return {
-                "text_response": "How many minutes should I set the timer for?",
-            }
+            # Generate timer question using LLM
+            prompt = TIMER_QUESTION_PROMPT.format(user_message=state["user_message"])
+            response = await self.llm.ainvoke(prompt)
+            return {"text_response": response.content}
 
         timer_to_set = {
             "duration": timer_minutes * 60,  # Convert to seconds
             "label": timer_label or "Timer",
         }
 
+        # Generate timer confirmation using LLM
+        prompt = TIMER_CONFIRMATION_PROMPT.format(
+            timer_minutes=timer_minutes,
+            timer_label=timer_label or "Timer",
+        )
+        response = await self.llm.ainvoke(prompt)
+
         return {
-            "text_response": f"Timer set for {timer_minutes} minutes.",
+            "text_response": response.content,
             "timer_to_set": timer_to_set,
         }
 
@@ -625,13 +689,14 @@ class KitchenAgent:
                         yield KitchenEvent(type="ingredients_set", data=cooking_ingredients)
                         logger.info(f"🥗 Set up {len(cooking_ingredients)} cooking ingredients")
 
-                        # Generate "ready to start" prompt
+                        # Generate "ready to start" message using LLM
                         recipe_name = accumulated_recipe.get("name")
-                        ready_message = f"{recipe_name} is ready! When you're set to start cooking, just say 'let's go' or 'start'."
+                        prompt = RECIPE_READY_PROMPT.format(recipe_name=recipe_name)
+                        ready_response = await self.llm.ainvoke(prompt)
                         yield KitchenEvent(
                             type="text",
                             data={
-                                "content": ready_message,
+                                "content": ready_response.content,
                                 "message_id": message_id,
                             },
                         )

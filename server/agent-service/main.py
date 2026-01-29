@@ -13,7 +13,7 @@ from pydantic import BaseModel
 import uvicorn
 
 from app.services import database_service
-from agents.registry import get_agent
+from agents import get_agent
 from agents.recipe_creator.agent import RecipeCreatorAgent
 from agents.kitchen.agent import KitchenAgent
 from core.redis_client import get_redis_client
@@ -60,10 +60,51 @@ class ChatResponse(BaseModel):
     session_id: str
 
 
+class GreetingRequest(BaseModel):
+    """Request model for greeting endpoint"""
+    session_type: str
+    recipe_name: Optional[str] = None
+
+
+class GreetingResponse(BaseModel):
+    """Response model for greeting endpoint"""
+    greeting: str
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "agent", "version": "3.0.0"}
+
+
+@app.post("/agent/greeting", response_model=GreetingResponse)
+async def generate_greeting(request: GreetingRequest):
+    """
+    Generate a personalized greeting for a new session.
+
+    Args:
+        request: Contains session_type and optional recipe_name
+
+    Returns:
+        LLM-generated greeting message
+    """
+    try:
+        agent = await get_agent(session_type=request.session_type)
+
+        if isinstance(agent, KitchenAgent):
+            greeting = await agent.generate_greeting(recipe_name=request.recipe_name)
+        elif isinstance(agent, RecipeCreatorAgent):
+            greeting = await agent.generate_greeting()
+        else:
+            # Fallback for unknown agent types
+            greeting = "Hello! I'm here to help."
+
+        logger.info(f"👋 Generated greeting for session_type={request.session_type}")
+        return GreetingResponse(greeting=greeting)
+
+    except Exception as e:
+        logger.error(f"Error generating greeting: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def _handle_kitchen_events(

@@ -158,7 +158,10 @@ For each suggestion:
 - name: Specific dish name (e.g., "Chicken Parmesan" not just "chicken dish")
 - description: One sentence about what makes it appealing
 
-Also provide a friendly response_text introducing your suggestions."""
+Also provide a friendly response_text that:
+- Introduces your suggestions warmly
+- Ends with a natural follow-up question inviting them to pick one or ask for different options
+- Vary your phrasing - don't always use the same words"""
 
 ASK_QUESTION_PROMPT = """You are Raimy, a friendly recipe assistant.
 
@@ -176,11 +179,27 @@ IMPORTANT:
 - Be friendly and helpful, not interrogative
 - Give concrete dish suggestions as options, not abstract categories"""
 
-FINAL_RESPONSE_PROMPT = """You are Raimy, a friendly recipe assistant.
+# Greeting prompt with tips
+GREETING_PROMPT = """Generate a short welcome as Raimy.
 
-You just {action_description} for the user.
+Session type: {session_type}
+Recipe context: {recipe_context}
+Tip to mention: {tip}
 
-Recipe name: {recipe_name}
+Format: "Hey, I'm Raimy! [tip]." - max 2 sentences, no fluff."""
+
+# Tips for variety in greetings (recipe creation focused)
+GREETING_TIPS = [
+    "Tell me what ingredients you have and I'll suggest recipes",
+    "Name a dish and I'll create a recipe for you",
+    "Got dietary restrictions? Let me know and I'll work around them",
+    "Not sure what to make? Describe what you're craving",
+    "Looking for something quick? I can suggest easy weeknight meals",
+]
+
+FINAL_RESPONSE_PROMPT = """You are Raimy. You just {action_description}.
+
+Recipe: {recipe_name}
 {modification_context}
 
 ## Message History
@@ -189,8 +208,7 @@ Recipe name: {recipe_name}
 ## User's Request
 {user_message}
 
-Write a brief, natural response (1-2 sentences) acknowledging what you did.
-- Be conversational and warm, not robotic
-- Reference specific details from their request when relevant
-- Vary your phrasing - don't use the same words every time
-- Don't just say "let me know if you need changes" - be more creative"""
+Write 1 short sentence acknowledging what you did.
+- No fluff ("wonderful", "delicious", "happy to help")
+- Be direct and natural
+- Can reference their specific request if relevant"""

@@ -135,3 +135,46 @@ Current step: {current_step_info}
 
 Respond naturally and helpfully. If they seem to have drifted off-topic, gently guide them back to cooking.
 Keep it concise (1-2 sentences)."""
+
+# No recipe loaded prompt
+NO_RECIPE_PROMPT = """No recipe is loaded. User said: {user_message}
+
+Write 1 sentence: tell them you need a recipe first, ask what they want to cook. No fluff."""
+
+# Cooking complete prompt
+COOKING_COMPLETE_PROMPT = """User finished cooking {recipe_name}!
+
+Write 1 sentence congratulating them. Be genuine, no over-the-top enthusiasm."""
+
+# Timer question prompt
+TIMER_QUESTION_PROMPT = """User wants a timer but didn't say how long. Their message: {user_message}
+
+Write 1 sentence asking how long. Keep it natural."""
+
+# Timer confirmation prompt
+TIMER_CONFIRMATION_PROMPT = """You set a {timer_minutes}-minute timer for "{timer_label}".
+
+Write 1 short sentence confirming. Don't just say "Timer set for X minutes"."""
+
+# Recipe ready prompt (after creation)
+RECIPE_READY_PROMPT = """Recipe "{recipe_name}" is ready.
+
+Write 1 sentence: tell them it's ready, they can start when ready. No fluff."""
+
+# Greeting prompt with tips
+GREETING_PROMPT = """Generate a short welcome as Raimy.
+
+Session type: {session_type}
+Recipe context: {recipe_context}
+Tip to mention: {tip}
+
+Format: "Hey, I'm Raimy! [tip]." - max 2 sentences, no fluff."""
+
+# Tips for variety in greetings (kitchen-focused - about starting to cook)
+GREETING_TIPS = [
+    "Tell me what you'd like to cook today",
+    "Name a dish and I'll walk you through it",
+    "What are you in the mood to make?",
+    "Got a recipe in mind? Let's get cooking",
+    "What's for dinner tonight?",
+]

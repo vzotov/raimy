@@ -2,8 +2,8 @@
 Redis client for pub/sub messaging between services.
 
 This module provides a shared Redis client for:
-- MCP service: Publishing tool outputs to UI
-- API service: Subscribing to tool outputs and forwarding to WebSocket
+- Agent service: Publishing messages to UI
+- API service: Subscribing to messages and forwarding to WebSocket
 """
 import os
 import json

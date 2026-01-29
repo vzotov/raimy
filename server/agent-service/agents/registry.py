@@ -44,17 +44,11 @@ async def get_agent(session_type: str = "recipe-creator") -> Union[KitchenAgent,
     logger.info(f"🔄 Creating new agent instance for session_type='{session_type}'")
 
     if session_type == "kitchen":
-        # KitchenAgent uses generator streaming with internal RecipeCreatorAgent
         agent = KitchenAgent()
-        logger.info(
-            f"✅ Created {agent.__class__.__name__} for '{session_type}' (generator streaming)"
-        )
     else:
-        # RecipeCreatorAgent uses structured outputs, no MCP tools
         agent = RecipeCreatorAgent()
-        logger.info(
-            f"✅ Created {agent.__class__.__name__} for '{session_type}' (structured outputs)"
-        )
+
+    logger.info(f"✅ Created {agent.__class__.__name__} for '{session_type}'")
 
     _agent_instances[session_type] = agent
     return agent

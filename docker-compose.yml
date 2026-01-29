@@ -22,34 +22,6 @@ services:
       retries: 3
       start_period: 5s
 
-  mcp-service:
-    build:
-      context: ./server
-      dockerfile: mcp_service/Dockerfile
-    ports:
-      - "8002:8002"  # MCP server (Streamable HTTP)
-    environment:
-      - PYTHONPATH=/app
-      - AUTH_SERVICE_URL=http://auth-service:8001
-      - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - REDIS_URL=redis://redis:6379
-    volumes:
-      # Mount for development auto-reload
-      - ./server/mcp_service:/app/mcp_service
-      - ./server/core:/app/core
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
-    depends_on:
-      raimy-api:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   redis:
     image: redis:7-alpine
     ports:
@@ -144,7 +116,6 @@ services:
       - PYTHONPATH=/app/server
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - MCP_SERVER_URL=http://mcp-service:8002/mcp
       - REDIS_URL=redis://redis:6379
       # Add your environment variables here
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -173,8 +144,6 @@ services:
       start_period: 10s
     depends_on:
       raimy-api:
-        condition: service_healthy
-      mcp-service:
         condition: service_healthy
 
 volumes:

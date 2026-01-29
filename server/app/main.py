@@ -14,7 +14,6 @@ import httpx
 # Import routers
 from .routes.timers import create_timers_router
 from .routes.recipes import create_recipes_router
-from .routes.debug import create_debug_router
 from .routes.chat_sessions import create_chat_sessions_router
 from .routes.config import router as config_router
 from core.auth_client import auth_client
@@ -207,7 +206,6 @@ async def root():
             "recipes": "/api/recipes/*",
             "timers": "/api/timers/*",
             "chat": "/ws/chat/{session_id}",
-            "debug": "/debug/*",
             "health": "/health"
         }
     }
@@ -495,26 +493,35 @@ async def websocket_chat_endpoint(
                 greeting_sent = True  # Already has messages, no greeting needed
                 return
 
+            # Get recipe name if available (for kitchen sessions with pre-loaded recipe)
+            recipe_name = None
             recipe_id = session_data.get("recipe_id")
-
-            # If recipe_id exists for kitchen, fetch and customize greeting
             if recipe_id and session_type == "kitchen":
                 logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
                 recipe_data = await database_service.get_recipe_by_id(recipe_id)
-
                 if recipe_data:
                     recipe_name = recipe_data.get("name")
                     logger.info(f"✅ Loaded recipe: {recipe_name}")
-                    greeting = f"Hi! I'm Raimy, your cooking assistant. I've loaded the recipe for {recipe_name}. Are you ready to start cooking?"
                 else:
-                    logger.warning(f"⚠️  Recipe {recipe_id} not found, using default greeting")
-                    greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
-            else:
-                # Select greeting based on session type
-                if session_type == "kitchen":
-                    greeting = "Hi! I'm Raimy, your cooking assistant. What would you like to cook today?"
-                else:
-                    greeting = "Hey! I'm Raimy, and I'm here to help you create a new recipe. You can start by telling me what ingredients you have, or describe what kind of recipe you'd like to create!"
+                    logger.warning(f"⚠️  Recipe {recipe_id} not found")
+
+            # Call agent service for LLM-generated greeting
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{agent_url}/agent/greeting",
+                        json={
+                            "session_type": session_type,
+                            "recipe_name": recipe_name,
+                        },
+                        timeout=30.0,
+                    )
+                    response.raise_for_status()
+                    greeting = response.json().get("greeting", "Hello! I'm Raimy.")
+            except Exception as e:
+                logger.error(f"Failed to get greeting from agent service: {e}")
+                # Fallback greeting if agent service fails
+                greeting = "Hi! I'm Raimy. What would you like to cook today?"
 
             # Save greeting to database (as structured TextContent)
             try:
@@ -631,7 +638,6 @@ async def websocket_chat_endpoint(
 app.include_router(create_timers_router(None))
 app.include_router(create_recipes_router(None))
 app.include_router(create_chat_sessions_router(None))
-app.include_router(create_debug_router())
 app.include_router(config_router)
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)

@@ -1,10 +1,9 @@
 """
-Recipe Creator Agent with Structured Output Generation
+Recipe Creator Agent
 
 Uses LangGraph for orchestrating recipe generation with:
 - Fast model (GPT-4o-mini) for quick responses
 - Sequential generation with state-based completeness checks
-- Structured outputs for each recipe component
 - Streaming events for real-time UI updates
 """
 
@@ -28,6 +27,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
+import random
+
 from .prompt import (
     ANALYZE_REQUEST_PROMPT,
     ASK_QUESTION_PROMPT,
@@ -36,6 +37,8 @@ from .prompt import (
     GENERATE_METADATA_PROMPT,
     GENERATE_NUTRITION_PROMPT,
     GENERATE_STEPS_PROMPT,
+    GREETING_PROMPT,
+    GREETING_TIPS,
     SUGGEST_DISHES_PROMPT,
 )
 from .schemas import (
@@ -46,6 +49,7 @@ from .schemas import (
     RecipeSteps,
     RequestAnalysis,
 )
+from ..base import AgentEvent, BaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +82,20 @@ class RecipeCreatorState(TypedDict):
 
 
 @dataclass
-class RecipeEvent:
-    """Event emitted during recipe generation"""
+class RecipeEvent(AgentEvent):
+    """
+    Event emitted during recipe generation.
+
+    Event types:
+    - "text": Conversational response
+    - "thinking": Status messages
+    - "session_name": Session name update
+    - "metadata": Recipe metadata (name, description, etc.)
+    - "ingredients": Recipe ingredients list
+    - "steps": Recipe steps list
+    - "nutrition": Nutrition information
+    - "complete": End of response
+    """
 
     type: Literal[
         "text",
@@ -104,8 +120,8 @@ THINKING_MESSAGES = {
 }
 
 
-class RecipeCreatorAgent:
-    """Agent for recipe creation with structured output generation"""
+class RecipeCreatorAgent(BaseAgent):
+    """Agent for recipe creation using LangGraph workflow"""
 
     MODEL = "gpt-4o-mini"
 
@@ -118,6 +134,24 @@ class RecipeCreatorAgent:
         )
         logger.info(f"🤖 RecipeCreatorAgent using model: {self.MODEL}")
         self.graph = self._build_graph()
+
+    async def generate_greeting(self) -> str:
+        """Generate a personalized greeting for new sessions.
+
+        Returns:
+            LLM-generated greeting message
+        """
+        tip = random.choice(GREETING_TIPS)
+
+        prompt = GREETING_PROMPT.format(
+            session_type="recipe-creator",
+            recipe_context="No recipe yet - user wants to create one",
+            tip=tip,
+        )
+
+        response = await self.llm.ainvoke(prompt)
+        logger.info(f"👋 Generated recipe creator greeting (tip: {tip[:30]}...)")
+        return response.content
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow with sequential generation"""
@@ -278,7 +312,6 @@ class RecipeCreatorAgent:
         suggestions_text = result.response_text + "\n\n"
         for i, suggestion in enumerate(result.suggestions, 1):
             suggestions_text += f"{i}. **{suggestion.name}** - {suggestion.description}\n"
-        suggestions_text += "\nWhich one sounds good, or would you like different options?"
 
         logger.info(f"💡 Generated {len(result.suggestions)} dish suggestions")
 

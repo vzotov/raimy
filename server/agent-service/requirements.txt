@@ -11,12 +11,6 @@ uvicorn[standard]
 pydantic
 httpx
 
-# MCP for tools
-langchain-mcp-adapters>=0.1.0
-mcp>=1.0.0
-fastmcp>=2.0.0
-aiohttp>=3.9.0
-
 # Redis for pub/sub messaging
 redis[asyncio]>=5.0.0
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ChatMessage as ChatMessageType } from '@/hooks/useChatMessages';
 import ChatMessage from './ChatMessage';
+import ThinkingIndicator from './ThinkingIndicator';
 
 export interface ChatMessagesProps {
   messages: ChatMessageType[];
@@ -45,25 +46,7 @@ export default function ChatMessages({
               onMessageAction={onMessageAction}
             />
           ))}
-          {agentStatus && (
-            <div className="flex items-end gap-2 py-2 px-4 mb-2">
-              <div className="flex items-center gap-1">
-                <div
-                  className="w-1 h-1 bg-text/40 rounded-full animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                />
-                <div
-                  className="w-1 h-1 bg-text/40 rounded-full animate-bounce"
-                  style={{ animationDelay: '150ms' }}
-                />
-                <div
-                  className="w-1 h-1 bg-text/40 rounded-full animate-bounce"
-                  style={{ animationDelay: '300ms' }}
-                />
-              </div>
-              <span className="text-sm text-text/60">{agentStatus}</span>
-            </div>
-          )}
+          {agentStatus && <ThinkingIndicator message={agentStatus} />}
           <div ref={messagesEndRef} />
         </>
       )}

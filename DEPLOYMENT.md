@@ -5,7 +5,7 @@ This guide walks you through deploying all backend services to a single GCP Comp
 ## Architecture Overview
 
 **Single GCP VM (e2-micro) runs:**
-- All 4 FastAPI services (raimy-api, auth-service, mcp-service, raimy-bot)
+- All 4 FastAPI services (raimy-api, auth-service, mcp-service, agent-service)
 - PostgreSQL database
 - Redis
 - Nginx reverse proxy

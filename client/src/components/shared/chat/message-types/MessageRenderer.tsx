@@ -37,12 +37,13 @@ export default function MessageRenderer({
       return (
         <div>
           <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
-            {content.content}
+            {content.message}
           </p>
           {isLastMessage && onFocusInput && onMessageAction && (
             <MessageConfirmationButtons
               onAskQuestion={onFocusInput}
-              onSendDone={() => onMessageAction('done!')}
+              onSendDone={() => onMessageAction(content.next_step_prompt)}
+              doneLabel={content.next_step_prompt}
             />
           )}
         </div>

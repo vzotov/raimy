@@ -13,7 +13,8 @@ export type TextContent = {
 
 export type KitchenStepContent = {
   type: 'kitchen-step';
-  content: string;
+  message: string;
+  next_step_prompt: string;
 };
 
 export type IngredientsContent = {

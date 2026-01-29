@@ -446,6 +446,7 @@ class DatabaseService:
                     "recipe": session.recipe or None,
                     "recipe_id": str(session.recipe_id) if session.recipe_id else None,
                     "recipe_changed": session.recipe_changed,
+                    "agent_state": session.agent_state,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -643,18 +644,18 @@ class DatabaseService:
 
                 # Merge based on action type
                 if action == "set_metadata":
-                    # Update metadata fields
-                    if "name" in update_data:
+                    # Update metadata fields - only if value is not None
+                    if update_data.get("name") is not None:
                         recipe["name"] = update_data["name"]
-                    if "description" in update_data:
+                    if update_data.get("description") is not None:
                         recipe["description"] = update_data["description"]
-                    if "difficulty" in update_data:
+                    if update_data.get("difficulty") is not None:
                         recipe["difficulty"] = update_data["difficulty"]
-                    if "total_time_minutes" in update_data:
+                    if update_data.get("total_time_minutes") is not None:
                         recipe["total_time_minutes"] = update_data["total_time_minutes"]
-                    if "servings" in update_data:
+                    if update_data.get("servings") is not None:
                         recipe["servings"] = update_data["servings"]
-                    if "tags" in update_data:
+                    if update_data.get("tags") is not None:
                         recipe["tags"] = update_data["tags"]
 
                 elif action == "set_ingredients":
@@ -821,6 +822,89 @@ class DatabaseService:
                 await db.rollback()
                 logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
                 raise
+
+    async def update_agent_state(
+        self,
+        session_id: str,
+        agent_state: Dict[str, Any]
+    ) -> bool:
+        """
+        Update agent_state for a session.
+        Used by kitchen agent to persist current step and other state.
+
+        Args:
+            session_id: Session ID
+            agent_state: Agent state dictionary (e.g., {"current_step": 0, "completed_steps": []})
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        logger.info(f"📝 update_agent_state: session={session_id}, state={agent_state}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.agent_state = agent_state
+                flag_modified(session, "agent_state")
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"💾 Agent state updated: current_step={agent_state.get('current_step')}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error updating agent_state: {e}", exc_info=True)
+                return False
+
+    async def save_session_recipe(self, session_id: str, recipe: Dict[str, Any]) -> bool:
+        """
+        Save full recipe object to session.recipe field.
+        Used by kitchen agent to persist accumulated recipe.
+
+        Args:
+            session_id: Session ID
+            recipe: Full recipe object
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        logger.info(f"📝 save_session_recipe: session={session_id}")
+
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession)
+                    .where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.recipe = recipe
+                flag_modified(session, "recipe")
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"💾 Recipe saved to session: {recipe.get('name')}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
+                return False
+
 
 # Global instance
 database_service = DatabaseService()

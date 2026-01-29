@@ -44,8 +44,6 @@ broadcast_event = None
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
-# Old HTTP-based routing endpoints removed - now using Redis PubSub
-# MCP tools publish directly to Redis, API WebSocket subscribes to Redis
 
 
 @router.get("/")

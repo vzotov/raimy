@@ -134,11 +134,11 @@ Ingredients:
 ## Message History
 {message_history}
 
-Provide estimated per-serving nutrition:
-- calories: Total calories
-- carbs: Carbohydrates in grams
+Provide estimated TOTAL nutrition for the entire dish (not per serving):
+- calories: Total calories for entire recipe
+- carbs: Total carbohydrates in grams
 - fats: Total fats in grams
-- proteins: Protein in grams
+- proteins: Total protein in grams
 
 Base estimates on standard ingredient nutritional data. Round to nearest whole number."""
 

@@ -94,12 +94,12 @@ class RecipeSteps(BaseModel):
 
 
 class RecipeNutrition(BaseModel):
-    """Estimated nutrition information per serving"""
+    """Estimated nutrition information for entire recipe"""
 
-    calories: int = Field(description="Calories per serving")
-    carbs: int = Field(description="Carbohydrates in grams per serving")
-    fats: int = Field(description="Fats in grams per serving")
-    proteins: int = Field(description="Proteins in grams per serving")
+    calories: int = Field(description="Total calories")
+    carbs: int = Field(description="Total carbohydrates in grams")
+    fats: int = Field(description="Total fats in grams")
+    proteins: int = Field(description="Total protein in grams")
 
 
 class DishSuggestion(BaseModel):

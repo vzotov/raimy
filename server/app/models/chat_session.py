@@ -16,6 +16,7 @@ class ChatSession(Base, TimestampMixin):
     recipe = Column(JSON, nullable=True)  # Work-in-progress recipe data
     recipe_id = Column(UUID(as_uuid=True), ForeignKey("recipes.id", ondelete="SET NULL"), nullable=True)  # Saved recipe reference
     recipe_changed = Column(Boolean, nullable=False, default=False)  # Track unsaved recipe changes
+    agent_state = Column(JSON, nullable=True)  # Agent-specific state (e.g., kitchen: current_step, completed_steps)
 
     # Relationships
     user = relationship("User", back_populates="chat_sessions")

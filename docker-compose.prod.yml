@@ -41,30 +41,6 @@ services:
       postgres:
         condition: service_healthy
 
-  mcp-service:
-    build:
-      context: ./server
-      dockerfile: mcp_service/Dockerfile
-    ports:
-      - "8002:8002"
-    environment:
-      - PYTHONPATH=/app
-      - AUTH_SERVICE_URL=http://auth-service:8001
-      - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - REDIS_URL=redis://redis:6379
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
-    depends_on:
-      raimy-api:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   redis:
     image: redis:7-alpine
     ports:
@@ -103,7 +79,7 @@ services:
     environment:
       - PYTHONPATH=/app/server
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - AGENT_SERVICE_URL=http://raimy-bot:8003
+      - AGENT_SERVICE_URL=http://agent-service:8003
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       - REDIS_URL=redis://redis:6379
@@ -132,7 +108,7 @@ services:
       redis:
         condition: service_healthy
 
-  raimy-bot:
+  agent-service:
     build:
       context: .
       dockerfile: server/agent-service/Dockerfile
@@ -142,7 +118,6 @@ services:
       - PYTHONPATH=/app/server
       - AUTH_SERVICE_URL=http://auth-service:8001
       - SERVICE_API_KEY=${SERVICE_API_KEY}
-      - MCP_SERVER_URL=http://mcp-service:8002/mcp
       - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       # LangSmith for debugging
@@ -167,8 +142,6 @@ services:
       start_period: 10s
     depends_on:
       raimy-api:
-        condition: service_healthy
-      mcp-service:
         condition: service_healthy
 
 volumes:

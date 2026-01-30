@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  --animate-pendulum: pendulum 1s ease-in-out infinite;
+
+  @keyframes pendulum {
+    0%, 100% { transform: rotate(-15deg); }
+    50% { transform: rotate(15deg); }
+  }
+}
+
 /* Custom dark mode variant */
 @custom-variant dark (&:where(.dark, .dark *));
 

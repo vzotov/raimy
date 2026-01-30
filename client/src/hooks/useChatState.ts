@@ -98,6 +98,8 @@ export function useChatState({
       type: 'ADD_OR_UPDATE_MESSAGE',
       payload: userMessage,
     });
+    // Set thinking status immediately for instant feedback
+    dispatch({ type: 'SET_AGENT_STATUS', payload: 'thinking' });
   }, []);
 
   return {

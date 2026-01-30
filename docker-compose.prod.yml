@@ -133,6 +133,9 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
       # Migration Configuration (disabled for agent, only API runs migrations)
       - AUTO_MIGRATE=false
+      # Instacart Integration (optional)
+      - INSTACART_API_KEY=${INSTACART_API_KEY:-}
+      - INSTACART_API_URL=${INSTACART_API_URL:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]

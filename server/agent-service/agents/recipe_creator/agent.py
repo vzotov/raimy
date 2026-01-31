@@ -33,6 +33,7 @@ from .prompt import (
     ANALYZE_REQUEST_PROMPT,
     ASK_QUESTION_PROMPT,
     FINAL_RESPONSE_PROMPT,
+    FORMAT_RESPONSE_PROMPT,
     GENERATE_INGREDIENTS_PROMPT,
     GENERATE_METADATA_PROMPT,
     GENERATE_NUTRITION_PROMPT,
@@ -43,6 +44,8 @@ from .prompt import (
 )
 from .schemas import (
     DishSuggestions,
+    FormattedResponse,
+    QuestionWithOptions,
     RecipeIngredients,
     RecipeMetadata,
     RecipeNutrition,
@@ -78,6 +81,8 @@ class RecipeCreatorState(TypedDict):
     modification_request: Optional[str]
     what_to_modify: Optional[List[str]]
     text_response: Optional[str]
+    response_type: Optional[Literal["text", "selector"]]
+    formatted_options: Optional[List[dict]]
     generation_complete: bool
 
 
@@ -105,6 +110,7 @@ class RecipeEvent(AgentEvent):
         "ingredients",
         "steps",
         "nutrition",
+        "selector",
         "complete",
     ]
     data: Any
@@ -161,6 +167,7 @@ class RecipeCreatorAgent(BaseAgent):
         workflow.add_node("analyze", self._analyze_request)
         workflow.add_node("suggest", self._suggest_dishes)
         workflow.add_node("ask", self._ask_question)
+        workflow.add_node("format_response", self._format_response)
         workflow.add_node("check", self._check_completeness)
         workflow.add_node("modify", self._modify_recipe)
         workflow.add_node("gen_metadata", self._generate_metadata)
@@ -179,9 +186,10 @@ class RecipeCreatorAgent(BaseAgent):
             {"suggest": "suggest", "question": "ask", "recipe": "check", "modify": "modify"},
         )
 
-        # Suggest and ask both end
-        workflow.add_edge("suggest", END)
-        workflow.add_edge("ask", END)
+        # Suggest and ask route through formatter before END
+        workflow.add_edge("suggest", "format_response")
+        workflow.add_edge("ask", "format_response")
+        workflow.add_edge("format_response", END)
 
         # Modify routes back to check for regeneration
         workflow.add_edge("modify", "check")
@@ -308,21 +316,20 @@ class RecipeCreatorAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(DishSuggestions)
         result: DishSuggestions = await llm_with_output.ainvoke(prompt)
 
-        # Format suggestions as text
-        suggestions_text = result.response_text + "\n\n"
-        for i, suggestion in enumerate(result.suggestions, 1):
-            suggestions_text += f"{i}. **{suggestion.name}** - {suggestion.description}\n"
-
         logger.info(f"💡 Generated {len(result.suggestions)} dish suggestions")
 
-        return {"text_response": suggestions_text}
+        # Build text response with suggestions included for formatter to parse
+        suggestions_text = "\n".join([
+            f"• {s.name} – {s.description}" for s in result.suggestions
+        ])
+        full_response = f"{result.response_text}\n\n{suggestions_text}"
+
+        return {
+            "text_response": full_response,
+        }
 
     async def _ask_question(self, state: RecipeCreatorState) -> Dict:
-        """Generate a clarifying question"""
-        # If we already have a text_response from analysis, use it
-        if state.get("text_response"):
-            return {}
-
+        """Generate a clarifying question with options"""
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ASK_QUESTION_PROMPT.format(
@@ -330,9 +337,43 @@ class RecipeCreatorAgent(BaseAgent):
             user_message=state["user_message"],
         )
 
-        response = await self.llm.ainvoke(prompt)
+        llm_with_output = self.llm.with_structured_output(QuestionWithOptions)
+        result: QuestionWithOptions = await llm_with_output.ainvoke(prompt)
 
-        return {"text_response": response.content}
+        logger.info(f"❓ Question with {len(result.options)} options")
+
+        # Build text response with options for formatter to parse
+        options_text = ", ".join(result.options[:-1]) + f", or {result.options[-1]}?" if len(result.options) > 1 else result.options[0]
+        full_response = f"{result.message} {options_text}"
+
+        return {
+            "text_response": full_response,
+        }
+
+    async def _format_response(self, state: RecipeCreatorState) -> Dict:
+        """Format text response into appropriate UI type (text or selector)"""
+        text_response = state.get("text_response")
+        if not text_response:
+            return {}
+
+        prompt = FORMAT_RESPONSE_PROMPT.format(text_response=text_response)
+
+        llm_with_output = self.llm.with_structured_output(FormattedResponse)
+        result: FormattedResponse = await llm_with_output.ainvoke(prompt)
+
+        logger.info(f"📝 Formatted response: type={result.response_type}, options={len(result.options) if result.options else 0}")
+
+        updates: Dict[str, Any] = {
+            "text_response": result.message,
+            "response_type": result.response_type,
+        }
+
+        if result.response_type == "selector" and result.options:
+            updates["formatted_options"] = [opt.model_dump() for opt in result.options]
+        else:
+            updates["formatted_options"] = None
+
+        return updates
 
     async def _modify_recipe(self, state: RecipeCreatorState) -> Dict:
         """Clear parts of recipe that need regeneration for modification"""
@@ -672,6 +713,8 @@ class RecipeCreatorAgent(BaseAgent):
             "modification_request": None,
             "what_to_modify": None,
             "text_response": None,
+            "response_type": None,
+            "formatted_options": None,
             "generation_complete": False,
         }
 
@@ -766,8 +809,27 @@ class RecipeCreatorAgent(BaseAgent):
                         data=state_update["nutrition"],
                     )
 
-                # Text responses (chat, clarification, or final)
-                if state_update.get("text_response"):
+                # Text or selector responses (from format_response node or final)
+                if state_update.get("response_type"):
+                    if state_update["response_type"] == "selector" and state_update.get("formatted_options"):
+                        yield RecipeEvent(
+                            type="selector",
+                            data={
+                                "message": state_update.get("text_response", ""),
+                                "options": state_update["formatted_options"],
+                                "message_id": message_id,
+                            },
+                        )
+                    else:
+                        yield RecipeEvent(
+                            type="text",
+                            data={
+                                "content": state_update.get("text_response", ""),
+                                "message_id": message_id,
+                            },
+                        )
+                # Plain text response (from final node - doesn't go through formatter)
+                elif state_update.get("text_response") and node_name == "final":
                     yield RecipeEvent(
                         type="text",
                         data={

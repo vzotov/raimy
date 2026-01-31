@@ -166,18 +166,21 @@ Also provide a friendly response_text that:
 ASK_QUESTION_PROMPT = """You are Raimy, a friendly recipe assistant.
 
 The user wants a recipe but their request needs clarification.
-Ask a helpful, conversational follow-up question.
 
 Previous conversation:
 {message_history}
 
 Their request: {user_message}
 
+Generate:
+- message: A friendly question asking what specific dish they want (1 sentence)
+- options: 3-4 specific dish names they can choose from
+
 IMPORTANT:
-- Ask ONE clear question with 3-4 specific options
-- DO NOT repeat any question already asked in the conversation
-- Be friendly and helpful, not interrogative
-- Give concrete dish suggestions as options, not abstract categories"""
+- Options must be SPECIFIC dish names (e.g., "Chicken Parmesan", "Grilled Ribeye")
+- NOT categories or styles (e.g., NOT "Italian style", "grilled")
+- DO NOT repeat options from previous conversation
+- Keep message short and conversational"""
 
 # Greeting prompt with tips
 GREETING_PROMPT = """Generate a short welcome as Raimy.
@@ -212,3 +215,27 @@ Write 1 short sentence acknowledging what you did.
 - No fluff ("wonderful", "delicious", "happy to help")
 - Be direct and natural
 - Can reference their specific request if relevant"""
+
+FORMAT_RESPONSE_PROMPT = """Analyze this response and determine if it contains options the user should choose from.
+
+Response to analyze:
+{text_response}
+
+Determine:
+1. Does this response present DISTINCT OPTIONS the user should choose between?
+   - YES → response_type: "selector", extract each option
+   - NO → response_type: "text", return message as-is
+
+For selectors:
+- Extract each option as a separate item
+- Use the dish/option name as "text" (what gets sent when clicked)
+- Use any description as "description" (shown below the option)
+- Keep message as the intro text (without the options list)
+
+Examples:
+- "Here are some ideas: 1. Pasta Carbonara - creamy and rich 2. Chicken Stir-fry - quick and healthy"
+  → selector with 2 options, each with description
+- "I've created your Chicken Parmesan recipe!"
+  → text (no options to choose)
+- "What kind of chicken dish? Grilled, roasted, or fried?"
+  → selector with 3 options (short options, no descriptions needed)"""

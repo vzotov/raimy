@@ -93,6 +93,17 @@ export type SystemContent = {
   message: string;
 };
 
+export type SelectorOption = {
+  text: string;
+  description?: string;
+};
+
+export type SelectorContent = {
+  type: 'selector';
+  message: string;
+  options: SelectorOption[];
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
@@ -102,4 +113,5 @@ export type MessageContent =
   | RecipeContent
   | RecipeUpdateContent
   | TimerContent
-  | SystemContent;
+  | SystemContent
+  | SelectorContent;

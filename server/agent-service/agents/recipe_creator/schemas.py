@@ -120,3 +120,46 @@ class DishSuggestions(BaseModel):
     response_text: str = Field(
         description="Friendly text introducing the suggestions"
     )
+
+
+class DishOption(BaseModel):
+    """A dish option with description"""
+
+    name: str = Field(description="Specific dish name")
+    description: str = Field(description="Brief 1-sentence description of what makes this dish unique")
+
+
+class QuestionWithOptions(BaseModel):
+    """A clarifying question with clickable options"""
+
+    message: str = Field(
+        description="The question text asking for clarification"
+    )
+    options: List[DishOption] = Field(
+        description="3-4 specific dish options with descriptions",
+        min_length=2,
+        max_length=5,
+    )
+
+
+class SelectorOption(BaseModel):
+    """A single selectable option with optional description"""
+
+    text: str = Field(description="Option text to display and send when clicked")
+    description: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of the option (1 sentence max)"
+    )
+
+
+class FormattedResponse(BaseModel):
+    """Response formatted for UI display with optional selectable options"""
+
+    response_type: Literal["text", "selector"] = Field(
+        description="'selector' if response contains choosable options, else 'text'"
+    )
+    message: str = Field(description="Main message text to display")
+    options: Optional[List[SelectorOption]] = Field(
+        default=None,
+        description="Extracted options if response_type is 'selector'"
+    )

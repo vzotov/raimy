@@ -99,7 +99,8 @@ export function useKitchenState({
 
           case 'kitchen-step':
           case 'text':
-            // Both types handled by base chat handler as-is
+          case 'selector':
+            // All text-like types handled by base chat handler as-is
             handleChatMessage(wsMessage);
             break;
 

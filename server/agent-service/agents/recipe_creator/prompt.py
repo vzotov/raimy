@@ -45,9 +45,9 @@ Analyze intent (ONLY these 4 options):
    - "anything" / "you decide"
    → Provide 3 specific dish suggestions with brief descriptions
 
-4. **question**: Need ONE specific clarification about their recipe request
-   - "Make me pasta" → question: "What kind of pasta? Carbonara, bolognese, alfredo, or pesto?"
-   - "Chicken dish" → question: "What style of chicken? Roasted, grilled, curry, or stir-fry?"
+4. **question**: Clarification needed OR follow-up questions
+   - Vague recipe request → Ask with specific options: "Make me pasta" → "What kind? Carbonara, bolognese, alfredo?"
+   - Follow-up question → Answer based on conversation history
    - NEVER repeat a question already asked in conversation history
    - NEVER ask generic "what do you want" - always give specific options
    - If user says "anything" or "you decide" after being asked → use "suggest" intent instead
@@ -59,7 +59,7 @@ RESPONSE FORMAT:
 - For "recipe": Set recipe_request to the specific dish
 - For "modify": Set modification_request (what to change) and what_to_modify (which specific fields: name, description, servings, difficulty, time, tags, ingredients, steps, nutrition)
 - For "suggest": Set suggestions (3 dish names) and text_response (friendly intro text)
-- For "question": Set text_response (the clarifying question with options)"""
+- For "question": Set text_response (clarifying question OR answer based on conversation context)"""
 
 GENERATE_METADATA_PROMPT = """Generate recipe metadata for the following request.
 
@@ -165,19 +165,19 @@ Also provide a friendly response_text that:
 
 ASK_QUESTION_PROMPT = """You are Raimy, a friendly recipe assistant.
 
-The user wants a recipe but their request needs clarification.
-Ask a helpful, conversational follow-up question.
-
 Previous conversation:
 {message_history}
 
-Their request: {user_message}
+User's message: {user_message}
 
-IMPORTANT:
-- Ask ONE clear question with 3-4 specific options
-- DO NOT repeat any question already asked in the conversation
-- Be friendly and helpful, not interrogative
-- Give concrete dish suggestions as options, not abstract categories"""
+If the user is asking a follow-up question, answer based on the conversation context (options = empty).
+
+If the user's request needs clarification, ask with specific dish options.
+
+Rules for clarification:
+- options: 3-4 SPECIFIC dish names (e.g., "Chicken Parmesan", not "Italian style")
+- DO NOT repeat options from previous conversation
+- Keep message short and conversational"""
 
 # Greeting prompt with tips
 GREETING_PROMPT = """Generate a short welcome as Raimy.
@@ -212,3 +212,27 @@ Write 1 short sentence acknowledging what you did.
 - No fluff ("wonderful", "delicious", "happy to help")
 - Be direct and natural
 - Can reference their specific request if relevant"""
+
+FORMAT_RESPONSE_PROMPT = """Analyze this response and determine if it contains options the user should choose from.
+
+Response to analyze:
+{text_response}
+
+Determine:
+1. Does this response present DISTINCT OPTIONS the user should choose between?
+   - YES → response_type: "selector", extract each option
+   - NO → response_type: "text", return message as-is
+
+For selectors:
+- Extract each option as a separate item
+- Use the dish/option name as "text" (what gets sent when clicked)
+- Use any description as "description" (shown below the option)
+- Keep message as the intro text (without the options list)
+
+Examples:
+- "Here are some ideas: 1. Pasta Carbonara - creamy and rich 2. Chicken Stir-fry - quick and healthy"
+  → selector with 2 options, each with description
+- "I've created your Chicken Parmesan recipe!"
+  → text (no options to choose)
+- "What kind of chicken dish? Grilled, roasted, or fried?"
+  → selector with 3 options (short options, no descriptions needed)"""

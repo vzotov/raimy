@@ -210,6 +210,21 @@ async def _handle_kitchen_events(
                     request.session_id, text_response, message_id
                 )
 
+            case "selector":
+                message = event.data.get("message", "")
+                options = event.data.get("options", [])
+                message_id = event.data.get("message_id")
+                text_response = message
+                saved_content = {
+                    "type": "selector",
+                    "message": message,
+                    "options": options,
+                }
+                logger.debug(f"🎯 Kitchen selector: {len(options)} options")
+                await redis_client.send_selector_message(
+                    request.session_id, message, options, message_id
+                )
+
             case "complete":
                 await redis_client.send_system_message(
                     request.session_id, "thinking", None
@@ -217,6 +232,7 @@ async def _handle_kitchen_events(
 
     # Save agent response to database with correct content type
     if saved_content:
+        logger.debug(f"💾 Kitchen saving to DB: type={saved_content.get('type')}")
         await database_service.add_message_to_session(
             session_id=request.session_id,
             role="assistant",
@@ -252,6 +268,7 @@ async def _handle_recipe_creator_events(
     text_response = ""
     message_id = None
     recipe_data = {}
+    saved_content = None  # Track content for database save
 
     async for event in agent.run_streaming(
         message=request.message,
@@ -305,8 +322,24 @@ async def _handle_recipe_creator_events(
             case "text":
                 text_response = event.data.get("content", "")
                 message_id = event.data.get("message_id")
+                saved_content = {"type": "text", "content": text_response}
                 await redis_client.send_agent_text_message(
                     request.session_id, text_response, message_id
+                )
+
+            case "selector":
+                message = event.data.get("message", "")
+                options = event.data.get("options", [])
+                message_id = event.data.get("message_id")
+                text_response = message
+                saved_content = {
+                    "type": "selector",
+                    "message": message,
+                    "options": options,
+                }
+                logger.debug(f"🎯 Recipe selector: {len(options)} options")
+                await redis_client.send_selector_message(
+                    request.session_id, message, options, message_id
                 )
 
             case "complete":
@@ -315,12 +348,13 @@ async def _handle_recipe_creator_events(
                     request.session_id, "thinking", None
                 )
 
-    # Save agent text response to database
-    if text_response:
+    # Save agent response to database with correct content type
+    if saved_content:
+        logger.debug(f"💾 Saving to DB: type={saved_content.get('type')}")
         await database_service.add_message_to_session(
             session_id=request.session_id,
             role="assistant",
-            content={"type": "text", "content": text_response},
+            content=saved_content,
         )
 
     # Recipe data is already persisted via Redis → app/main.py → database_service

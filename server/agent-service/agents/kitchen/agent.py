@@ -85,6 +85,7 @@ class KitchenEvent(AgentEvent):
         "session_name",
         "recipe_created",
         "agent_state",
+        "selector",
         "complete",
     ]
     data: Any
@@ -555,8 +556,23 @@ class KitchenAgent(BaseAgent):
     def _extract_text_content(self, content: Any) -> str:
         """Extract plain text from message content"""
         if isinstance(content, dict):
-            if content.get("type") == "text":
+            msg_type = content.get("type", "")
+            if msg_type == "text":
                 return content.get("content", "")
+            elif msg_type == "selector":
+                # Include message and options in history so LLM understands context
+                message = content.get("message", "")
+                options = content.get("options", [])
+                if options:
+                    options_text = "\n".join([
+                        f"• {opt.get('text', '')} – {opt.get('description', '')}"
+                        for opt in options
+                    ])
+                    return f"{message}\n\n{options_text}"
+                return message
+            elif msg_type == "kitchen-step":
+                # Include kitchen step messages in history
+                return content.get("message", "")
             return ""
         return content
 
@@ -605,6 +621,97 @@ class KitchenAgent(BaseAgent):
 
         logger.info(f"📝 Session state: recipe={recipe_data.get('name') if recipe_data else None}, step={current_step}")
 
+        # Check if recipe creation is in progress - bypass intent analysis
+        recipe_creation_in_progress = agent_state.get("recipe_creation_in_progress", False)
+
+        if recipe_creation_in_progress:
+            logger.info("📋 Continuing recipe creation flow")
+            yield KitchenEvent(type="thinking", data="thinking")
+
+            accumulated_recipe = {}
+            message_id = f"msg-{uuid.uuid4()}"
+
+            async for recipe_event in self.recipe_creator.run_streaming(
+                message=message,
+                message_history=message_history,
+                session_id=session_id,
+                session_data=session_data,
+            ):
+                # Accumulate recipe document parts
+                if recipe_event.type == "metadata":
+                    accumulated_recipe.update(recipe_event.data)
+                elif recipe_event.type == "ingredients":
+                    accumulated_recipe["ingredients"] = recipe_event.data
+                elif recipe_event.type == "steps":
+                    accumulated_recipe["steps"] = recipe_event.data
+                elif recipe_event.type == "nutrition":
+                    accumulated_recipe["nutrition"] = recipe_event.data
+                elif recipe_event.type == "complete":
+                    # Ignore complete from recipe creator - we handle completion ourselves
+                    pass
+                elif recipe_event.type == "session_name":
+                    # Pass through and also track the name
+                    yield KitchenEvent(type="session_name", data=recipe_event.data)
+                    accumulated_recipe["name"] = recipe_event.data
+                else:
+                    # Pass through any other events (thinking, text, selector, etc.)
+                    yield KitchenEvent(type=recipe_event.type, data=recipe_event.data)
+
+            # Check if we have a valid recipe
+            has_valid_recipe = all([
+                accumulated_recipe.get("name"),
+                accumulated_recipe.get("ingredients"),
+                accumulated_recipe.get("steps"),
+            ])
+
+            if has_valid_recipe:
+                # Emit recipe_created with full recipe object for DB persistence
+                yield KitchenEvent(type="recipe_created", data=accumulated_recipe)
+                logger.info(f"📝 Recipe created: {accumulated_recipe.get('name')}")
+
+                # Set up cooking ingredients for tracking
+                cooking_ingredients = [
+                    {
+                        "name": ing.get("name"),
+                        "amount": ing.get("amount", ""),
+                        "unit": ing.get("unit", ""),
+                        "highlighted": False,
+                        "used": False,
+                    }
+                    for ing in accumulated_recipe["ingredients"]
+                ]
+                yield KitchenEvent(type="ingredients_set", data=cooking_ingredients)
+                logger.info(f"🥗 Set up {len(cooking_ingredients)} cooking ingredients")
+
+                # Generate "ready to start" message
+                recipe_name = accumulated_recipe.get("name")
+                prompt = RECIPE_READY_PROMPT.format(recipe_name=recipe_name)
+                ready_response = await self.llm.ainvoke(prompt)
+                yield KitchenEvent(
+                    type="kitchen_step",
+                    data={
+                        "message": ready_response.content,
+                        "message_id": message_id,
+                        "next_step_prompt": "Start cooking",
+                    },
+                )
+
+                # Recipe complete - clear the flag
+                yield KitchenEvent(
+                    type="agent_state",
+                    data={"recipe_creation_in_progress": False, "current_step": None},
+                )
+            else:
+                # Recipe creation still in progress - keep flag set
+                logger.info("📋 Recipe creation in progress: waiting for user input")
+                yield KitchenEvent(
+                    type="agent_state",
+                    data={"recipe_creation_in_progress": True},
+                )
+
+            yield KitchenEvent(type="complete", data=None)
+            return
+
         # Create initial state
         initial_state: KitchenAgentState = {
             "messages": langchain_messages,
@@ -646,7 +753,7 @@ class KitchenAgent(BaseAgent):
                     # Delegate to RecipeCreatorAgent
                     recipe_request = state_update.get("recipe_request") or message
 
-                    yield KitchenEvent(type="thinking", data="Creating recipe")
+                    yield KitchenEvent(type="thinking", data="asking Recipe Creator")
 
                     # Accumulate recipe data from RecipeCreatorAgent
                     accumulated_recipe = {}
@@ -716,12 +823,19 @@ class KitchenAgent(BaseAgent):
                                 "next_step_prompt": "Start cooking",
                             },
                         )
+
+                        # Recipe complete - clear the flag
+                        yield KitchenEvent(
+                            type="agent_state",
+                            data={"recipe_creation_in_progress": False, "current_step": None},
+                        )
                     else:
-                        # Recipe creation didn't produce a full recipe (e.g., user was just asking questions)
-                        logger.warning(f"⚠️  Recipe creation incomplete: name={accumulated_recipe.get('name')}, "
-                                     f"ingredients={bool(accumulated_recipe.get('ingredients'))}, "
-                                     f"steps={bool(accumulated_recipe.get('steps'))}")
-                        # Don't emit any events - let the conversation continue naturally
+                        # Recipe creation in progress - set flag for next message
+                        logger.info("📋 Recipe creation in progress: waiting for user input")
+                        yield KitchenEvent(
+                            type="agent_state",
+                            data={"recipe_creation_in_progress": True},
+                        )
 
                     # Don't continue to other state handling
                     continue

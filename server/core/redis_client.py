@@ -386,6 +386,35 @@ class RedisClient:
             }
         )
 
+    async def send_selector_message(
+        self,
+        session_id: str,
+        message: str,
+        options: list[str],
+        message_id: str,
+    ):
+        """
+        Send a selector message with clickable options.
+
+        Args:
+            session_id: Session ID
+            message: Question or prompt text
+            options: List of option strings
+            message_id: Unique message ID
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "selector",
+                    "message": message,
+                    "options": options,
+                },
+                "message_id": message_id
+            }
+        )
+
     def is_agent_message(self, message: dict, content_type: str = None) -> bool:
         """
         Check if a message is an agent message, optionally with specific content type

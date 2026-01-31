@@ -45,9 +45,9 @@ Analyze intent (ONLY these 4 options):
    - "anything" / "you decide"
    → Provide 3 specific dish suggestions with brief descriptions
 
-4. **question**: Need ONE specific clarification about their recipe request
-   - "Make me pasta" → question: "What kind of pasta? Carbonara, bolognese, alfredo, or pesto?"
-   - "Chicken dish" → question: "What style of chicken? Roasted, grilled, curry, or stir-fry?"
+4. **question**: Clarification needed OR follow-up questions
+   - Vague recipe request → Ask with specific options: "Make me pasta" → "What kind? Carbonara, bolognese, alfredo?"
+   - Follow-up question → Answer based on conversation history
    - NEVER repeat a question already asked in conversation history
    - NEVER ask generic "what do you want" - always give specific options
    - If user says "anything" or "you decide" after being asked → use "suggest" intent instead
@@ -59,7 +59,7 @@ RESPONSE FORMAT:
 - For "recipe": Set recipe_request to the specific dish
 - For "modify": Set modification_request (what to change) and what_to_modify (which specific fields: name, description, servings, difficulty, time, tags, ingredients, steps, nutrition)
 - For "suggest": Set suggestions (3 dish names) and text_response (friendly intro text)
-- For "question": Set text_response (the clarifying question with options)"""
+- For "question": Set text_response (clarifying question OR answer based on conversation context)"""
 
 GENERATE_METADATA_PROMPT = """Generate recipe metadata for the following request.
 
@@ -165,20 +165,17 @@ Also provide a friendly response_text that:
 
 ASK_QUESTION_PROMPT = """You are Raimy, a friendly recipe assistant.
 
-The user wants a recipe but their request needs clarification.
-
 Previous conversation:
 {message_history}
 
-Their request: {user_message}
+User's message: {user_message}
 
-Generate:
-- message: A friendly question asking what specific dish they want (1 sentence)
-- options: 3-4 specific dish names they can choose from
+If the user is asking a follow-up question, answer based on the conversation context (options = empty).
 
-IMPORTANT:
-- Options must be SPECIFIC dish names (e.g., "Chicken Parmesan", "Grilled Ribeye")
-- NOT categories or styles (e.g., NOT "Italian style", "grilled")
+If the user's request needs clarification, ask with specific dish options.
+
+Rules for clarification:
+- options: 3-4 SPECIFIC dish names (e.g., "Chicken Parmesan", not "Italian style")
 - DO NOT repeat options from previous conversation
 - Keep message short and conversational"""
 

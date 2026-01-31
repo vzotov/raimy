@@ -130,14 +130,14 @@ class DishOption(BaseModel):
 
 
 class QuestionWithOptions(BaseModel):
-    """A clarifying question with clickable options"""
+    """A clarifying question with clickable options, or an answer to a follow-up question"""
 
     message: str = Field(
-        description="The question text asking for clarification"
+        description="The question/answer text"
     )
     options: List[DishOption] = Field(
-        description="3-4 specific dish options with descriptions",
-        min_length=2,
+        default_factory=list,
+        description="3-4 specific dish options (empty if answering a follow-up question)",
         max_length=5,
     )
 

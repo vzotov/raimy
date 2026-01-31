@@ -99,6 +99,7 @@ class RecipeEvent(AgentEvent):
     - "ingredients": Recipe ingredients list
     - "steps": Recipe steps list
     - "nutrition": Nutrition information
+    - "selector": Selectable options UI
     - "complete": End of response
     """
 
@@ -324,12 +325,10 @@ class RecipeCreatorAgent(BaseAgent):
         ])
         full_response = f"{result.response_text}\n\n{suggestions_text}"
 
-        return {
-            "text_response": full_response,
-        }
+        return {"text_response": full_response}
 
     async def _ask_question(self, state: RecipeCreatorState) -> Dict:
-        """Generate a clarifying question with options"""
+        """Generate a clarifying question with options, or answer a follow-up question"""
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ASK_QUESTION_PROMPT.format(
@@ -340,15 +339,19 @@ class RecipeCreatorAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(QuestionWithOptions)
         result: QuestionWithOptions = await llm_with_output.ainvoke(prompt)
 
-        logger.info(f"❓ Question with {len(result.options)} options")
+        logger.info(f"❓ Question/answer with {len(result.options)} options")
 
-        # Build text response with options for formatter to parse
-        options_text = ", ".join(result.options[:-1]) + f", or {result.options[-1]}?" if len(result.options) > 1 else result.options[0]
-        full_response = f"{result.message} {options_text}"
+        # Build text response - include options only if present
+        if result.options:
+            suggestions_text = "\n".join([
+                f"• {opt.name} – {opt.description}" for opt in result.options
+            ])
+            full_response = f"{result.message}\n\n{suggestions_text}"
+        else:
+            # No options = follow-up answer, just return the message
+            full_response = result.message
 
-        return {
-            "text_response": full_response,
-        }
+        return {"text_response": full_response}
 
     async def _format_response(self, state: RecipeCreatorState) -> Dict:
         """Format text response into appropriate UI type (text or selector)"""
@@ -646,8 +649,20 @@ class RecipeCreatorAgent(BaseAgent):
     def _extract_text_content(self, content: Any) -> str:
         """Extract plain text from message content"""
         if isinstance(content, dict):
-            if content.get("type") == "text":
+            msg_type = content.get("type", "")
+            if msg_type == "text":
                 return content.get("content", "")
+            elif msg_type == "selector":
+                # Include message and options in history so LLM understands context
+                message = content.get("message", "")
+                options = content.get("options", [])
+                if options:
+                    options_text = "\n".join([
+                        f"• {opt.get('text', '')} – {opt.get('description', '')}"
+                        for opt in options
+                    ])
+                    return f"{message}\n\n{options_text}"
+                return message
             return ""
         return content
 

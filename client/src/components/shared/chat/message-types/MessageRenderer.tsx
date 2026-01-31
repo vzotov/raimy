@@ -1,5 +1,6 @@
 import type { MessageContent } from '@/types/chat-message-types';
 import MessageConfirmationButtons from './MessageConfirmationButtons';
+import MessageSelectorButtons from './MessageSelectorButtons';
 
 export interface MessageRendererProps {
   content: MessageContent;
@@ -44,6 +45,21 @@ export default function MessageRenderer({
               onAskQuestion={onFocusInput}
               onSendDone={() => onMessageAction(content.next_step_prompt)}
               doneLabel={content.next_step_prompt}
+            />
+          )}
+        </div>
+      );
+
+    case 'selector':
+      return (
+        <div>
+          <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
+            {content.message}
+          </p>
+          {isLastMessage && onMessageAction && (
+            <MessageSelectorButtons
+              options={content.options}
+              onSelect={onMessageAction}
             />
           )}
         </div>

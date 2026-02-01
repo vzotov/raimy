@@ -73,6 +73,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             onKeyDown={handleKeyDown}
             disabled={disabled}
             placeholder={placeholder}
+            maxLength={1000}
             rows={1}
             className={classNames(
               'flex-1 resize-none rounded-lg px-4 py-3 text-sm sm:text-base',

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, JSON
+from sqlalchemy import Column, String, DateTime, JSON, Text
 from sqlalchemy.orm import relationship
 from .base import Base, TimestampMixin
 
@@ -7,7 +7,7 @@ class User(Base, TimestampMixin):
 
     email = Column(String(255), primary_key=True)
     name = Column(String(255))
-    picture = Column(String(500))
+    picture = Column(Text)
     locale = Column(String(10))
     last_login = Column(DateTime(timezone=True))
 

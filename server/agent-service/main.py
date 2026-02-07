@@ -3,8 +3,9 @@ Raimy Agent Service
 
 FastAPI service for chat agent orchestration with LangGraph.
 """
+import asyncio
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -16,6 +17,7 @@ from app.services import database_service
 from agents import get_agent
 from agents.recipe_creator.agent import RecipeCreatorAgent
 from agents.kitchen.agent import KitchenAgent
+from agents.memory import memory_agent
 from core.redis_client import get_redis_client
 
 load_dotenv()
@@ -77,6 +79,30 @@ class GreetingResponse(BaseModel):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "agent", "version": "3.0.0"}
+
+
+async def _trigger_memory_extraction(
+    user_id: str,
+    session_id: str,
+    messages: List[Dict[str, Any]],
+) -> None:
+    """
+    Fire-and-forget memory extraction after agent completes.
+
+    Args:
+        user_id: User email
+        session_id: Session ID for logging
+        messages: Conversation messages including the latest exchange
+    """
+    try:
+        current_memory = await database_service.get_user_memory(user_id)
+        result = await memory_agent.extract_and_save(user_id, messages, current_memory)
+        if result:
+            logger.info(f"🧠 Memory extraction completed for user {user_id} (session {session_id})")
+        else:
+            logger.debug(f"🧠 No memory updates for user {user_id}")
+    except Exception as e:
+        logger.error(f"🧠 Memory extraction failed for {user_id}: {e}", exc_info=True)
 
 
 @app.post("/agent/greeting", response_model=GreetingResponse)
@@ -246,6 +272,20 @@ async def _handle_kitchen_events(
             new_agent_state,
         )
 
+    # Trigger memory extraction in background (fire-and-forget)
+    user_id = session_data.get("user_id")
+    if user_id:
+        # Build full message list including the new exchange
+        full_messages = messages + [
+            {"role": "user", "content": {"type": "text", "content": request.message}},
+        ]
+        if saved_content:
+            full_messages.append({"role": "assistant", "content": saved_content})
+
+        asyncio.create_task(
+            _trigger_memory_extraction(user_id, request.session_id, full_messages)
+        )
+
     return ChatResponse(
         response=text_response or "I'm here to help you cook!",
         message_id=message_id,
@@ -357,6 +397,20 @@ async def _handle_recipe_creator_events(
             content=saved_content,
         )
 
+    # Trigger memory extraction in background (fire-and-forget)
+    user_id = session_data.get("user_id")
+    if user_id:
+        # Build full message list including the new exchange
+        full_messages = messages + [
+            {"role": "user", "content": {"type": "text", "content": request.message}},
+        ]
+        if saved_content:
+            full_messages.append({"role": "assistant", "content": saved_content})
+
+        asyncio.create_task(
+            _trigger_memory_extraction(user_id, request.session_id, full_messages)
+        )
+
     # Recipe data is already persisted via Redis → app/main.py → database_service
     return ChatResponse(
         response=text_response or "I'm here to help with recipes!",
@@ -401,6 +455,14 @@ async def agent_chat(request: ChatRequest):
                 logger.info(f"✅ Loaded recipe: {recipe_data.get('name')}")
             else:
                 logger.error(f"❌ Recipe {recipe_id} not found")
+
+        # Load user memory for context
+        user_id = session_data.get("user_id")
+        if user_id:
+            user_memory = await database_service.get_user_memory(user_id)
+            if user_memory:
+                session_data["user_memory"] = user_memory
+                logger.info(f"🧠 Loaded user memory for {user_id}")
 
         # Save user message to database
         await database_service.add_message_to_session(

@@ -16,10 +16,16 @@ Speak like a calm, helpful chef - concise and clear.
 - Never ask "Ready?" or "Let me know..." - just proceed
 - Speak naturally - like you're next to the stove
 - Never narrate tool usage or ingredient updates
+
+## User Profile
+{user_memory}
 """
 
 # Intent analysis prompt
 ANALYZE_INTENT_PROMPT = """Analyze the user's message to determine their intent in the kitchen context.
+
+## User Profile (consider these preferences)
+{user_memory}
 
 ## Current State
 Has recipe: {has_recipe}
@@ -45,6 +51,9 @@ Determine the most appropriate intent and extract any relevant details."""
 
 # Step guidance prompt
 GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
+
+## User Profile (consider these preferences)
+{user_memory}
 
 ## Recipe: {recipe_name}
 ## Current Step ({step_number} of {total_steps}):
@@ -97,6 +106,9 @@ CRITICAL - INGREDIENT NAMES:
 
 # Question answering prompt
 ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
+
+## User Profile (consider these preferences)
+{user_memory}
 
 ## Recipe: {recipe_name}
 ## Current Step ({step_number} of {total_steps}):

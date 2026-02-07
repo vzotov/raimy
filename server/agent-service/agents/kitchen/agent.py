@@ -97,6 +97,7 @@ class KitchenAgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     session_id: str
     user_message: str
+    user_memory: Optional[str]  # User profile/preferences markdown
 
     # Recipe data (from session)
     recipe: Optional[Dict[str, Any]]
@@ -229,6 +230,13 @@ class KitchenAgent(BaseAgent):
             formatted.append(f"{role}: {msg.content}")
         return "\n".join(formatted)
 
+    def _get_user_memory(self, state: KitchenAgentState) -> str:
+        """Get formatted user memory or default"""
+        memory = state.get("user_memory")
+        if memory:
+            return memory
+        return "(No user profile available)"
+
     def _format_ingredients_list(self, recipe: Dict[str, Any]) -> str:
         """Format ingredients list for prompts with name clearly separated"""
         ingredients = recipe.get("ingredients", [])
@@ -287,6 +295,7 @@ class KitchenAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ANALYZE_INTENT_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             has_recipe=has_recipe,
             current_step_info=current_step_info,
             recipe_name=recipe_name,
@@ -391,6 +400,7 @@ class KitchenAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = GENERATE_STEP_GUIDANCE_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_name=recipe.get("name", "Recipe"),
             step_number=new_step + 1,
             total_steps=total_steps,
@@ -471,6 +481,7 @@ class KitchenAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ANSWER_QUESTION_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_name=recipe.get("name", "Recipe"),
             step_number=step_number,
             total_steps=total_steps,
@@ -717,6 +728,7 @@ class KitchenAgent(BaseAgent):
             "messages": langchain_messages,
             "session_id": session_id,
             "user_message": message,
+            "user_memory": session_data.get("user_memory"),
             "recipe": recipe_data,
             "current_step": current_step,
             "ingredients": ingredients,

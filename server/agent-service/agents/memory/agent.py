@@ -23,7 +23,7 @@ class MemoryAgent:
     Called at the end of other agents' sessions.
     """
 
-    MODEL = "gpt-4o-mini"
+    MODEL = "gpt-5-mini"
 
     def __init__(self):
         self.llm = ChatOpenAI(
@@ -39,7 +39,7 @@ class MemoryAgent:
             return "(No messages)"
 
         formatted = []
-        for msg in messages[-10:]:  # Last 10 messages for context
+        for msg in messages:
             role = msg.get("role", "unknown")
             content = msg.get("content", "")
 

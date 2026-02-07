@@ -58,16 +58,31 @@ export default function KitchenChat({
 
   // Show completion UI if cooking is complete
   if (state.cookingComplete) {
+    // Get the last assistant message as the final message
+    const lastAssistantMessage = [...state.messages]
+      .reverse()
+      .find((m) => m.role === 'assistant');
+    const finalMessage =
+      typeof lastAssistantMessage?.content === 'string'
+        ? lastAssistantMessage.content
+        : typeof lastAssistantMessage?.content === 'object' &&
+            'content' in lastAssistantMessage.content
+          ? lastAssistantMessage.content.content
+          : typeof lastAssistantMessage?.content === 'object' &&
+              'message' in lastAssistantMessage.content
+            ? lastAssistantMessage.content.message
+            : null;
+
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center">
-        <div className="text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center p-8">
+        <div className="max-w-lg text-center">
           <div className="mb-4 text-6xl">🎉</div>
-          <h1 className="mb-2 text-3xl font-bold text-text">
-            Enjoy your {state.sessionName || sessionName}!
+          <h1 className="mb-4 text-3xl font-bold text-text">
+            {state.sessionName || sessionName}
           </h1>
-          <p className="text-text/70">
-            You&apos;ve completed all the steps. Time to eat!
-          </p>
+          {finalMessage && (
+            <p className="text-lg text-text/80">{finalMessage}</p>
+          )}
         </div>
       </div>
     );

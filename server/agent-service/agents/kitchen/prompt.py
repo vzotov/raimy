@@ -165,7 +165,7 @@ Write 1 sentence: tell them you need a recipe first, ask what they want to cook.
 # Cooking complete prompt
 COOKING_COMPLETE_PROMPT = """User finished cooking {recipe_name}!
 
-Write 1 sentence congratulating them. Be genuine, no over-the-top enthusiasm."""
+Write 1 sentence wishing them to enjoy their meal. Be genuine, no over-the-top enthusiasm."""
 
 # Timer question prompt
 TIMER_QUESTION_PROMPT = """User wants a timer but didn't say how long. Their message: {user_message}

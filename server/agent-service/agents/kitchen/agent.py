@@ -123,6 +123,7 @@ class KitchenAgentState(TypedDict):
     ingredients_to_update: Optional[List[Dict]]
     timer_to_set: Optional[Dict]
     new_step_index: Optional[int]
+    cooking_complete: Optional[bool]
 
 
 # Thinking messages for nodes
@@ -394,6 +395,24 @@ class KitchenAgent(BaseAgent):
                 new_step = current_step - 1
         else:
             new_step = current_step if current_step is not None else 0
+
+        # Check if we're transitioning to the last step - trigger completion immediately
+        if new_step == total_steps - 1:
+            # This is the final "Enjoy" step - complete the session
+            all_used = [
+                {"name": ing.get("name"), "highlighted": False, "used": True}
+                for ing in recipe.get("ingredients", [])
+            ]
+            prompt = COOKING_COMPLETE_PROMPT.format(
+                recipe_name=recipe.get("name", "your dish"),
+            )
+            response = await self.llm.ainvoke(prompt)
+            return {
+                "text_response": response.content,
+                "new_step_index": new_step,
+                "ingredients_to_update": all_used,
+                "cooking_complete": True,
+            }
 
         # Get step data
         step_data = steps[new_step]
@@ -746,6 +765,7 @@ class KitchenAgent(BaseAgent):
             "ingredients_to_update": None,
             "timer_to_set": None,
             "new_step_index": None,
+            "cooking_complete": None,
         }
 
         message_id = f"msg-{uuid.uuid4()}"

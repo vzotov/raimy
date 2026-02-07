@@ -1,7 +1,10 @@
 'use client';
 
 import classNames from 'classnames';
+import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
+import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import NotebookIcon from '@/components/icons/NotebookIcon';
 import KitchenIngredientList, {
   type KitchenIngredient,
 } from '@/components/pages/kitchen/KitchenIngredientList';
@@ -26,6 +29,8 @@ export default function KitchenChat({
   initialIngredients = [],
   initialFinished = false,
 }: KitchenChatProps) {
+  const router = useRouter();
+
   // Use the custom hook for message handling and state management
   const { state, handleMessage, addMessage } = useKitchenState({
     sessionId,
@@ -83,6 +88,22 @@ export default function KitchenChat({
           {finalMessage && (
             <p className="text-lg text-text/80">{finalMessage}</p>
           )}
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={() => router.push('/kitchen/new')}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary/90"
+            >
+              <ChefHatIcon className="h-5 w-5" />
+              Cook Something New
+            </button>
+            <button
+              onClick={() => router.push('/myrecipes')}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-text/10 bg-surface px-6 py-3 font-medium text-text transition-colors hover:bg-surface/70"
+            >
+              <NotebookIcon className="h-5 w-5" />
+              Browse My Recipes
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -323,10 +323,14 @@ class KitchenAgent(BaseAgent):
     def _route_intent(self, state: KitchenAgentState) -> str:
         """Route based on analyzed intent"""
         intent = state.get("intent")
+        recipe = state.get("recipe")
 
         if intent == "get_recipe":
             return "get_recipe"
         if intent in ("start_cooking", "next_step", "previous_step"):
+            # If no recipe loaded, route to get_recipe to regenerate from context
+            if not recipe or not recipe.get("steps"):
+                return "get_recipe"
             return "step_action"
         if intent == "ask_question":
             return "question"
@@ -355,8 +359,12 @@ class KitchenAgent(BaseAgent):
         current_step = state.get("current_step")
 
         if not recipe or not recipe.get("steps"):
-            # Generate no-recipe response using LLM
-            prompt = NO_RECIPE_PROMPT.format(user_message=state["user_message"])
+            # Generate no-recipe response using LLM with message history context
+            message_history = self._format_message_history(state["messages"][:-1])
+            prompt = NO_RECIPE_PROMPT.format(
+                message_history=message_history,
+                user_message=state["user_message"],
+            )
             response = await self.llm.ainvoke(prompt)
             return {"text_response": response.content}
 
@@ -485,8 +493,12 @@ class KitchenAgent(BaseAgent):
         question = state.get("question") or state["user_message"]
 
         if not recipe:
-            # Generate no-recipe response using LLM
-            prompt = NO_RECIPE_PROMPT.format(user_message=state["user_message"])
+            # Generate no-recipe response using LLM with message history context
+            message_history = self._format_message_history(state["messages"][:-1])
+            prompt = NO_RECIPE_PROMPT.format(
+                message_history=message_history,
+                user_message=state["user_message"],
+            )
             response = await self.llm.ainvoke(prompt)
             return {"text_response": response.content}
 

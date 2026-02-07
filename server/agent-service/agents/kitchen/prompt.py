@@ -158,9 +158,17 @@ Respond naturally and helpfully. If they seem to have drifted off-topic, gently 
 Keep it concise (1-2 sentences)."""
 
 # No recipe loaded prompt
-NO_RECIPE_PROMPT = """No recipe is loaded. User said: {user_message}
+NO_RECIPE_PROMPT = """No recipe is loaded in the current session.
 
-Write 1 sentence: tell them you need a recipe first, ask what they want to cook. No fluff."""
+## Message History
+{message_history}
+
+## User's Message
+{user_message}
+
+If the conversation mentions a specific dish, ask if they want to continue with that recipe.
+If no dish is mentioned, ask what they want to cook.
+Write 1 sentence. No fluff."""
 
 # Cooking complete prompt
 COOKING_COMPLETE_PROMPT = """User finished cooking {recipe_name}!

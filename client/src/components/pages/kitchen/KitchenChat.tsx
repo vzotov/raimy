@@ -16,6 +16,7 @@ interface KitchenChatProps {
   sessionName: string;
   initialMessages?: SessionMessage[];
   initialIngredients?: KitchenIngredient[];
+  initialFinished?: boolean;
 }
 
 export default function KitchenChat({
@@ -23,21 +24,24 @@ export default function KitchenChat({
   sessionName,
   initialMessages = [],
   initialIngredients = [],
+  initialFinished = false,
 }: KitchenChatProps) {
   // Use the custom hook for message handling and state management
   const { state, handleMessage, addMessage } = useKitchenState({
     sessionId,
     initialMessages,
     initialIngredients,
+    initialFinished,
   });
 
   // Update document title when session name changes via WebSocket
   useChatSessionTitle(state.sessionName);
 
-  // WebSocket connection
+  // WebSocket connection - only connect if session not finished
   const { isConnected, error, sendMessage } = useWebSocket({
     sessionId,
     onMessage: handleMessage,
+    autoReconnect: !state.cookingComplete,
   });
 
   // Handle sending messages
@@ -51,6 +55,23 @@ export default function KitchenChat({
     },
     [addMessage, sendMessage],
   );
+
+  // Show completion UI if cooking is complete
+  if (state.cookingComplete) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-6xl">🎉</div>
+          <h1 className="mb-2 text-3xl font-bold text-text">
+            Enjoy your {state.sessionName || sessionName}!
+          </h1>
+          <p className="text-text/70">
+            You&apos;ve completed all the steps. Time to eat!
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full flex-col">

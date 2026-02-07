@@ -170,15 +170,16 @@ async def extract_memory_for_user(
 
         logger.info(f"     📝 '{session_name}': {len(messages)} msgs ({len(user_messages)} user)")
 
-        # Extract memory for this session (memory agent uses last 10 messages)
-        result = await memory_agent.extract_and_save(
-            user_id=user_id,
+        # Extract memory for this session (memory agent is a pure function)
+        result = await memory_agent.extract(
             messages=messages,
             current_memory=final_memory,
         )
 
         if result:
             final_memory = result
+            # Save to database
+            await database_service.save_user_memory(user_id, final_memory)
             sessions_processed += 1
 
     if final_memory:

@@ -72,6 +72,8 @@ class KitchenEvent(AgentEvent):
     - "session_name": Session name update
     - "recipe_created": Full recipe object for DB persistence
     - "agent_state": State to persist
+    - "selector": Selector with options
+    - "cooking_complete": All steps finished
     - "complete": End of response
     """
 
@@ -86,6 +88,7 @@ class KitchenEvent(AgentEvent):
         "recipe_created",
         "agent_state",
         "selector",
+        "cooking_complete",
         "complete",
     ]
     data: Any
@@ -380,6 +383,7 @@ class KitchenAgent(BaseAgent):
                     "text_response": response.content,
                     "new_step_index": current_step,
                     "ingredients_to_update": all_used,
+                    "cooking_complete": True,  # Flag for session completion
                 }
             else:
                 new_step = current_step + 1
@@ -870,6 +874,13 @@ class KitchenAgent(BaseAgent):
                 # Track new step index for persistence
                 if state_update.get("new_step_index") is not None:
                     final_step_index = state_update["new_step_index"]
+
+                # Check for cooking completion
+                if state_update.get("cooking_complete"):
+                    yield KitchenEvent(
+                        type="cooking_complete",
+                        data=None,
+                    )
 
                 # Emit text or kitchen_step response
                 if text_response and text_response != "__RECIPE_CREATION__":

@@ -10,6 +10,7 @@ export interface ChatSession {
   ingredients?: RecipeIngredient[];
   recipe?: RecipeContent | null; // Work-in-progress recipe data
   recipe_id?: string | null; // Saved recipe reference
+  finished?: boolean; // True when cooking session is completed
   created_at: string;
   updated_at: string;
 }

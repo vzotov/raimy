@@ -1,12 +1,18 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
+import asyncio
 import logging
+import os
 from typing import List
+
+import httpx
 
 from ..services import database_service, RecipeModel, RecipeStepModel, RecipeIngredientModel
 from .models import UpdateSessionNameRequest, CreateSessionRequest
 from core.auth_client import auth_client
 
 logger = logging.getLogger(__name__)
+
+AGENT_SERVICE_URL = os.getenv("AGENT_SERVICE_URL", "http://agent-service:8003")
 
 async def get_current_user_with_storage(request: Request):
     """Get current user and ensure user data is stored in database"""
@@ -141,6 +147,20 @@ async def update_session_name(
         raise HTTPException(status_code=500, detail=f"Failed to update session name: {str(e)}")
 
 
+async def _trigger_memory_extraction(session_id: str, user_id: str):
+    """Fire-and-forget memory extraction via agent-service."""
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(
+                f"{AGENT_SERVICE_URL}/agent/extract-memory",
+                json={"session_id": session_id, "user_id": user_id},
+                timeout=5.0
+            )
+            logger.info(f"🧠 Triggered memory extraction for session {session_id}")
+        except Exception as e:
+            logger.warning(f"🧠 Memory extraction trigger failed: {e}")
+
+
 @router.post("/{session_id}/save-recipe")
 async def save_recipe_from_session(
     session_id: str,
@@ -177,6 +197,11 @@ async def save_recipe_from_session(
 
         # Use shared database service method
         result = await database_service.save_recipe_from_session_data(session_id)
+
+        # Trigger memory extraction (fire-and-forget)
+        asyncio.create_task(
+            _trigger_memory_extraction(session_id, session_data["user_id"])
+        )
 
         return {
             "message": "Recipe saved successfully",

@@ -2,7 +2,7 @@
 Memory Agent
 
 Extracts user preferences from conversations and maintains a memory document.
-Runs as a fire-and-forget task after other agents complete.
+Pure function - takes input, returns output. Caller handles persistence.
 """
 
 import os
@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Any
 from langchain_openai import ChatOpenAI
 
 from .prompt import MEMORY_EXTRACTION_PROMPT, EMPTY_MEMORY_TEMPLATE
-from app.services import database_service
 
 logger = logging.getLogger(__name__)
 
@@ -60,17 +59,17 @@ class MemoryAgent:
 
         return "\n".join(formatted)
 
-    async def extract_and_save(
+    async def extract(
         self,
-        user_id: str,
         messages: List[Dict[str, Any]],
         current_memory: Optional[str] = None,
     ) -> Optional[str]:
         """
-        Extract preferences from conversation and save to database.
+        Extract preferences from conversation.
+
+        Pure function - takes input, returns output. Caller handles persistence.
 
         Args:
-            user_id: User email (primary key)
             messages: Conversation messages from the session
             current_memory: Existing memory document or None
 
@@ -80,7 +79,7 @@ class MemoryAgent:
         # Skip if no user messages
         user_messages = [m for m in messages if m.get("role") == "user"]
         if not user_messages:
-            logger.debug(f"🧠 No user messages to extract from for {user_id}")
+            logger.debug("🧠 No user messages to extract from")
             return None
 
         # Format conversation for LLM
@@ -110,20 +109,14 @@ class MemoryAgent:
 
             # Check if memory actually changed
             if updated_memory and updated_memory != current_memory:
-                # Save to database
-                success = await database_service.save_user_memory(user_id, updated_memory)
-                if success:
-                    logger.info(f"🧠 Memory updated for user {user_id}")
-                    return updated_memory
-                else:
-                    logger.error(f"🧠 Failed to save memory for user {user_id}")
-                    return None
+                logger.debug("🧠 Memory has changes")
+                return updated_memory
 
-            logger.debug(f"🧠 No memory changes for user {user_id}")
+            logger.debug("🧠 No memory changes detected")
             return None
 
         except Exception as e:
-            logger.error(f"🧠 Memory extraction failed for {user_id}: {e}", exc_info=True)
+            logger.error(f"🧠 Memory extraction failed: {e}", exc_info=True)
             return None
 
 

@@ -447,6 +447,7 @@ class DatabaseService:
                     "recipe_id": str(session.recipe_id) if session.recipe_id else None,
                     "recipe_changed": session.recipe_changed,
                     "agent_state": session.agent_state,
+                    "finished": session.finished,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -864,6 +865,40 @@ class DatabaseService:
             except Exception as e:
                 await db.rollback()
                 logger.error(f"❌ Error updating agent_state: {e}", exc_info=True)
+                return False
+
+    async def mark_session_finished(self, session_id: str) -> bool:
+        """
+        Mark a session as finished.
+        Used when cooking is complete to prevent further interactions.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession).where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.finished = True
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"✅ Session marked as finished: {session_id}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error marking session finished: {e}", exc_info=True)
                 return False
 
     async def save_session_recipe(self, session_id: str, recipe: Dict[str, Any]) -> bool:

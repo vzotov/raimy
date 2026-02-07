@@ -35,6 +35,7 @@ export default async function KitchenContent({ id }: KitchenContentProps) {
         sessionName={session.session_name}
         initialMessages={session.messages || []}
         initialIngredients={session.ingredients || []}
+        initialFinished={session.finished || false}
       />
     );
   } catch (error) {

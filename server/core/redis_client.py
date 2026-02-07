@@ -258,6 +258,23 @@ class RedisClient:
             }
         )
 
+    async def send_cooking_complete_message(self, session_id: str):
+        """
+        Send cooking complete message when all steps are finished.
+
+        Args:
+            session_id: Session ID
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "cooking_complete"
+                }
+            }
+        )
+
     async def send_recipe_metadata_message(
         self,
         session_id: str,

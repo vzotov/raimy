@@ -1,4 +1,5 @@
 export { default as ChefHatIcon } from './ChefHatIcon';
+export { default as ChevronRightIcon } from './ChevronRightIcon';
 export { default as CogIcon } from './CogIcon';
 export { default as MenuIcon } from './MenuIcon';
 export { default as MoonIcon } from './MoonIcon';

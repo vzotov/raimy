@@ -2,8 +2,7 @@
 
 import classNames from 'classnames';
 import Link from 'next/link';
-import { XIcon } from '@/components/icons';
-import AuthButton from '@/components/shared/AuthButton';
+import { ChevronRightIcon, XIcon } from '@/components/icons';
 import Logo from '@/components/shared/Logo';
 import KitchenMenuSection from '@/components/shared/menu/KitchenMenuSection';
 import RecipeCreatorMenuSection from '@/components/shared/menu/RecipeCreatorMenuSection';
@@ -67,7 +66,14 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
           <div className="flex items-center justify-between mb-4">
             <ThemeSelector />
           </div>
-          <AuthButton />
+          <Link
+            href="/profile"
+            className="flex items-center justify-between w-full px-3 py-2 text-sm text-text/80 hover:text-text hover:bg-accent/30 rounded-lg transition-colors duration-150"
+            onClick={onClose}
+          >
+            <span className="truncate">{user.email}</span>
+            <ChevronRightIcon className="w-4 h-4 flex-shrink-0 ml-2" />
+          </Link>
         </div>
       </nav>
 

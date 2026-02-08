@@ -25,6 +25,9 @@ export function kitchenMessageReducer(
     case 'ADD_TIMER':
       return { ...state, timers: [...state.timers, action.payload] };
 
+    case 'SET_COOKING_COMPLETE':
+      return { ...state, cookingComplete: true };
+
     default:
       // Delegate to base chat reducer for common actions
       return {

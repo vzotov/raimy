@@ -9,7 +9,7 @@ from sqlalchemy import desc, delete
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
-from .models import User, Recipe, Session, ChatSession, ChatMessage
+from .models import User, Recipe, Session, ChatSession, ChatMessage, UserMemory
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -447,6 +447,7 @@ class DatabaseService:
                     "recipe_id": str(session.recipe_id) if session.recipe_id else None,
                     "recipe_changed": session.recipe_changed,
                     "agent_state": session.agent_state,
+                    "finished": session.finished,
                     "messages": messages,
                     "created_at": session.created_at.isoformat(),
                     "updated_at": session.updated_at.isoformat()
@@ -866,6 +867,40 @@ class DatabaseService:
                 logger.error(f"❌ Error updating agent_state: {e}", exc_info=True)
                 return False
 
+    async def mark_session_finished(self, session_id: str) -> bool:
+        """
+        Mark a session as finished.
+        Used when cooking is complete to prevent further interactions.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession).where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session:
+                    logger.error(f"❌ Session not found: {session_id}")
+                    return False
+
+                session.finished = True
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"✅ Session marked as finished: {session_id}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"❌ Error marking session finished: {e}", exc_info=True)
+                return False
+
     async def save_session_recipe(self, session_id: str, recipe: Dict[str, Any]) -> bool:
         """
         Save full recipe object to session.recipe field.
@@ -903,6 +938,71 @@ class DatabaseService:
             except Exception as e:
                 await db.rollback()
                 logger.error(f"❌ Error saving recipe: {e}", exc_info=True)
+                return False
+
+
+    # User Memory Methods
+
+    async def get_user_memory(self, user_id: str) -> Optional[str]:
+        """
+        Get user memory document by user ID.
+
+        Args:
+            user_id: User email (primary key)
+
+        Returns:
+            Memory document string or None if not found
+        """
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(UserMemory).where(UserMemory.user_id == user_id)
+                )
+                memory = result.scalar_one_or_none()
+
+                if memory:
+                    return memory.memory_document
+                return None
+
+            except Exception as e:
+                logger.error(f"Error getting user memory for {user_id}: {e}", exc_info=True)
+                return None
+
+    async def save_user_memory(self, user_id: str, memory_document: str) -> bool:
+        """
+        Save or update user memory document.
+
+        Args:
+            user_id: User email (primary key)
+            memory_document: The markdown memory document to save
+
+        Returns:
+            True if successful, False otherwise
+        """
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(UserMemory).where(UserMemory.user_id == user_id)
+                )
+                existing = result.scalar_one_or_none()
+
+                if existing:
+                    existing.memory_document = memory_document
+                    existing.updated_at = datetime.utcnow()
+                else:
+                    new_memory = UserMemory(
+                        user_id=user_id,
+                        memory_document=memory_document
+                    )
+                    db.add(new_memory)
+
+                await db.commit()
+                logger.info(f"💾 Saved user memory for {user_id}")
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error saving user memory for {user_id}: {e}", exc_info=True)
                 return False
 
 

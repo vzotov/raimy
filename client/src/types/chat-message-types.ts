@@ -104,6 +104,10 @@ export type SelectorContent = {
   options: SelectorOption[];
 };
 
+export type CookingCompleteContent = {
+  type: 'cooking_complete';
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
@@ -114,4 +118,5 @@ export type MessageContent =
   | RecipeUpdateContent
   | TimerContent
   | SystemContent
-  | SelectorContent;
+  | SelectorContent
+  | CookingCompleteContent;

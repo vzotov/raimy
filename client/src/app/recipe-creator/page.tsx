@@ -1,64 +1,29 @@
 'use client';
 
-import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import NotebookIcon from '@/components/icons/NotebookIcon';
-import { useRecipeCreatorSessions } from '@/hooks/useSessions';
 
 export default function RecipeCreatorPage() {
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { createSession } = useRecipeCreatorSessions();
-
-  const handleCreateRecipe = async () => {
-    try {
-      setIsCreating(true);
-      setError(null);
-
-      const session = await createSession();
-
-      if (session?.id) {
-        router.push(`/recipe-creator/${session.id}`);
-      }
-    } catch (err) {
-      console.error('Failed to create recipe creator session:', err);
-      setError('Failed to create session. Please try again.');
-      setIsCreating(false);
-    }
-  };
 
   return (
     <div className="flex h-dvh items-center justify-center p-8">
       <div className="max-w-2xl">
         <div className="flex items-start gap-6">
-          <NotebookIcon className="w-20 h-20 text-primary flex-shrink-0" />
+          <NotebookIcon className="h-20 w-20 flex-shrink-0 text-primary" />
           <div>
-            <h1 className="text-4xl font-bold text-text mb-3">
+            <h1 className="mb-3 text-4xl font-bold text-text">
               Recipe Creator
             </h1>
-            <p className="text-lg text-text/70 mb-6">
+            <p className="mb-6 text-lg text-text/70">
               Create and save custom recipes with AI assistance
             </p>
             <button
-              onClick={handleCreateRecipe}
-              disabled={isCreating}
-              className={classNames(
-                'px-8 py-3 rounded-lg font-medium transition-all text-lg',
-                {
-                  'bg-primary text-white hover:bg-primary/90': !isCreating,
-                  'bg-accent/20 text-text/30 cursor-not-allowed': isCreating,
-                },
-              )}
+              onClick={() => router.push('/recipe-creator/new')}
+              className="rounded-lg bg-primary px-8 py-3 text-lg font-medium text-white transition-all hover:bg-primary/90"
             >
-              {isCreating ? 'Creating...' : 'Create a Recipe'}
+              Create a Recipe
             </button>
-            {error && (
-              <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-500 text-sm">
-                {error}
-              </div>
-            )}
           </div>
         </div>
       </div>

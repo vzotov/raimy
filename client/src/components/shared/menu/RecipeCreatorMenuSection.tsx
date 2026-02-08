@@ -17,7 +17,7 @@ export default function RecipeCreatorMenuSection({
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { sessions, updateSessionName, deleteSession, createSession } =
+  const { sessions, updateSessionName, deleteSession } =
     useRecipeCreatorSessions();
 
   // Auto-expand when on a recipe creator page
@@ -27,17 +27,9 @@ export default function RecipeCreatorMenuSection({
     }
   }, [pathname]);
 
-  const handleCreateRecipe = async () => {
-    try {
-      const session = await createSession();
-
-      if (session?.id) {
-        router.push(`/recipe-creator/${session.id}`);
-        onMenuClose();
-      }
-    } catch (err) {
-      console.error('Error creating recipe creator session:', err);
-    }
+  const handleCreateRecipe = () => {
+    router.push('/recipe-creator/new');
+    onMenuClose();
   };
 
   const handleDelete = async (sessionId: string) => {

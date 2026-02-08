@@ -16,10 +16,16 @@ Speak like a calm, helpful chef - concise and clear.
 - Never ask "Ready?" or "Let me know..." - just proceed
 - Speak naturally - like you're next to the stove
 - Never narrate tool usage or ingredient updates
+
+## User Profile
+{user_memory}
 """
 
 # Intent analysis prompt
 ANALYZE_INTENT_PROMPT = """Analyze the user's message to determine their intent in the kitchen context.
+
+## User Profile (consider these preferences)
+{user_memory}
 
 ## Current State
 Has recipe: {has_recipe}
@@ -33,7 +39,7 @@ Recipe name: {recipe_name}
 {user_message}
 
 ## Intent Categories
-- **get_recipe**: User wants to cook something but no recipe exists yet. They might name a dish, ask "what can I make", or paste a recipe.
+- **get_recipe**: User wants to cook something NEW. They might name a dish, ask "what can I make", or paste a recipe. Use this even if a recipe already exists - if the user asks for a DIFFERENT recipe, they want to switch.
 - **start_cooking**: Recipe exists and user indicates readiness to begin (e.g., "let's start", "ready", "go").
 - **next_step**: User indicates completion of current step (e.g., "done", "next", "okay", "finished").
 - **previous_step**: User wants to go back (e.g., "go back", "previous", "repeat that").
@@ -45,6 +51,9 @@ Determine the most appropriate intent and extract any relevant details."""
 
 # Step guidance prompt
 GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
+
+## User Profile (consider these preferences)
+{user_memory}
 
 ## Recipe: {recipe_name}
 ## Current Step ({step_number} of {total_steps}):
@@ -98,6 +107,9 @@ CRITICAL - INGREDIENT NAMES:
 # Question answering prompt
 ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
 
+## User Profile (consider these preferences)
+{user_memory}
+
 ## Recipe: {recipe_name}
 ## Current Step ({step_number} of {total_steps}):
 {step_instruction}
@@ -146,14 +158,22 @@ Respond naturally and helpfully. If they seem to have drifted off-topic, gently 
 Keep it concise (1-2 sentences)."""
 
 # No recipe loaded prompt
-NO_RECIPE_PROMPT = """No recipe is loaded. User said: {user_message}
+NO_RECIPE_PROMPT = """No recipe is loaded in the current session.
 
-Write 1 sentence: tell them you need a recipe first, ask what they want to cook. No fluff."""
+## Message History
+{message_history}
+
+## User's Message
+{user_message}
+
+If the conversation mentions a specific dish, ask if they want to continue with that recipe.
+If no dish is mentioned, ask what they want to cook.
+Write 1 sentence. No fluff."""
 
 # Cooking complete prompt
 COOKING_COMPLETE_PROMPT = """User finished cooking {recipe_name}!
 
-Write 1 sentence congratulating them. Be genuine, no over-the-top enthusiasm."""
+Write 1 sentence wishing them to enjoy their meal. Be genuine, no over-the-top enthusiasm."""
 
 # Timer question prompt
 TIMER_QUESTION_PROMPT = """User wants a timer but didn't say how long. Their message: {user_message}

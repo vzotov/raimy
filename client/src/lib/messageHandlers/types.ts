@@ -8,6 +8,7 @@ import type { ChatAction, ChatState } from './chatTypes';
 export interface KitchenMessageState extends ChatState {
   ingredients: KitchenIngredient[];
   timers: Timer[];
+  cookingComplete: boolean;
 }
 
 /**
@@ -17,4 +18,5 @@ export type KitchenMessageAction =
   | ChatAction
   | { type: 'SET_INGREDIENTS'; payload: KitchenIngredient[] }
   | { type: 'UPDATE_INGREDIENTS'; payload: KitchenIngredient[] }
-  | { type: 'ADD_TIMER'; payload: Timer };
+  | { type: 'ADD_TIMER'; payload: Timer }
+  | { type: 'SET_COOKING_COMPLETE' };

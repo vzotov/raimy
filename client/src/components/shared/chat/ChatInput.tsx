@@ -16,6 +16,7 @@ export interface ChatInputHandle {
 export interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  sendDisabled?: boolean;
   placeholder?: string;
 }
 
@@ -27,9 +28,10 @@ export interface ChatInputProps {
  */
 const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
   function ChatInput(
-    { onSend, disabled = false, placeholder = 'Type a message...' },
+    { onSend, disabled = false, sendDisabled, placeholder = 'Type a message...' },
     ref,
   ) {
+    const isButtonDisabled = sendDisabled ?? disabled;
     const [message, setMessage] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -40,7 +42,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
     const handleSubmit = (e: FormEvent) => {
       e.preventDefault();
-      if (message.trim() && !disabled) {
+      if (message.trim() && !isButtonDisabled) {
         onSend(message.trim());
         setMessage('');
         // Auto-focus input after sending for continuous conversation
@@ -90,7 +92,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           />
           <button
             type="submit"
-            disabled={disabled || !message.trim()}
+            disabled={isButtonDisabled || !message.trim()}
             className={classNames(
               'w-12 h-12 rounded-lg flex items-center justify-center',
               'bg-primary text-white',

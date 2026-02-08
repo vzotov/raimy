@@ -63,6 +63,7 @@ class RecipeCreatorState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     session_id: str
     user_message: str
+    user_memory: Optional[str]  # User profile/preferences markdown
 
     # Recipe data (progressively filled)
     name: Optional[str]
@@ -226,6 +227,13 @@ class RecipeCreatorAgent(BaseAgent):
             formatted.append(f"{role}: {msg.content}")
         return "\n".join(formatted)
 
+    def _get_user_memory(self, state: RecipeCreatorState) -> str:
+        """Get formatted user memory or default"""
+        memory = state.get("user_memory")
+        if memory:
+            return memory
+        return "(No user profile available)"
+
     def _format_existing_recipe(self, state: RecipeCreatorState) -> str:
         """Format existing recipe from state for prompts"""
         # Consider recipe as existing if it has name OR has content (ingredients/steps)
@@ -276,6 +284,7 @@ class RecipeCreatorAgent(BaseAgent):
         existing_recipe = self._format_existing_recipe(state)
 
         prompt = ANALYZE_REQUEST_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             existing_recipe=existing_recipe,
             message_history=message_history,
             user_message=state["user_message"],
@@ -284,15 +293,34 @@ class RecipeCreatorAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(RequestAnalysis)
         result: RequestAnalysis = await llm_with_output.ainvoke(prompt)
 
-        logger.info(f"📊 Request analysis: intent={result.intent}")
+        logger.info(f"📊 Request analysis: intent={result.intent}, recipe_request={result.recipe_request}")
 
-        return {
+        updates = {
             "intent": result.intent,
             "recipe_request": result.recipe_request,
             "modification_request": result.modification_request,
             "what_to_modify": result.what_to_modify,
             "text_response": result.text_response,
         }
+
+        # When intent is "recipe", clear old recipe data to force regeneration
+        # This handles the case where user asks for a DIFFERENT recipe
+        if result.intent == "recipe":
+            logger.info("🔄 Clearing old recipe data for new recipe request")
+            updates.update({
+                "name": None,
+                "description": None,
+                "difficulty": None,
+                "total_time_minutes": None,
+                "servings": None,
+                "tags": None,
+                "ingredients": None,
+                "steps": None,
+                "nutrition": None,
+                "generation_complete": False,
+            })
+
+        return updates
 
     def _route_intent(self, state: RecipeCreatorState) -> str:
         """Route based on analyzed intent"""
@@ -310,6 +338,7 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = SUGGEST_DISHES_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             message_history=message_history,
             user_message=state["user_message"],
         )
@@ -332,6 +361,7 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ASK_QUESTION_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             message_history=message_history,
             user_message=state["user_message"],
         )
@@ -500,6 +530,7 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = GENERATE_METADATA_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_request=state.get("recipe_request") or state["user_message"],
             modification_context=self._get_modification_context(state),
             existing_content=existing_content,
@@ -537,6 +568,7 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = GENERATE_INGREDIENTS_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_name=state.get("name", "Recipe"),
             recipe_description=state.get("description", ""),
             servings=state.get("servings", 4),
@@ -570,6 +602,7 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = GENERATE_STEPS_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_name=state.get("name", "Recipe"),
             recipe_description=state.get("description", ""),
             ingredients=ingredients_text or "Not yet generated",
@@ -712,6 +745,7 @@ class RecipeCreatorAgent(BaseAgent):
             "messages": langchain_messages,
             "session_id": session_id,
             "user_message": message,
+            "user_memory": session_data.get("user_memory"),
             # Load existing recipe data
             "name": existing_recipe.get("name"),
             "description": existing_recipe.get("description"),

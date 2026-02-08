@@ -19,6 +19,7 @@ from .routes.config import router as config_router
 from core.auth_client import auth_client
 from core.redis_client import get_redis_client
 from .routes.auth_proxy import router as auth_proxy_router
+from .routes.user import router as user_router
 from .services import database_service
 
 
@@ -653,6 +654,8 @@ app.include_router(create_chat_sessions_router(None))
 app.include_router(config_router)
 # Auth proxy router - forwards requests to auth microservice
 app.include_router(auth_proxy_router)
+# User profile router
+app.include_router(user_router)
 
 
 if __name__ == "__main__":

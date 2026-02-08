@@ -3,8 +3,9 @@ Raimy Agent Service
 
 FastAPI service for chat agent orchestration with LangGraph.
 """
+import asyncio
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -16,6 +17,7 @@ from app.services import database_service
 from agents import get_agent
 from agents.recipe_creator.agent import RecipeCreatorAgent
 from agents.kitchen.agent import KitchenAgent
+from agents.memory import memory_agent
 from core.redis_client import get_redis_client
 
 load_dotenv()
@@ -73,10 +75,42 @@ class GreetingResponse(BaseModel):
     next_step_prompt: Optional[str] = None
 
 
+class ExtractMemoryRequest(BaseModel):
+    """Request model for memory extraction endpoint"""
+    session_id: str
+    user_id: str
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "agent", "version": "3.0.0"}
+
+
+async def _extract_and_save_memory(
+    user_id: str,
+    session_id: str,
+    messages: List[Dict[str, Any]],
+) -> None:
+    """
+    Extract memory and save to DB. Called on session completion events.
+
+    Args:
+        user_id: User email
+        session_id: Session ID for logging
+        messages: Conversation messages from the session
+    """
+    try:
+        current_memory = await database_service.get_user_memory(user_id)
+
+        # memory_agent.extract() is now a pure function
+        updated_memory = await memory_agent.extract(messages, current_memory)
+
+        if updated_memory:
+            await database_service.save_user_memory(user_id, updated_memory)
+            logger.info(f"🧠 Memory updated for user {user_id}")
+    except Exception as e:
+        logger.error(f"🧠 Memory extraction failed: {e}", exc_info=True)
 
 
 @app.post("/agent/greeting", response_model=GreetingResponse)
@@ -224,6 +258,27 @@ async def _handle_kitchen_events(
                 await redis_client.send_selector_message(
                     request.session_id, message, options, message_id
                 )
+
+            case "cooking_complete":
+                # Mark session as finished
+                await database_service.mark_session_finished(request.session_id)
+
+                # Send cooking_complete message to frontend
+                await redis_client.send_cooking_complete_message(request.session_id)
+
+                # Trigger memory extraction
+                user_id = session_data.get("user_id")
+                if user_id:
+                    # Get updated messages from DB
+                    full_messages = messages + [
+                        {"role": "user", "content": {"type": "text", "content": request.message}},
+                    ]
+                    if saved_content:
+                        full_messages.append({"role": "assistant", "content": saved_content})
+
+                    asyncio.create_task(
+                        _extract_and_save_memory(user_id, request.session_id, full_messages)
+                    )
 
             case "complete":
                 await redis_client.send_system_message(
@@ -402,6 +457,14 @@ async def agent_chat(request: ChatRequest):
             else:
                 logger.error(f"❌ Recipe {recipe_id} not found")
 
+        # Load user memory for context
+        user_id = session_data.get("user_id")
+        if user_id:
+            user_memory = await database_service.get_user_memory(user_id)
+            if user_memory:
+                session_data["user_memory"] = user_memory
+                logger.info(f"🧠 Loaded user memory for {user_id}")
+
         # Save user message to database
         await database_service.add_message_to_session(
             session_id=request.session_id,
@@ -447,6 +510,28 @@ async def agent_chat(request: ChatRequest):
             logger.error(f"Failed to publish error to Redis: {redis_error}")
 
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent/extract-memory")
+async def extract_memory_endpoint(request: ExtractMemoryRequest):
+    """
+    Trigger memory extraction for a session.
+
+    Called by external services (e.g., save-recipe endpoint) when
+    a session reaches a completion point.
+    """
+    session_data = await database_service.get_chat_session(request.session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    messages = session_data.get("messages", [])
+
+    # Run extraction in background
+    asyncio.create_task(
+        _extract_and_save_memory(request.user_id, request.session_id, messages)
+    )
+
+    return {"status": "extraction_started"}
 
 
 if __name__ == "__main__":

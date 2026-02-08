@@ -16,17 +16,19 @@ interface UseKitchenStateParams {
   sessionId: string;
   initialMessages?: SessionMessage[];
   initialIngredients?: KitchenIngredient[];
+  initialFinished?: boolean;
 }
 
 /**
  * Kitchen-specific state hook that extends base chat functionality.
- * Adds: ingredients, timers
- * Handles: ingredients, timer messages + all base messages
+ * Adds: ingredients, timers, cookingComplete
+ * Handles: ingredients, timer, cooking_complete messages + all base messages
  */
 export function useKitchenState({
   sessionId,
   initialMessages = [],
   initialIngredients = [],
+  initialFinished = false,
 }: UseKitchenStateParams) {
   // Get base chat functionality - messages from DB already have correct type
   const {
@@ -42,7 +44,10 @@ export function useKitchenState({
   // Extend with kitchen-specific state
   const [kitchenSpecificState, kitchenDispatch] = useReducer(
     (
-      state: Pick<KitchenMessageState, 'ingredients' | 'timers'>,
+      state: Pick<
+        KitchenMessageState,
+        'ingredients' | 'timers' | 'cookingComplete'
+      >,
       action: KitchenMessageAction,
     ) => {
       switch (action.type) {
@@ -60,6 +65,9 @@ export function useKitchenState({
         case 'ADD_TIMER':
           return { ...state, timers: [...state.timers, action.payload] };
 
+        case 'SET_COOKING_COMPLETE':
+          return { ...state, cookingComplete: true };
+
         default:
           return state;
       }
@@ -67,6 +75,7 @@ export function useKitchenState({
     {
       ingredients: initialIngredients,
       timers: [],
+      cookingComplete: initialFinished,
     },
   );
 
@@ -95,6 +104,10 @@ export function useKitchenState({
 
           case 'timer':
             handleTimerMessage(content, kitchenDispatch);
+            return; // Handled, don't delegate
+
+          case 'cooking_complete':
+            kitchenDispatch({ type: 'SET_COOKING_COMPLETE' });
             return; // Handled, don't delegate
 
           case 'kitchen-step':

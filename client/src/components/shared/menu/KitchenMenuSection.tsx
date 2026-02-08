@@ -21,7 +21,6 @@ export default function KitchenMenuSection({
     sessions: kitchenSessions,
     updateSessionName,
     deleteSession,
-    createSession,
   } = useKitchenSessions();
 
   // Auto-expand when on a kitchen page
@@ -31,17 +30,9 @@ export default function KitchenMenuSection({
     }
   }, [pathname]);
 
-  const handleStartCooking = async () => {
-    try {
-      const session = await createSession();
-
-      if (session?.id) {
-        router.push(`/kitchen/${session.id}`);
-        onMenuClose();
-      }
-    } catch (err) {
-      console.error('Error creating kitchen session:', err);
-    }
+  const handleStartCooking = () => {
+    router.push('/kitchen/new');
+    onMenuClose();
   };
 
   const handleDelete = async (sessionId: string) => {

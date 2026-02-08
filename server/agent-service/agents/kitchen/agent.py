@@ -72,6 +72,8 @@ class KitchenEvent(AgentEvent):
     - "session_name": Session name update
     - "recipe_created": Full recipe object for DB persistence
     - "agent_state": State to persist
+    - "selector": Selector with options
+    - "cooking_complete": All steps finished
     - "complete": End of response
     """
 
@@ -86,6 +88,7 @@ class KitchenEvent(AgentEvent):
         "recipe_created",
         "agent_state",
         "selector",
+        "cooking_complete",
         "complete",
     ]
     data: Any
@@ -97,6 +100,7 @@ class KitchenAgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     session_id: str
     user_message: str
+    user_memory: Optional[str]  # User profile/preferences markdown
 
     # Recipe data (from session)
     recipe: Optional[Dict[str, Any]]
@@ -119,6 +123,7 @@ class KitchenAgentState(TypedDict):
     ingredients_to_update: Optional[List[Dict]]
     timer_to_set: Optional[Dict]
     new_step_index: Optional[int]
+    cooking_complete: Optional[bool]
 
 
 # Thinking messages for nodes
@@ -229,6 +234,13 @@ class KitchenAgent(BaseAgent):
             formatted.append(f"{role}: {msg.content}")
         return "\n".join(formatted)
 
+    def _get_user_memory(self, state: KitchenAgentState) -> str:
+        """Get formatted user memory or default"""
+        memory = state.get("user_memory")
+        if memory:
+            return memory
+        return "(No user profile available)"
+
     def _format_ingredients_list(self, recipe: Dict[str, Any]) -> str:
         """Format ingredients list for prompts with name clearly separated"""
         ingredients = recipe.get("ingredients", [])
@@ -287,6 +299,7 @@ class KitchenAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ANALYZE_INTENT_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             has_recipe=has_recipe,
             current_step_info=current_step_info,
             recipe_name=recipe_name,
@@ -310,10 +323,14 @@ class KitchenAgent(BaseAgent):
     def _route_intent(self, state: KitchenAgentState) -> str:
         """Route based on analyzed intent"""
         intent = state.get("intent")
+        recipe = state.get("recipe")
 
         if intent == "get_recipe":
             return "get_recipe"
         if intent in ("start_cooking", "next_step", "previous_step"):
+            # If no recipe loaded, route to get_recipe to regenerate from context
+            if not recipe or not recipe.get("steps"):
+                return "get_recipe"
             return "step_action"
         if intent == "ask_question":
             return "question"
@@ -333,6 +350,9 @@ class KitchenAgent(BaseAgent):
         return {
             "recipe_request": recipe_request,
             "text_response": "__RECIPE_CREATION__",  # Special marker
+            "recipe": None,  # Clear old recipe
+            "ingredients": None,  # Clear old ingredients
+            "current_step": None,  # Reset cooking progress
         }
 
     async def _step_action(self, state: KitchenAgentState) -> Dict:
@@ -342,8 +362,12 @@ class KitchenAgent(BaseAgent):
         current_step = state.get("current_step")
 
         if not recipe or not recipe.get("steps"):
-            # Generate no-recipe response using LLM
-            prompt = NO_RECIPE_PROMPT.format(user_message=state["user_message"])
+            # Generate no-recipe response using LLM with message history context
+            message_history = self._format_message_history(state["messages"][:-1])
+            prompt = NO_RECIPE_PROMPT.format(
+                message_history=message_history,
+                user_message=state["user_message"],
+            )
             response = await self.llm.ainvoke(prompt)
             return {"text_response": response.content}
 
@@ -371,6 +395,7 @@ class KitchenAgent(BaseAgent):
                     "text_response": response.content,
                     "new_step_index": current_step,
                     "ingredients_to_update": all_used,
+                    "cooking_complete": True,  # Flag for session completion
                 }
             else:
                 new_step = current_step + 1
@@ -382,6 +407,24 @@ class KitchenAgent(BaseAgent):
         else:
             new_step = current_step if current_step is not None else 0
 
+        # Check if we're transitioning to the last step - trigger completion immediately
+        if new_step == total_steps - 1:
+            # This is the final "Enjoy" step - complete the session
+            all_used = [
+                {"name": ing.get("name"), "highlighted": False, "used": True}
+                for ing in recipe.get("ingredients", [])
+            ]
+            prompt = COOKING_COMPLETE_PROMPT.format(
+                recipe_name=recipe.get("name", "your dish"),
+            )
+            response = await self.llm.ainvoke(prompt)
+            return {
+                "text_response": response.content,
+                "new_step_index": new_step,
+                "ingredients_to_update": all_used,
+                "cooking_complete": True,
+            }
+
         # Get step data
         step_data = steps[new_step]
         step_instruction = step_data.get("instruction", "")
@@ -391,6 +434,7 @@ class KitchenAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = GENERATE_STEP_GUIDANCE_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_name=recipe.get("name", "Recipe"),
             step_number=new_step + 1,
             total_steps=total_steps,
@@ -452,8 +496,12 @@ class KitchenAgent(BaseAgent):
         question = state.get("question") or state["user_message"]
 
         if not recipe:
-            # Generate no-recipe response using LLM
-            prompt = NO_RECIPE_PROMPT.format(user_message=state["user_message"])
+            # Generate no-recipe response using LLM with message history context
+            message_history = self._format_message_history(state["messages"][:-1])
+            prompt = NO_RECIPE_PROMPT.format(
+                message_history=message_history,
+                user_message=state["user_message"],
+            )
             response = await self.llm.ainvoke(prompt)
             return {"text_response": response.content}
 
@@ -471,6 +519,7 @@ class KitchenAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
 
         prompt = ANSWER_QUESTION_PROMPT.format(
+            user_memory=self._get_user_memory(state),
             recipe_name=recipe.get("name", "Recipe"),
             step_number=step_number,
             total_steps=total_steps,
@@ -717,6 +766,7 @@ class KitchenAgent(BaseAgent):
             "messages": langchain_messages,
             "session_id": session_id,
             "user_message": message,
+            "user_memory": session_data.get("user_memory"),
             "recipe": recipe_data,
             "current_step": current_step,
             "ingredients": ingredients,
@@ -730,6 +780,7 @@ class KitchenAgent(BaseAgent):
             "ingredients_to_update": None,
             "timer_to_set": None,
             "new_step_index": None,
+            "cooking_complete": None,
         }
 
         message_id = f"msg-{uuid.uuid4()}"
@@ -750,6 +801,7 @@ class KitchenAgent(BaseAgent):
                 # Check for recipe creation marker
                 text_response = state_update.get("text_response")
                 if text_response == "__RECIPE_CREATION__":
+                    logger.debug("🚀 Triggering recipe creation flow from main graph")
                     # Delegate to RecipeCreatorAgent
                     recipe_request = state_update.get("recipe_request") or message
 
@@ -758,12 +810,16 @@ class KitchenAgent(BaseAgent):
                     # Accumulate recipe data from RecipeCreatorAgent
                     accumulated_recipe = {}
 
+                    # Clear old recipe from session_data when creating a new one
+                    # This ensures RecipeCreatorAgent doesn't see stale data
+                    session_data_for_recipe = {**session_data, "recipe": None}
+
                     # Stream events from RecipeCreatorAgent
                     async for recipe_event in self.recipe_creator.run_streaming(
                         message=recipe_request,
                         message_history=message_history,
                         session_id=session_id,
-                        session_data=session_data,
+                        session_data=session_data_for_recipe,
                     ):
                         # Accumulate recipe document parts
                         if recipe_event.type == "metadata":
@@ -858,6 +914,13 @@ class KitchenAgent(BaseAgent):
                 # Track new step index for persistence
                 if state_update.get("new_step_index") is not None:
                     final_step_index = state_update["new_step_index"]
+
+                # Check for cooking completion
+                if state_update.get("cooking_complete"):
+                    yield KitchenEvent(
+                        type="cooking_complete",
+                        data=None,
+                    )
 
                 # Emit text or kitchen_step response
                 if text_response and text_response != "__RECIPE_CREATION__":

@@ -15,11 +15,13 @@ USER MESSAGE: {user_message}
 
 Analyze intent (ONLY these 4 options):
 
-1. **recipe**: User wants a NEW SPECIFIC recipe
+1. **recipe**: User wants a NEW SPECIFIC recipe (even if a different recipe already exists!)
    - "Spaghetti carbonara" → recipe
    - "Chicken tikka masala for 6" → recipe
    - "Chocolate lava cake" → recipe
+   - "I want blinchiki" (when pancakes exist) → recipe (this is a DIFFERENT dish, so create NEW recipe)
    - Must be a specific dish name, not generic like "pasta" or "chicken"
+   - If the requested dish is DIFFERENT from the existing recipe, treat it as a NEW recipe request
 
 2. **modify**: User wants to CHANGE or RESTORE the existing recipe (ONLY if recipe exists in session!)
    - "Add more garlic" → what_to_modify: ["ingredients"]

@@ -39,7 +39,7 @@ Recipe name: {recipe_name}
 {user_message}
 
 ## Intent Categories
-- **get_recipe**: User wants to cook something but no recipe exists yet. They might name a dish, ask "what can I make", or paste a recipe.
+- **get_recipe**: User wants to cook something NEW. They might name a dish, ask "what can I make", or paste a recipe. Use this even if a recipe already exists - if the user asks for a DIFFERENT recipe, they want to switch.
 - **start_cooking**: Recipe exists and user indicates readiness to begin (e.g., "let's start", "ready", "go").
 - **next_step**: User indicates completion of current step (e.g., "done", "next", "okay", "finished").
 - **previous_step**: User wants to go back (e.g., "go back", "previous", "repeat that").

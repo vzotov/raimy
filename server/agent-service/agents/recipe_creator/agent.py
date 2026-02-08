@@ -293,15 +293,34 @@ class RecipeCreatorAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(RequestAnalysis)
         result: RequestAnalysis = await llm_with_output.ainvoke(prompt)
 
-        logger.info(f"📊 Request analysis: intent={result.intent}")
+        logger.info(f"📊 Request analysis: intent={result.intent}, recipe_request={result.recipe_request}")
 
-        return {
+        updates = {
             "intent": result.intent,
             "recipe_request": result.recipe_request,
             "modification_request": result.modification_request,
             "what_to_modify": result.what_to_modify,
             "text_response": result.text_response,
         }
+
+        # When intent is "recipe", clear old recipe data to force regeneration
+        # This handles the case where user asks for a DIFFERENT recipe
+        if result.intent == "recipe":
+            logger.info("🔄 Clearing old recipe data for new recipe request")
+            updates.update({
+                "name": None,
+                "description": None,
+                "difficulty": None,
+                "total_time_minutes": None,
+                "servings": None,
+                "tags": None,
+                "ingredients": None,
+                "steps": None,
+                "nutrition": None,
+                "generation_complete": False,
+            })
+
+        return updates
 
     def _route_intent(self, state: RecipeCreatorState) -> str:
         """Route based on analyzed intent"""

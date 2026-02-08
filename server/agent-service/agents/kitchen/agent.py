@@ -350,6 +350,9 @@ class KitchenAgent(BaseAgent):
         return {
             "recipe_request": recipe_request,
             "text_response": "__RECIPE_CREATION__",  # Special marker
+            "recipe": None,  # Clear old recipe
+            "ingredients": None,  # Clear old ingredients
+            "current_step": None,  # Reset cooking progress
         }
 
     async def _step_action(self, state: KitchenAgentState) -> Dict:
@@ -798,6 +801,7 @@ class KitchenAgent(BaseAgent):
                 # Check for recipe creation marker
                 text_response = state_update.get("text_response")
                 if text_response == "__RECIPE_CREATION__":
+                    logger.debug("🚀 Triggering recipe creation flow from main graph")
                     # Delegate to RecipeCreatorAgent
                     recipe_request = state_update.get("recipe_request") or message
 
@@ -806,12 +810,16 @@ class KitchenAgent(BaseAgent):
                     # Accumulate recipe data from RecipeCreatorAgent
                     accumulated_recipe = {}
 
+                    # Clear old recipe from session_data when creating a new one
+                    # This ensures RecipeCreatorAgent doesn't see stale data
+                    session_data_for_recipe = {**session_data, "recipe": None}
+
                     # Stream events from RecipeCreatorAgent
                     async for recipe_event in self.recipe_creator.run_streaming(
                         message=recipe_request,
                         message_history=message_history,
                         session_id=session_id,
-                        session_data=session_data,
+                        session_data=session_data_for_recipe,
                     ):
                         # Accumulate recipe document parts
                         if recipe_event.type == "metadata":

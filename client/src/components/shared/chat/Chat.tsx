@@ -62,7 +62,8 @@ export default function Chat({
     [handleSend],
   );
 
-  const isDisabled = !isConnected || isSending;
+  const isInputDisabled = !isConnected;
+  const isSendDisabled = !isConnected || isSending;
 
   return (
     <div className="flex flex-col h-full">
@@ -75,7 +76,8 @@ export default function Chat({
       <ChatInput
         ref={inputRef}
         onSend={handleSend}
-        disabled={isDisabled}
+        disabled={isInputDisabled}
+        sendDisabled={isSendDisabled}
         placeholder={isConnected ? placeholder : 'Connecting...'}
       />
     </div>

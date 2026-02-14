@@ -132,9 +132,16 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-raimy_password}
       # Migration Configuration (disabled for agent, only API runs migrations)
       - AUTO_MIGRATE=false
+      # Image generation pipeline
+      - EMBEDDING_SERVICE_URL=http://embedding-service:8004
+      - IMAGE_GEN_SERVICE_URL=${IMAGE_GEN_SERVICE_URL:-http://host.docker.internal:8005}
+      - FAL_KEY=${FAL_KEY:-}
+      - GCS_BUCKET_NAME=${GCS_BUCKET_NAME:-raimy-step-images}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
     volumes:
       # Mount entire server directory for development
       - ./server:/app/server
+      - ./gcp-credentials.json:/app/gcp-credentials.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]

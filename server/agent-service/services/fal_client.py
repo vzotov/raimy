@@ -1,17 +1,3 @@
-# Phase 4: fal.ai Fallback Client
-
-## Checklist
-
-- [x] Create `server/agent-service/services/fal_client.py`
-- [x] Add `FAL_KEY` env var to `docker-compose.yml` and `.env.example`
-- [ ] Verify fal.ai generation works with test prompt (requires FAL_KEY)
-- [x] Commit
-
-## New file — `server/agent-service/services/fal_client.py`
-
-Full implementation:
-
-```python
 """fal.ai fallback client for image generation when local GPU is unavailable."""
 import os
 import logging
@@ -35,11 +21,6 @@ class FalImageClient:
         """
         Generate image via fal.ai FLUX schnell.
 
-        Args:
-            prompt: Image generation prompt
-            width: Image width in pixels
-            height: Image height in pixels
-
         Returns:
             PNG image bytes
 
@@ -62,7 +43,6 @@ class FalImageClient:
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(3):
                 try:
-                    # Submit generation request
                     response = await client.post(FAL_API_URL, json=payload, headers=headers)
                     response.raise_for_status()
                     result = response.json()
@@ -81,33 +61,3 @@ class FalImageClient:
                         raise
 
         raise RuntimeError("fal.ai generation failed after 3 attempts")
-```
-
-## Environment changes
-
-**`docker-compose.yml`** — add to `agent-service` environment section (around line 121):
-```yaml
-- FAL_KEY=${FAL_KEY:-}
-```
-
-**`.env.example`** — add:
-```
-FAL_KEY=                  # fal.ai API key for image generation fallback
-```
-
-## Verification
-
-- Set `FAL_KEY` in `.env`
-- Write a quick test script or test from Python REPL:
-  ```python
-  import asyncio
-  from services.fal_client import FalImageClient
-  client = FalImageClient()
-  img_bytes = asyncio.run(client.generate("cooking scene: boiling pasta"))
-  with open("/tmp/fal_test.png", "wb") as f: f.write(img_bytes)
-  ```
-
-## Commit
-```
-feat: add fal.ai fallback client for cloud image generation
-```

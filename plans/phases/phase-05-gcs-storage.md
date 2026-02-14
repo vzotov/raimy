@@ -2,12 +2,12 @@
 
 ## Checklist
 
-- [ ] Create `server/agent-service/services/gcs_storage.py`
-- [ ] Add `google-cloud-storage` to `server/agent-service/requirements.txt`
-- [ ] Add GCS env vars to `docker-compose.yml` and `.env.example`
+- [x] Create `server/agent-service/services/gcs_storage.py`
+- [x] Add `google-cloud-storage` to `server/agent-service/requirements.txt`
+- [x] Add GCS env vars to `docker-compose.yml` and `.env.example` (done in phase 4 commit)
 - [ ] Set up GCS bucket (one-time manual step)
-- [ ] Verify image upload and public URL access
-- [ ] Commit
+- [ ] Verify image upload and public URL access (requires GCS bucket)
+- [x] Commit
 
 ## New file — `server/agent-service/services/gcs_storage.py`
 

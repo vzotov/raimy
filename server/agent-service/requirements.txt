@@ -18,3 +18,4 @@ redis[asyncio]>=5.0.0
 sqlalchemy[asyncio]>=2.0.0
 asyncpg
 psycopg2-binary
+google-cloud-storage

@@ -2,11 +2,11 @@
 
 ## Checklist
 
-- [ ] Create `server/image-gen-service/main.py` with FastAPI + FLUX pipeline
-- [ ] Create `server/image-gen-service/Dockerfile` (CUDA-enabled)
-- [ ] Create `server/image-gen-service/requirements.txt`
-- [ ] Verify `/health` and `/generate` endpoints work locally
-- [ ] Commit
+- [x] Create `server/image-gen-service/main.py` with FastAPI + FLUX pipeline
+- [x] Create `server/image-gen-service/Dockerfile` (CUDA-enabled)
+- [x] Create `server/image-gen-service/requirements.txt`
+- [ ] Verify `/health` and `/generate` endpoints work locally (requires GPU — test on Windows PC)
+- [x] Commit
 
 ## New files — `server/image-gen-service/`
 

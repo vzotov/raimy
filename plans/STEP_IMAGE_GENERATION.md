@@ -65,7 +65,7 @@ Each phase has its own detailed implementation file in `plans/phases/`.
 | 7 | Trigger — Wire into Recipe Creator | [phase-07-trigger.md](phases/phase-07-trigger.md) | [x] |
 | 8 | Redis + Backend Message Handling | [phase-08-redis-backend.md](phases/phase-08-redis-backend.md) | [x] |
 | 9 | Schema Changes | [phase-09-schema-changes.md](phases/phase-09-schema-changes.md) | [x] |
-| 10 | Frontend — Display Step Images | [phase-10-frontend.md](phases/phase-10-frontend.md) | [ ] |
+| 10 | Frontend — Display Step Images | [phase-10-frontend.md](phases/phase-10-frontend.md) | [x] |
 
 ---
 

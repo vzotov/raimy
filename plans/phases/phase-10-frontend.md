@@ -2,11 +2,11 @@
 
 ## Checklist
 
-- [ ] Add `<img>` rendering for `step.image_url` in `client/src/components/shared/StepList.tsx`
+- [x] Add `<img>` rendering for `step.image_url` in `client/src/components/shared/StepList.tsx`
 - [ ] Full end-to-end test: create recipe, watch images appear progressively
 - [ ] Verify saved recipes display images
 - [ ] Verify old recipes without images are unaffected
-- [ ] Commit
+- [x] Commit
 
 ## Modify — `client/src/components/shared/StepList.tsx`
 

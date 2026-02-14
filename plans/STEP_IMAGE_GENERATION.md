@@ -61,7 +61,7 @@ Each phase has its own detailed implementation file in `plans/phases/`.
 | 3 | Image Generation Service (standalone) | [phase-03-image-gen-service.md](phases/phase-03-image-gen-service.md) | [x] |
 | 4 | fal.ai Fallback Client | [phase-04-fal-client.md](phases/phase-04-fal-client.md) | [x] |
 | 5 | GCS Storage Utility | [phase-05-gcs-storage.md](phases/phase-05-gcs-storage.md) | [x] |
-| 6 | Image Orchestration Pipeline | [phase-06-image-pipeline.md](phases/phase-06-image-pipeline.md) | [ ] |
+| 6 | Image Orchestration Pipeline | [phase-06-image-pipeline.md](phases/phase-06-image-pipeline.md) | [x] |
 | 7 | Trigger — Wire into Recipe Creator | [phase-07-trigger.md](phases/phase-07-trigger.md) | [ ] |
 | 8 | Redis + Backend Message Handling | [phase-08-redis-backend.md](phases/phase-08-redis-backend.md) | [ ] |
 | 9 | Schema Changes | [phase-09-schema-changes.md](phases/phase-09-schema-changes.md) | [x] |

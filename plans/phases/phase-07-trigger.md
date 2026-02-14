@@ -2,12 +2,12 @@
 
 ## Checklist
 
-- [ ] Add `StepImagePipeline` import to `server/agent-service/main.py`
-- [ ] Add `_generate_step_images()` background task function
-- [ ] Modify the `"complete"` case to trigger image generation
-- [ ] Add `EMBEDDING_SERVICE_URL` and `IMAGE_GEN_SERVICE_URL` env vars to `docker-compose.yml`
-- [ ] Verify image generation triggers after recipe creation
-- [ ] Commit
+- [x] Add `StepImagePipeline` import to `server/agent-service/main.py`
+- [x] Add `_generate_step_images()` background task function
+- [x] Modify the `"complete"` case to trigger image generation
+- [x] Add `EMBEDDING_SERVICE_URL` and `IMAGE_GEN_SERVICE_URL` env vars to `docker-compose.yml` (done in phase 4)
+- [ ] Verify image generation triggers after recipe creation (requires full e2e test)
+- [x] Commit
 
 ## Modify — `server/agent-service/main.py`
 

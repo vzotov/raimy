@@ -19,6 +19,7 @@ from agents.recipe_creator.agent import RecipeCreatorAgent
 from agents.kitchen.agent import KitchenAgent
 from agents.memory import memory_agent
 from core.redis_client import get_redis_client
+from services.image_pipeline import StepImagePipeline
 
 load_dotenv()
 
@@ -111,6 +112,16 @@ async def _extract_and_save_memory(
             logger.info(f"🧠 Memory updated for user {user_id}")
     except Exception as e:
         logger.error(f"🧠 Memory extraction failed: {e}", exc_info=True)
+
+
+async def _generate_step_images(session_id: str, steps: list, recipe_name: str):
+    """Background task: generate images for all recipe steps."""
+    try:
+        pipeline = StepImagePipeline()
+        results = await pipeline.generate_step_images(session_id, steps, recipe_name)
+        logger.info(f"Generated {len(results)} step images for session {session_id}")
+    except Exception as e:
+        logger.error(f"Step image generation failed: {e}", exc_info=True)
 
 
 @app.post("/agent/greeting", response_model=GreetingResponse)
@@ -402,6 +413,16 @@ async def _handle_recipe_creator_events(
                 await redis_client.send_system_message(
                     request.session_id, "thinking", None
                 )
+
+                # Trigger image generation in background
+                if recipe_data.get("steps"):
+                    asyncio.create_task(
+                        _generate_step_images(
+                            session_id=request.session_id,
+                            steps=recipe_data["steps"],
+                            recipe_name=recipe_data.get("name", "Recipe"),
+                        )
+                    )
 
     # Save agent response to database with correct content type
     if saved_content:

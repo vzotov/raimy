@@ -2,11 +2,11 @@
 
 ## Checklist
 
-- [ ] Create `server/embedding-service/main.py` with FastAPI + sentence-transformers
-- [ ] Create `server/embedding-service/Dockerfile`
-- [ ] Create `server/embedding-service/requirements.txt`
-- [ ] Add embedding-service to `docker-compose.yml`
-- [ ] Verify `/health` and `/embed` endpoints work
+- [x] Create `server/embedding-service/main.py` with FastAPI + sentence-transformers
+- [x] Create `server/embedding-service/Dockerfile`
+- [x] Create `server/embedding-service/requirements.txt`
+- [x] Add embedding-service to `docker-compose.yml`
+- [x] Verify `/health` and `/embed` endpoints work
 - [ ] Commit
 
 ## New files — `server/embedding-service/`

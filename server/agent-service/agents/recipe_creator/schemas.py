@@ -85,6 +85,12 @@ class Step(BaseModel):
     duration_minutes: Optional[int] = Field(
         default=None, description="Estimated duration in minutes"
     )
+    image_description: str = Field(
+        description="Short visual description of this step for image generation and caching. "
+        "Describe the cooking action and key visible elements without quantities or timing. "
+        "Examples: 'dicing onions finely on a cutting board', "
+        "'combining flour salt and eggs in a mixing bowl'"
+    )
 
 
 class RecipeSteps(BaseModel):

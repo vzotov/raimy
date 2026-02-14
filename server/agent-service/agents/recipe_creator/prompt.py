@@ -129,6 +129,7 @@ Ingredients: {ingredients}
 Create clear, actionable cooking steps:
 - instruction: One clear action per step (start with a verb)
 - duration_minutes: Time for steps that require waiting (optional)
+- image_description: Short visual description for image generation (describe the action and visible elements, no quantities or timing)
 
 Guidelines:
 - Start with prep steps (chopping, measuring)

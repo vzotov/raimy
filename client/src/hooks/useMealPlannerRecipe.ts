@@ -28,6 +28,7 @@ type RecipeAction =
   | { type: 'SET_INGREDIENTS'; payload: RecipeIngredient[] }
   | { type: 'SET_STEPS'; payload: RecipeStep[] }
   | { type: 'SET_NUTRITION'; payload: RecipeNutrition }
+  | { type: 'SET_STEP_IMAGE'; payload: { step_index: number; image_url: string } }
   | { type: 'RESET_CHANGED_FLAG' }
   | { type: 'CLEAR_RECIPE' };
 
@@ -123,6 +124,18 @@ function recipeReducer(state: RecipeState, action: RecipeAction): RecipeState {
       };
     }
 
+    case 'SET_STEP_IMAGE': {
+      const baseRecipe = state.recipe || createEmptyRecipe();
+      const steps = [...(baseRecipe.steps || [])];
+      if (steps[action.payload.step_index]) {
+        steps[action.payload.step_index] = {
+          ...steps[action.payload.step_index],
+          image_url: action.payload.image_url,
+        };
+      }
+      return { ...state, recipe: { ...baseRecipe, steps } };
+    }
+
     case 'RESET_CHANGED_FLAG':
       return {
         ...state,
@@ -195,6 +208,13 @@ export function useMealPlannerRecipe(
           });
           break;
         }
+
+        case 'set_step_image':
+          dispatch({
+            type: 'SET_STEP_IMAGE',
+            payload: { step_index: update.step_index, image_url: update.image_url },
+          });
+          break;
       }
     },
     [dispatch],

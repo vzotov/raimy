@@ -75,11 +75,19 @@ export type RecipeNutritionUpdate = {
   nutrition: RecipeNutrition;
 };
 
+export type RecipeStepImageUpdate = {
+  type: 'recipe_update';
+  action: 'set_step_image';
+  step_index: number;
+  image_url: string;
+};
+
 export type RecipeUpdateContent =
   | RecipeMetadataUpdate
   | RecipeIngredientsUpdate
   | RecipeStepsUpdate
-  | RecipeNutritionUpdate;
+  | RecipeNutritionUpdate
+  | RecipeStepImageUpdate;
 
 export type TimerContent = {
   type: 'timer';

@@ -2,14 +2,14 @@
 
 ## Checklist
 
-- [ ] Add `image_description` field to Step schema in `server/agent-service/agents/recipe_creator/schemas.py`
-- [ ] Update `GENERATE_STEPS_PROMPT` in `server/agent-service/agents/recipe_creator/prompt.py`
-- [ ] Add `image_description` and `image_url` to `RecipeStepModel` in `server/app/services.py`
-- [ ] Add `image_description` and `image_url` to `RecipeStep` in `client/src/types/recipe.ts`
-- [ ] Add `RecipeStepImageUpdate` type to `client/src/types/chat-message-types.ts`
-- [ ] Add `SET_STEP_IMAGE` reducer action to `client/src/hooks/useMealPlannerRecipe.ts`
-- [ ] Verify LLM generates `image_description` for each step
-- [ ] Commit
+- [x] Add `image_description` field to Step schema in `server/agent-service/agents/recipe_creator/schemas.py`
+- [x] Update `GENERATE_STEPS_PROMPT` in `server/agent-service/agents/recipe_creator/prompt.py`
+- [x] Add `image_description` and `image_url` to `RecipeStepModel` in `server/app/services.py`
+- [x] Add `image_description` and `image_url` to `RecipeStep` in `client/src/types/recipe.ts`
+- [x] Add `RecipeStepImageUpdate` type to `client/src/types/chat-message-types.ts`
+- [x] Add `SET_STEP_IMAGE` reducer action to `client/src/hooks/useMealPlannerRecipe.ts`
+- [ ] Verify LLM generates `image_description` for each step (requires full e2e test)
+- [x] Commit
 
 ## Backend
 

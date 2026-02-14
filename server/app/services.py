@@ -27,6 +27,8 @@ class RecipeStepModel(BaseModel):
     """Step: {"instruction": "Boil water", "duration": 10}"""
     instruction: str
     duration: Optional[int] = None  # Duration in minutes
+    image_description: Optional[str] = None
+    image_url: Optional[str] = None
 
 class RecipeModel(BaseModel):
     """Recipe model matching database JSON structure"""

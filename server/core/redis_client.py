@@ -374,6 +374,28 @@ class RedisClient:
             }
         )
 
+    async def send_step_image_message(self, session_id: str, step_index: int, image_url: str):
+        """
+        Send step image update to session.
+
+        Args:
+            session_id: Session ID
+            step_index: Index of the step in the recipe steps array (0-based)
+            image_url: Public GCS URL of the generated image
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_step_image",
+                    "step_index": step_index,
+                    "image_url": image_url,
+                }
+            }
+        )
+
     async def send_step_update_message(
         self,
         session_id: str,

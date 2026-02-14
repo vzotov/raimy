@@ -457,6 +457,14 @@ async def websocket_chat_endpoint(
                         nutrition=content.get("nutrition", {})
                     )
 
+                case "set_step_image":
+                    # Update individual step image in session recipe
+                    await database_service.update_step_image_url(
+                        session_id=session_id,
+                        step_index=content.get("step_index"),
+                        image_url=content.get("image_url"),
+                    )
+
         async def handle_session_name_message(content: dict):
             """Handle session_name message - save to session.session_name"""
             session_name = content.get("name")

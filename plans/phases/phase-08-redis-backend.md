@@ -2,10 +2,10 @@
 
 ## Checklist
 
-- [ ] Add `send_step_image_message()` to `server/core/redis_client.py`
-- [ ] Add `"set_step_image"` case to `handle_recipe_update_message()` in `server/app/main.py`
-- [ ] Verify WebSocket messages arrive in browser devtools
-- [ ] Commit
+- [x] Add `send_step_image_message()` to `server/core/redis_client.py`
+- [x] Add `"set_step_image"` case to `handle_recipe_update_message()` in `server/app/main.py`
+- [ ] Verify WebSocket messages arrive in browser devtools (requires full e2e test)
+- [x] Commit
 
 ## Modify — `server/core/redis_client.py`
 

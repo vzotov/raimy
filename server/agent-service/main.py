@@ -116,12 +116,18 @@ async def _extract_and_save_memory(
 
 async def _generate_step_images(session_id: str, steps: list, recipe_name: str):
     """Background task: generate images for all recipe steps."""
+    redis_client = get_redis_client()
     try:
+        await redis_client.send_system_message(
+            session_id, "thinking", "Generating step images..."
+        )
         pipeline = StepImagePipeline()
         results = await pipeline.generate_step_images(session_id, steps, recipe_name)
         logger.info(f"Generated {len(results)} step images for session {session_id}")
     except Exception as e:
         logger.error(f"Step image generation failed: {e}", exc_info=True)
+    finally:
+        await redis_client.send_system_message(session_id, "thinking", None)
 
 
 @app.post("/agent/greeting", response_model=GreetingResponse)

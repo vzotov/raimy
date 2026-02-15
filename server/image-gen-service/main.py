@@ -14,15 +14,15 @@ import time
 from contextlib import asynccontextmanager
 
 import torch
-from diffusers import FluxPipeline
+from diffusers import Flux2KleinPipeline
 from fastapi import FastAPI, HTTPException
 from PIL import Image
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-MODEL_ID = "black-forest-labs/FLUX.1-schnell"  # Swap to FLUX.2 klein 4B when available
-pipe: FluxPipeline = None
+MODEL_ID = "black-forest-labs/FLUX.2-klein-4B"
+pipe: Flux2KleinPipeline = None
 
 
 @asynccontextmanager
@@ -30,15 +30,15 @@ async def lifespan(app: FastAPI):
     """Load FLUX model on startup, keep in GPU memory."""
     global pipe
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.bfloat16 if device == "cuda" else torch.float32
 
     logger.info(f"Loading {MODEL_ID} on {device}...")
-    pipe = FluxPipeline.from_pretrained(MODEL_ID, torch_dtype=dtype)
-    pipe = pipe.to(device)
+    pipe = Flux2KleinPipeline.from_pretrained(MODEL_ID, torch_dtype=dtype)
 
-    # Enable memory optimizations for consumer GPUs
     if device == "cuda":
-        pipe.enable_attention_slicing()
+        pipe.enable_model_cpu_offload()
+    else:
+        pipe = pipe.to(device)
 
     logger.info("Model loaded and ready.")
     yield
@@ -51,7 +51,7 @@ class GenerateRequest(BaseModel):
     prompt: str
     width: int = 1024
     height: int = 1024  # 1:1 square (IG-style)
-    num_inference_steps: int = 4  # FLUX schnell is fast
+    num_inference_steps: int = 4
     seed: int | None = None
 
 
@@ -87,6 +87,7 @@ async def generate(request: GenerateRequest):
         width=request.width,
         height=request.height,
         num_inference_steps=request.num_inference_steps,
+        guidance_scale=1.0,
         generator=generator,
     )
     elapsed_ms = int((time.perf_counter() - start) * 1000)

@@ -19,7 +19,8 @@ from agents.recipe_creator.agent import RecipeCreatorAgent
 from agents.kitchen.agent import KitchenAgent
 from agents.memory import memory_agent
 from core.redis_client import get_redis_client
-from services.image_pipeline import StepImagePipeline
+from agents.image_gen import ImageGenAgent
+from services.gcs_storage import GCSStorage
 
 load_dotenv()
 
@@ -114,16 +115,47 @@ async def _extract_and_save_memory(
         logger.error(f"🧠 Memory extraction failed: {e}", exc_info=True)
 
 
-async def _generate_step_images(session_id: str, steps: list, recipe_name: str):
-    """Background task: generate images for all recipe steps."""
+async def _generate_step_images(session_id: str, recipe_data: dict):
+    """Background task: generate images for all recipe steps using ImageGenAgent."""
     redis_client = get_redis_client()
+    gcs = GCSStorage()
     try:
         await redis_client.send_system_message(
             session_id, "thinking", "Generating step images..."
         )
-        pipeline = StepImagePipeline()
-        results = await pipeline.generate_step_images(session_id, steps, recipe_name)
-        logger.info(f"Generated {len(results)} step images for session {session_id}")
+        agent = ImageGenAgent()
+        count = 0
+        async for event in agent.run_streaming(
+            message="",
+            message_history=[],
+            session_id=session_id,
+            session_data={"recipe": recipe_data},
+        ):
+            if event.type == "step_image":
+                data = event.data
+                logger.info('📸 Received step image data for step {data["step_index"]}')
+                if data.get("image_bytes"):
+                    # Cache miss — upload to GCS and save to DB cache
+                    image_url = gcs.upload_image(
+                        data["image_bytes"], data["prompt"], 512, 512
+                    )
+                    await database_service.save_step_image_cache(
+                        normalized_text=data["prompt"].lower().strip(),
+                        embedding=data["embedding"],
+                        image_url=image_url,
+                        aspect_ratio="1:1",
+                        prompt=data["prompt"],
+                        model=data.get("model_used", ""),
+                        generation_time_ms=data.get("generation_time_ms", 0),
+                    )
+                else:
+                    # Cache hit
+                    image_url = data["image_url"]
+                await redis_client.send_step_image_message(
+                    session_id, data["step_index"], image_url
+                )
+                count += 1
+        logger.info(f"Generated {count} step images for session {session_id}")
     except Exception as e:
         logger.error(f"Step image generation failed: {e}", exc_info=True)
     finally:
@@ -425,8 +457,7 @@ async def _handle_recipe_creator_events(
                     asyncio.create_task(
                         _generate_step_images(
                             session_id=request.session_id,
-                            steps=recipe_data["steps"],
-                            recipe_name=recipe_data.get("name", "Recipe"),
+                            recipe_data=recipe_data,
                         )
                     )
 

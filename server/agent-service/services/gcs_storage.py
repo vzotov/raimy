@@ -28,17 +28,16 @@ class GCSStorage:
             self._bucket = self.client.bucket(self.bucket_name)
         return self._bucket
 
-    def upload_image(self, image_bytes: bytes, image_description: str, aspect_ratio: str = "1:1") -> str:
+    def upload_image(self, image_bytes: bytes, image_description: str, width: int = 512, height: int = 512) -> str:
         """
         Upload image to GCS, return public URL.
 
-        File naming: step-images/{sha256_of_description}_{aspect_ratio}.png
+        File naming: step-images/{sha256_of_description}_{width}x{height}.jpg
         This ensures the same description always maps to the same filename,
         preventing duplicate uploads.
         """
         text_hash = hashlib.sha256(image_description.lower().strip().encode()).hexdigest()[:16]
-        ratio_slug = aspect_ratio.replace(":", "x")
-        filename = f"step-images/{text_hash}_{ratio_slug}.png"
+        filename = f"step-images/{text_hash}_{width}x{height}.jpg"
 
         blob = self.bucket.blob(filename)
 
@@ -48,7 +47,7 @@ class GCSStorage:
             blob.make_public()
             return blob.public_url
 
-        blob.upload_from_string(image_bytes, content_type="image/png")
+        blob.upload_from_string(image_bytes, content_type="image/jpeg")
         blob.make_public()
 
         logger.info(f"GCS: Uploaded {filename} ({len(image_bytes)} bytes)")

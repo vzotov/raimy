@@ -138,7 +138,7 @@ THINKING_MESSAGES = {
 class KitchenAgent(BaseAgent):
     """Agent for active kitchen cooking guidance with generator streaming"""
 
-    MODEL = "gpt-4o-mini"
+    MODEL = "gpt-5-mini"
 
     def __init__(self):
         """Initialize the kitchen agent"""

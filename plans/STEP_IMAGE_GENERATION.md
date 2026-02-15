@@ -15,21 +15,25 @@ Recipe Creator Agent (agent-service)
   generates steps with image_description field (LLM-produced)
   emits "complete" event
        |
-Image Pipeline (agent-service/services/image_pipeline.py)
-  FOR EACH STEP:
+ImageGenAgent (agent-service/agents/image_gen/agent.py)
+  1. Single LLM call: generate FLUX prompts for ALL steps at once (batch)
+     - Filters steps without image_description before sending to LLM
+     - Returns dict[step_index, prompt] for consistent style/progression
+  2. FOR EACH STEP (yields events immediately per step):
        |
-  1. Use step.image_description (LLM-generated, cache-friendly)
-  2. Get embedding -> POST embedding-service:8004/embed
-  3. Query step_image_cache (pgvector cosine similarity)
+     a. Embed the generated prompt -> POST embedding-service:8004/embed
+     b. Query step_image_cache (pgvector cosine similarity)
        |
-  +-- CACHE HIT -> return existing GCS URL
-  +-- CACHE MISS:
-       +-- Try local image-gen -> POST image-gen-service:8005/generate
-       +-- Fallback -> fal.ai API
+     +-- CACHE HIT -> yield ImageGenEvent with image_url
+     +-- CACHE MISS:
+          +-- Try local image-gen -> POST image-gen-service:8005/generate
+          +-- Fallback -> fal.ai API
+          +-- yield ImageGenEvent with image_bytes
        |
-  4. Upload PNG to GCS
-  5. Insert into step_image_cache
-  6. Publish "set_step_image" via Redis -> WebSocket -> Frontend
+main.py (_generate_step_images) consumes each event:
+  3. (cache miss only) Upload PNG to GCS
+  4. (cache miss only) Insert into step_image_cache
+  5. Publish "set_step_image" via Redis -> WebSocket -> Frontend
 ```
 
 ### Key Design: LLM-generated `image_description`
@@ -66,6 +70,7 @@ Each phase has its own detailed implementation file in `plans/phases/`.
 | 8 | Redis + Backend Message Handling | [phase-08-redis-backend.md](phases/phase-08-redis-backend.md) | [x] |
 | 9 | Schema Changes | [phase-09-schema-changes.md](phases/phase-09-schema-changes.md) | [x] |
 | 10 | Frontend — Display Step Images | [phase-10-frontend.md](phases/phase-10-frontend.md) | [x] |
+| 11 | Image Generation Agent (LangGraph) | [phase-11-image-prompt-agent.md](phases/phase-11-image-prompt-agent.md) | [ ] |
 
 ---
 
@@ -101,9 +106,12 @@ Phases 1-5 are independent. Recommended sequential order:
 | `server/image-gen-service/Dockerfile` | 3 |
 | `server/image-gen-service/requirements.txt` | 3 |
 | `server/agent-service/services/__init__.py` | 6 |
-| `server/agent-service/services/image_pipeline.py` | 6 |
 | `server/agent-service/services/fal_client.py` | 4 |
 | `server/agent-service/services/gcs_storage.py` | 5 |
+| `server/agent-service/agents/image_gen/__init__.py` | 11 |
+| `server/agent-service/agents/image_gen/schemas.py` | 11 |
+| `server/agent-service/agents/image_gen/prompt.py` | 11 |
+| `server/agent-service/agents/image_gen/agent.py` | 11 |
 
 ### Modified files (11)
 

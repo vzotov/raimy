@@ -94,12 +94,12 @@ async def generate(request: GenerateRequest):
 
     image: Image.Image = result.images[0]
 
-    # Convert to base64 PNG
+    # Convert to base64 JPEG
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG", optimize=True)
+    image.save(buffer, format="JPEG", quality=85)
     image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    logger.info(f"Generated image: {request.width}x{request.height}, {elapsed_ms}ms, seed={seed}")
+    logger.info(f"Generated image: {elapsed_ms}ms, {request.width}x{request.height}, prompt='{request.prompt[:100]}...'")
 
     return GenerateResponse(
         image_base64=image_base64,

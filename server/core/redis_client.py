@@ -383,6 +383,7 @@ class RedisClient:
             step_index: Index of the step in the recipe steps array (0-based)
             image_url: Public GCS URL of the generated image
         """
+        logger.info('📸 Sending step image update message for session %s, step %d: %s', session_id, step_index, image_url)
         await self.publish(
             f"session:{session_id}",
             {

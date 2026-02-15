@@ -2,7 +2,7 @@
 Recipe Creator Agent
 
 Uses LangGraph for orchestrating recipe generation with:
-- Fast model (GPT-4o-mini) for quick responses
+- Fast model (GPT-5-mini) for quick responses
 - Sequential generation with state-based completeness checks
 - Streaming events for real-time UI updates
 """
@@ -131,7 +131,7 @@ THINKING_MESSAGES = {
 class RecipeCreatorAgent(BaseAgent):
     """Agent for recipe creation using LangGraph workflow"""
 
-    MODEL = "gpt-4o-mini"
+    MODEL = "gpt-5-mini"
 
     def __init__(self):
         """Initialize the recipe creator agent"""

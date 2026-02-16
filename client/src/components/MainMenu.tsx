@@ -68,11 +68,23 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
           </div>
           <Link
             href="/profile"
-            className="flex items-center justify-between w-full px-3 py-2 text-sm text-text/80 hover:text-text hover:bg-accent/30 rounded-lg transition-colors duration-150"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text/80 hover:text-text hover:bg-accent/30 rounded-lg transition-colors duration-150"
             onClick={onClose}
           >
-            <span className="truncate">{user.email}</span>
-            <ChevronRightIcon className="w-4 h-4 flex-shrink-0 ml-2" />
+            {user.picture ? (
+              <img
+                src={user.picture}
+                alt=""
+                className="w-7 h-7 rounded-full flex-shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full flex-shrink-0 bg-accent/40 flex items-center justify-center text-xs font-medium text-text">
+                {(user.name || user.email).charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="truncate">{user.name || user.email}</span>
+            <ChevronRightIcon className="w-4 h-4 flex-shrink-0 ml-auto" />
           </Link>
         </div>
       </nav>

@@ -1,6 +1,5 @@
 'use client';
 
-import classNames from 'classnames';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
@@ -9,6 +8,7 @@ import KitchenIngredientList, {
   type KitchenIngredient,
 } from '@/components/pages/kitchen/KitchenIngredientList';
 import Chat from '@/components/shared/chat/Chat';
+import { ChatHeader } from '@/components/shared/ChatHeader';
 import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -112,32 +112,11 @@ export default function KitchenChat({
   return (
     <div className="flex h-full w-full flex-col">
       {/* Header */}
-      <div className="border-b border-accent/20 p-4">
-        <h1 className="truncate text-2xl font-bold text-text">
-          {state.sessionName || sessionName}
-        </h1>
-        <div className="mt-2 flex items-center gap-4">
-          <p className="text-sm text-text/70">
-            {state.messages.length} message
-            {state.messages.length !== 1 ? 's' : ''}
-          </p>
-          <div className="flex items-center gap-2">
-            <div
-              className={classNames('h-2 w-2 rounded-full', {
-                'bg-green-500': isConnected,
-                'bg-yellow-500': !isConnected && !error,
-                'bg-red-500': error,
-              })}
-            />
-            <span className="text-xs text-text/60">
-              {error ? 'Error' : isConnected ? 'Connected' : 'Connecting...'}
-            </span>
-          </div>
-        </div>
-        {error && (
-          <p className="mt-1 text-xs text-red-500">Connection error: {error}</p>
-        )}
-      </div>
+      <ChatHeader
+        title={state.sessionName || sessionName}
+        isConnected={isConnected}
+        error={error}
+      />
 
       {/* Content area with ingredients and chat */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">

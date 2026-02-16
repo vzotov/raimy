@@ -2,11 +2,23 @@
 
 @theme {
   --animate-pendulum: pendulum 1s ease-in-out infinite;
+  --animate-dropdown-in: dropdown-in 150ms ease-out;
+  --animate-dropdown-out: dropdown-out 100ms ease-in;
+  --animate-overlay-in: overlay-in 150ms ease-out;
+  --animate-overlay-out: overlay-out 100ms ease-in;
+  --animate-dialog-in: dialog-in 150ms ease-out;
+  --animate-dialog-out: dialog-out 100ms ease-in;
 
   @keyframes pendulum {
     0%, 100% { transform: rotate(-15deg); }
     50% { transform: rotate(15deg); }
   }
+  @keyframes dropdown-in { from { opacity: 0; transform: scale(0.95); } }
+  @keyframes dropdown-out { to { opacity: 0; transform: scale(0.95); } }
+  @keyframes overlay-in { from { opacity: 0; } }
+  @keyframes overlay-out { to { opacity: 0; } }
+  @keyframes dialog-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } }
+  @keyframes dialog-out { to { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } }
 }
 
 /* Custom dark mode variant */

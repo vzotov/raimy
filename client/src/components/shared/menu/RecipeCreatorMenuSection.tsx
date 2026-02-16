@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useRecipeCreatorSessions } from '@/hooks/useSessions';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import SectionHeader from './SectionHeader';
 import SessionList from './SessionList';
 
@@ -16,6 +17,7 @@ export default function RecipeCreatorMenuSection({
   const router = useRouter();
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
 
   const { sessions, updateSessionName, deleteSession } =
     useRecipeCreatorSessions();
@@ -32,14 +34,16 @@ export default function RecipeCreatorMenuSection({
     onMenuClose();
   };
 
-  const handleDelete = async (sessionId: string) => {
-    if (!confirm('Are you sure you want to delete this session?')) {
-      return;
-    }
+  const handleDelete = (sessionId: string) => {
+    setDeleteSessionId(sessionId);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteSessionId) return;
 
     try {
-      await deleteSession(sessionId);
-      if (pathname === `/recipe-creator/${sessionId}`) {
+      await deleteSession(deleteSessionId);
+      if (pathname === `/recipe-creator/${deleteSessionId}`) {
         router.push('/recipe-creator');
       }
     } catch (err) {
@@ -79,6 +83,18 @@ export default function RecipeCreatorMenuSection({
           />
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteSessionId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteSessionId(null);
+        }}
+        title="Delete session"
+        description="Are you sure you want to delete this session? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

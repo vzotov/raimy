@@ -61,6 +61,7 @@ export default async function ProfileContent() {
                 src={user.picture}
                 alt={user.name || 'Profile'}
                 className="w-12 h-12 rounded-full"
+                referrerPolicy="no-referrer"
               />
             ) : (
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">

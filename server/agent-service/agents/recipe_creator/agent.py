@@ -44,6 +44,7 @@ from .prompt import (
 )
 from .schemas import (
     DishSuggestions,
+    FinalResponse,
     FormattedResponse,
     QuestionWithOptions,
     RecipeIngredients,
@@ -119,12 +120,13 @@ class RecipeEvent(AgentEvent):
     data: Any
 
 
-# Thinking messages for each generation node
-THINKING_MESSAGES = {
-    "gen_metadata": "setting up recipe",
-    "gen_ingredients": "generating ingredients",
-    "gen_steps": "writing steps",
-    "gen_nutrition": "calculating nutrition",
+# Thinking messages: maps a completed node to the status for what's coming next
+THINKING_MESSAGES_NEXT = {
+    "analyze": "cooking up a recipe",
+    "gen_metadata": "adding ingredients",
+    "gen_ingredients": "writing steps",
+    "gen_steps": "calculating nutrition",
+    "gen_nutrition": "finishing up",
     "modify": "updating recipe",
 }
 
@@ -551,6 +553,7 @@ class RecipeCreatorAgent(BaseAgent):
             modification_context=self._get_modification_context(state),
             existing_content=existing_content,
             message_history=message_history,
+            user_message=state.get("user_message", ""),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeMetadata)
@@ -590,6 +593,7 @@ class RecipeCreatorAgent(BaseAgent):
             servings=state.get("servings", 4),
             modification_context=self._get_modification_context(state),
             message_history=message_history,
+            user_message=state.get("user_message", ""),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeIngredients)
@@ -624,6 +628,7 @@ class RecipeCreatorAgent(BaseAgent):
             ingredients=ingredients_text or "Not yet generated",
             modification_context=self._get_modification_context(state),
             message_history=message_history,
+            user_message=state.get("user_message", ""),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeSteps)
@@ -680,17 +685,38 @@ class RecipeCreatorAgent(BaseAgent):
             action_description = "created a new recipe"
             modification_context = ""
 
+        # Build recipe summary for context-aware suggestions
+        parts = []
+        tags = state.get("tags") or []
+        if tags:
+            parts.append(f"Tags: {', '.join(tags)}")
+        if state.get("difficulty"):
+            parts.append(f"Difficulty: {state['difficulty']}")
+        if state.get("servings"):
+            parts.append(f"Servings: {state['servings']}")
+        # Check if steps have images
+        steps = state.get("steps") or []
+        has_images = any(s.get("image_url") for s in steps)
+        parts.append(f"Steps have images: {'yes' if has_images else 'no'}")
+        recipe_summary = "\n".join(parts)
+
         prompt = FINAL_RESPONSE_PROMPT.format(
             action_description=action_description,
             recipe_name=state.get("name", "the recipe"),
+            recipe_summary=recipe_summary,
             modification_context=modification_context,
             message_history=message_history,
             user_message=state["user_message"],
         )
 
-        response = await self.llm.ainvoke(prompt)
+        llm_with_output = self.llm.with_structured_output(FinalResponse)
+        response: FinalResponse = await llm_with_output.ainvoke(prompt)
 
-        result = {"text_response": response.content}
+        result = {
+            "text_response": response.message,
+            "formatted_options": [opt.model_dump() for opt in response.suggestions],
+            "response_type": "selector",
+        }
         if modification:
             result["modification_request"] = None  # Clear the modification
         return result
@@ -814,9 +840,9 @@ class RecipeCreatorAgent(BaseAgent):
                     continue
                 logger.debug(f"📦 Node '{node_name}' update: {list(state_update.keys())}")
 
-                # Send thinking message for generation nodes
-                if node_name in THINKING_MESSAGES:
-                    yield RecipeEvent(type="thinking", data=THINKING_MESSAGES[node_name])
+                # Send thinking message for what's coming next
+                if node_name in THINKING_MESSAGES_NEXT:
+                    yield RecipeEvent(type="thinking", data=THINKING_MESSAGES_NEXT[node_name])
 
                 # Emit events for state changes
                 # Check for any metadata field updates (supports partial regeneration)
@@ -900,7 +926,7 @@ class RecipeCreatorAgent(BaseAgent):
                         data={"message_id": message_id},
                     )
 
-                # Plain text response (from final node - doesn't go through formatter)
+                # Plain text response (from final node fallback)
                 elif state_update.get("text_response") and node_name == "final":
                     yield RecipeEvent(
                         type="text",

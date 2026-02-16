@@ -514,6 +514,15 @@ async def websocket_chat_endpoint(
                 else:
                     logger.warning(f"⚠️  Recipe {recipe_id} not found")
 
+            # Send thinking indicator while generating greeting
+            await connection_manager.send_message(session_id, {
+                "type": "system",
+                "content": {
+                    "type": "thinking",
+                    "message": "Raimy is joining"
+                }
+            })
+
             # Call agent service for LLM-generated greeting
             greeting = "Hi! I'm Raimy. What would you like to cook today?"
             message_type = "text"

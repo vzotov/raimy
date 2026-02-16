@@ -159,6 +159,17 @@ class SelectorOption(BaseModel):
     )
 
 
+class FinalResponse(BaseModel):
+    """Final response after recipe generation/modification with suggested next actions"""
+
+    message: str = Field(description="Short acknowledgment of what was done")
+    suggestions: List[SelectorOption] = Field(
+        description="4 suggested next actions as clickable options",
+        min_length=4,
+        max_length=4,
+    )
+
+
 class FormattedResponse(BaseModel):
     """Response formatted for UI display with optional selectable options"""
 

@@ -15,12 +15,12 @@ USER MESSAGE: {user_message}
 
 Analyze intent (ONLY these 5 options):
 
-1. **recipe**: User wants a NEW SPECIFIC recipe (even if a different recipe already exists!)
-   - "Spaghetti carbonara" → recipe
+1. **recipe**: User wants a NEW SPECIFIC, UNAMBIGUOUS recipe
+   - "Spaghetti carbonara" → recipe (specific dish, one clear interpretation)
    - "Chicken tikka masala for 6" → recipe
    - "Chocolate lava cake" → recipe
    - "I want blinchiki" (when pancakes exist) → recipe (this is a DIFFERENT dish, so create NEW recipe)
-   - Must be a specific dish name, not generic like "pasta" or "chicken"
+   - ONLY use this when the dish name has ONE clear interpretation — no ambiguity about the type or variation
    - If the requested dish is DIFFERENT from the existing recipe, treat it as a NEW recipe request
 
 2. **modify**: User wants to CHANGE or RESTORE the existing recipe (ONLY if recipe exists in session!)
@@ -41,14 +41,17 @@ Analyze intent (ONLY these 5 options):
    - If recipe has "(missing)" fields and user mentions them, include those fields in what_to_modify
    - If NO recipe exists in session, use "question" intent and ask what they'd like to cook
 
-3. **suggest**: User wants IDEAS or says "you tell me/decide"
+3. **suggest**: User wants IDEAS, says "you tell me/decide", OR names a broad category
    - "I don't know what to make"
    - "You suggest something"
    - "I need ideas"
    - "What can I make with eggs?"
    - "You tell me" / "surprise me"
    - "anything" / "you decide"
-   → Provide 3 specific dish suggestions with brief descriptions
+   - "pancakes" → suggest (many types: American, French crepes, blini, Dutch baby...)
+   - "pasta" → suggest (carbonara, bolognese, cacio e pepe...)
+   - "flan" → recipe (specific dish, one clear interpretation)
+   → Provide 3 specific dish suggestions: mix familiar options from user preferences with something new to discover
 
 4. **generate_images**: User wants to generate images for recipe steps that are missing images
    - "generate images" → generate_images
@@ -57,7 +60,6 @@ Analyze intent (ONLY these 5 options):
    - If no recipe exists, use "question" and ask what they'd like to cook first
 
 5. **question**: Clarification needed OR follow-up questions
-   - Vague recipe request → Ask with specific options: "Make me pasta" → "What kind? Carbonara, bolognese, alfredo?"
    - Follow-up question → Answer based on conversation history
    - NEVER repeat a question already asked in conversation history
    - NEVER ask generic "what do you want" - always give specific options
@@ -71,12 +73,16 @@ RESPONSE FORMAT:
 - For "modify": Set modification_request (what to change) and what_to_modify (which specific fields: name, description, servings, difficulty, time, tags, ingredients, steps, nutrition)
 - For "suggest": Set suggestions (3 dish names) and text_response (friendly intro text)
 - For "generate_images": No additional fields needed
-- For "question": Set text_response (clarifying question OR answer based on conversation context)"""
+- For "question": Set text_response (clarifying question OR answer based on conversation context)
+
+OUTPUT LANGUAGE: Respond in the same language the user is writing in. Determine language from the USER MESSAGE, not from the user profile."""
 
 GENERATE_METADATA_PROMPT = """Generate recipe metadata for the following request.
 
 ## User Profile (consider these preferences)
 {user_memory}
+
+IMPORTANT: Write ALL text in the same language as the user's original message below. Do NOT use the language from the user profile.
 
 Recipe request: {recipe_request}
 {modification_context}
@@ -84,6 +90,8 @@ Recipe request: {recipe_request}
 
 ## Message History
 {message_history}
+
+User's original message: {user_message}
 
 Create:
 - name: A clear, appetizing recipe name (MUST match the existing ingredients/steps if provided)
@@ -96,12 +104,16 @@ Create:
 IMPORTANT: If existing ingredients or steps are provided, the metadata MUST match that recipe.
 Do NOT invent a different recipe - derive the name and description from the existing content.
 
-Be specific and realistic with time estimates."""
+Be specific and realistic with time estimates.
+
+OUTPUT LANGUAGE: Generate all text (name, description, tags) in the same language the user is writing in. Determine language from the user's original message, not from the user profile."""
 
 GENERATE_INGREDIENTS_PROMPT = """Generate ingredients list for this recipe.
 
 ## User Profile (consider dietary restrictions, allergies, preferences)
 {user_memory}
+
+IMPORTANT: Write ALL text in the same language as the user's original request below. Do NOT use the language from the user profile.
 
 Recipe: {recipe_name}
 Description: {recipe_description}
@@ -111,6 +123,8 @@ Servings: {servings}
 ## Message History
 {message_history}
 
+User's original request: {user_message}
+
 Provide a complete ingredients list with:
 - name: Ingredient name (specific, e.g., "chicken thighs" not just "chicken")
 - amount: Numeric amount (e.g., "2", "1/2", "3-4")
@@ -118,12 +132,16 @@ Provide a complete ingredients list with:
 - eng_name: English translation if original is in another language (optional)
 
 Include ALL ingredients needed. Be specific with amounts.
-Group similar ingredients together (proteins, vegetables, seasonings, etc.)."""
+Group similar ingredients together (proteins, vegetables, seasonings, etc.).
+
+OUTPUT LANGUAGE: Generate all text in the same language the user is asking in. Determine language from the user's original request, not from the user profile."""
 
 GENERATE_STEPS_PROMPT = """Generate cooking steps for this recipe.
 
 ## User Profile (consider skill level, equipment availability)
 {user_memory}
+
+IMPORTANT: Write ALL step instructions in the same language as the user's original request below. Do NOT use the language from the user profile.
 
 Recipe: {recipe_name}
 Description: {recipe_description}
@@ -133,10 +151,12 @@ Ingredients: {ingredients}
 ## Message History
 {message_history}
 
+User's original request: {user_message}
+
 Create clear, actionable cooking steps:
 - instruction: One clear action per step (start with a verb)
 - duration_minutes: Time for steps that require waiting (optional)
-- image_description: Short visual description for image generation (describe the action and visible elements, no quantities or timing)
+- image_description: Short visual description for image generation (describe the action and visible elements, no quantities or timing). MUST always be in English regardless of recipe language.
 
 Guidelines:
 - Start with prep steps (chopping, measuring)
@@ -144,7 +164,9 @@ Guidelines:
 - Keep each step focused on one action
 - Mention specific ingredients by name
 - Include timing for steps that require it
-- End with plating/serving suggestions"""
+- End with plating/serving suggestions
+
+OUTPUT LANGUAGE: Generate all step instructions in the same language the user is asking in. Determine language from the user's original request, not from the user profile. image_description must always be in English since it's used for image generation."""
 
 GENERATE_NUTRITION_PROMPT = """Estimate nutrition information for this recipe.
 
@@ -179,6 +201,10 @@ User message: {user_message}
 Suggest exactly 3 SPECIFIC dishes (not generic categories) that would be good options.
 Consider any constraints mentioned (ingredients on hand, cuisine preferences, dietary needs).
 
+Balance suggestions between:
+- 1-2 options familiar to the user based on their profile/preferences
+- 1-2 options that are something new to discover or a different take on what they asked for
+
 For each suggestion:
 - name: Specific dish name (e.g., "Chicken Parmesan" not just "chicken dish")
 - description: One sentence about what makes it appealing
@@ -186,7 +212,9 @@ For each suggestion:
 Also provide a friendly response_text that:
 - Introduces your suggestions warmly
 - Ends with a natural follow-up question inviting them to pick one or ask for different options
-- Vary your phrasing - don't always use the same words"""
+- Vary your phrasing - don't always use the same words
+
+OUTPUT LANGUAGE: Respond in the same language the user is writing in. Determine language from the user message, not from the user profile."""
 
 ASK_QUESTION_PROMPT = """You are Raimy, a friendly recipe assistant.
 
@@ -205,7 +233,9 @@ If the user's request needs clarification, ask with specific dish options.
 Rules for clarification:
 - options: 3-4 SPECIFIC dish names (e.g., "Chicken Parmesan", not "Italian style")
 - DO NOT repeat options from previous conversation
-- Keep message short and conversational"""
+- Keep message short and conversational
+
+OUTPUT LANGUAGE: Respond in the same language the user is writing in. Determine language from the user's message, not from the user profile."""
 
 # Greeting prompt with tips
 GREETING_PROMPT = """Generate a short welcome as Raimy.
@@ -228,6 +258,7 @@ GREETING_TIPS = [
 FINAL_RESPONSE_PROMPT = """You are Raimy. You just {action_description}.
 
 Recipe: {recipe_name}
+{recipe_summary}
 {modification_context}
 
 ## Message History
@@ -236,10 +267,14 @@ Recipe: {recipe_name}
 ## User's Request
 {user_message}
 
-Write 1 short sentence acknowledging what you did.
-- No fluff ("wonderful", "delicious", "happy to help")
-- Be direct and natural
-- Can reference their specific request if relevant"""
+Respond with:
+1. "message": 1 short sentence acknowledging what you did. No fluff, be direct and natural.
+2. "suggestions": exactly 4 short suggested next actions relevant to this recipe. Each suggestion has "text" (short action label, 2-4 words) shown as a clickable button.
+   - Include "Generate images" ONLY if the recipe summary says "Steps have images: no"
+   - Other suggestions should be specific to this recipe (e.g., dietary tweaks, serving adjustments, difficulty changes, ingredient swaps)
+   - Keep them varied — don't suggest things that don't apply (e.g., don't suggest "make it vegetarian" if it's already vegetarian)
+
+OUTPUT LANGUAGE: Both message and suggestions must be in the same language the user is writing in. Determine language from the user's request, not from the user profile."""
 
 FORMAT_RESPONSE_PROMPT = """Analyze this response and determine if it contains options the user should choose from.
 

@@ -477,15 +477,6 @@ async def _handle_recipe_creator_events(
                     request.session_id, "thinking", None
                 )
 
-                # Trigger image generation in background
-                if recipe_data.get("steps"):
-                    asyncio.create_task(
-                        _generate_step_images(
-                            session_id=request.session_id,
-                            recipe_data=recipe_data,
-                        )
-                    )
-
     # Save agent response to database with correct content type
     if saved_content:
         logger.debug(f"💾 Saving to DB: type={saved_content.get('type')}")

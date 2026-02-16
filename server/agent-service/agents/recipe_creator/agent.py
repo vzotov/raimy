@@ -81,7 +81,6 @@ class RecipeCreatorState(TypedDict):
     recipe_request: Optional[str]
     modification_request: Optional[str]
     what_to_modify: Optional[List[str]]
-    regenerate_step_numbers: Optional[List[int]]  # 1-based step numbers to force-regenerate
     text_response: Optional[str]
     response_type: Optional[Literal["text", "selector"]]
     formatted_options: Optional[List[dict]]
@@ -308,7 +307,6 @@ class RecipeCreatorAgent(BaseAgent):
             "recipe_request": result.recipe_request,
             "modification_request": result.modification_request,
             "what_to_modify": result.what_to_modify,
-            "regenerate_step_numbers": result.regenerate_step_numbers,
             "text_response": result.text_response,
         }
 
@@ -397,16 +395,9 @@ class RecipeCreatorAgent(BaseAgent):
     async def _generate_images_intent(self, state: RecipeCreatorState) -> Dict:
         """Handle generate_images intent — signals main.py to trigger image generation."""
         steps = state.get("steps") or []
-        regenerate = state.get("regenerate_step_numbers")
-        if regenerate:
-            logger.info(f"🖼️ Generate images intent: regenerating steps {regenerate}")
-        else:
-            missing = [i for i, s in enumerate(steps) if not s.get("image_url")]
-            logger.info(f"🖼️ Generate images intent: {len(missing)} steps missing images out of {len(steps)}")
-        return {
-            "text_response": "generating images",
-            "regenerate_step_numbers": regenerate,
-        }
+        missing = [i for i, s in enumerate(steps) if not s.get("image_url")]
+        logger.info(f"🖼️ Generate images intent: {len(missing)} steps missing images out of {len(steps)}")
+        return {"text_response": "generating images"}
 
     async def _format_response(self, state: RecipeCreatorState) -> Dict:
         """Format text response into appropriate UI type (text or selector)"""
@@ -786,7 +777,6 @@ class RecipeCreatorAgent(BaseAgent):
             "recipe_request": None,
             "modification_request": None,
             "what_to_modify": None,
-            "regenerate_step_numbers": None,
             "text_response": None,
             "response_type": None,
             "formatted_options": None,
@@ -907,10 +897,7 @@ class RecipeCreatorAgent(BaseAgent):
                 elif node_name == "generate_images" and state_update.get("text_response"):
                     yield RecipeEvent(
                         type="generate_images",
-                        data={
-                            "message_id": message_id,
-                            "regenerate_step_numbers": state_update.get("regenerate_step_numbers"),
-                        },
+                        data={"message_id": message_id},
                     )
 
                 # Plain text response (from final node - doesn't go through formatter)

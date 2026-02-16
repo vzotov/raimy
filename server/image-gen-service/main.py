@@ -10,6 +10,7 @@ Later deploy on RTX 3080 PC and point IMAGE_GEN_SERVICE_URL to its IP.
 import base64
 import io
 import logging
+import random
 import time
 from contextlib import asynccontextmanager
 
@@ -78,7 +79,7 @@ async def generate(request: GenerateRequest):
     if not pipe:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
 
-    seed = request.seed or int(time.time()) % 2**32
+    seed = request.seed if request.seed is not None else random.randint(0, 2**32 - 1)
     generator = torch.Generator(device=pipe.device).manual_seed(seed)
 
     start = time.perf_counter()

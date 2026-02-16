@@ -133,21 +133,21 @@ async def _generate_step_images(session_id: str, recipe_data: dict):
         ):
             if event.type == "step_image":
                 data = event.data
-                logger.info('📸 Received step image data for step {data["step_index"]}')
+                logger.info(f'📸 Received step image data for step {data["step_index"]}')
                 if data.get("image_bytes"):
                     # Cache miss — upload to GCS and save to DB cache
                     image_url = gcs.upload_image(
                         data["image_bytes"], data["prompt"], 512, 512
                     )
                     await database_service.save_step_image_cache(
-                        normalized_text=data["prompt"].lower().strip(),
-                        embedding=data["embedding"],
-                        image_url=image_url,
-                        aspect_ratio="1:1",
-                        prompt=data["prompt"],
-                        model=data.get("model_used", ""),
-                        generation_time_ms=data.get("generation_time_ms", 0),
-                    )
+                            normalized_text=data["prompt"].lower().strip(),
+                            embedding=data["embedding"],
+                            image_url=image_url,
+                            aspect_ratio="1:1",
+                            prompt=data["prompt"],
+                            model=data.get("model_used", ""),
+                            generation_time_ms=data.get("generation_time_ms", 0),
+                        )
                 else:
                     # Cache hit
                     image_url = data["image_url"]
@@ -447,34 +447,19 @@ async def _handle_recipe_creator_events(
                 )
 
             case "generate_images":
-                # User explicitly asked to generate images
+                # User explicitly asked to generate missing images
                 existing_recipe = session_data.get("recipe") or {}
                 if existing_recipe.get("steps"):
                     message_id = event.data.get("message_id")
-                    regenerate_steps = event.data.get("regenerate_step_numbers")
-
-                    # Make a copy to avoid mutating session_data
-                    recipe_for_gen = {**existing_recipe, "steps": [dict(s) for s in existing_recipe["steps"]]}
-
-                    if regenerate_steps:
-                        # Clear image_url for specific steps (convert 1-based to 0-based)
-                        for step_num in regenerate_steps:
-                            idx = step_num - 1
-                            if 0 <= idx < len(recipe_for_gen["steps"]):
-                                recipe_for_gen["steps"][idx].pop("image_url", None)
-                        text_response = f"Regenerating images for {len(regenerate_steps)} steps..."
-                    else:
-                        # Generate only missing
-                        missing = [i for i, s in enumerate(recipe_for_gen["steps"]) if not s.get("image_url")]
-                        if not missing:
-                            text_response = "All steps already have images."
-                            saved_content = {"type": "text", "content": text_response}
-                            await redis_client.send_agent_text_message(
-                                request.session_id, text_response, message_id
-                            )
-                            continue
-                        text_response = f"Generating images for {len(missing)} steps..."
-
+                    missing = [i for i, s in enumerate(existing_recipe["steps"]) if not s.get("image_url")]
+                    if not missing:
+                        text_response = "All steps already have images."
+                        saved_content = {"type": "text", "content": text_response}
+                        await redis_client.send_agent_text_message(
+                            request.session_id, text_response, message_id
+                        )
+                        continue
+                    text_response = f"Generating images for {len(missing)} steps..."
                     saved_content = {"type": "text", "content": text_response}
                     await redis_client.send_agent_text_message(
                         request.session_id, text_response, message_id
@@ -482,7 +467,7 @@ async def _handle_recipe_creator_events(
                     asyncio.create_task(
                         _generate_step_images(
                             session_id=request.session_id,
-                            recipe_data=recipe_for_gen,
+                            recipe_data=existing_recipe,
                         )
                     )
 

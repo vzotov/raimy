@@ -226,7 +226,7 @@ class ImageGenAgent(BaseAgent):
                     continue
 
                 # 3. Cache miss — generate image
-                logger.info(f"🎨 Step {index}: cache MISS, generating image")
+                logger.info(f"🎨 Step {index}: generating image")
                 image_bytes, model_used, gen_time_ms = await self._generate_image(prompt)
                 if not image_bytes:
                     continue

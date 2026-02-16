@@ -32,10 +32,6 @@ class RequestAnalysis(BaseModel):
         default=None,
         description="Which specific recipe fields need regeneration for modify intent. Only include fields that DIRECTLY need to change.",
     )
-    regenerate_step_numbers: Optional[List[int]] = Field(
-        default=None,
-        description="1-based step numbers to regenerate images for (e.g., user says 'regenerate image for step 3' → [3]). Only set when user explicitly asks to regenerate specific steps. None means generate all missing.",
-    )
     suggestions: Optional[List[str]] = Field(
         default=None,
         description="3 specific dish suggestions if intent=suggest",

@@ -446,6 +446,46 @@ async def _handle_recipe_creator_events(
                     request.session_id, message, options, message_id
                 )
 
+            case "generate_images":
+                # User explicitly asked to generate images
+                existing_recipe = session_data.get("recipe") or {}
+                if existing_recipe.get("steps"):
+                    message_id = event.data.get("message_id")
+                    regenerate_steps = event.data.get("regenerate_step_numbers")
+
+                    # Make a copy to avoid mutating session_data
+                    recipe_for_gen = {**existing_recipe, "steps": [dict(s) for s in existing_recipe["steps"]]}
+
+                    if regenerate_steps:
+                        # Clear image_url for specific steps (convert 1-based to 0-based)
+                        for step_num in regenerate_steps:
+                            idx = step_num - 1
+                            if 0 <= idx < len(recipe_for_gen["steps"]):
+                                recipe_for_gen["steps"][idx].pop("image_url", None)
+                        text_response = f"Regenerating images for {len(regenerate_steps)} steps..."
+                    else:
+                        # Generate only missing
+                        missing = [i for i, s in enumerate(recipe_for_gen["steps"]) if not s.get("image_url")]
+                        if not missing:
+                            text_response = "All steps already have images."
+                            saved_content = {"type": "text", "content": text_response}
+                            await redis_client.send_agent_text_message(
+                                request.session_id, text_response, message_id
+                            )
+                            continue
+                        text_response = f"Generating images for {len(missing)} steps..."
+
+                    saved_content = {"type": "text", "content": text_response}
+                    await redis_client.send_agent_text_message(
+                        request.session_id, text_response, message_id
+                    )
+                    asyncio.create_task(
+                        _generate_step_images(
+                            session_id=request.session_id,
+                            recipe_data=recipe_for_gen,
+                        )
+                    )
+
             case "complete":
                 # Clear thinking indicator
                 await redis_client.send_system_message(

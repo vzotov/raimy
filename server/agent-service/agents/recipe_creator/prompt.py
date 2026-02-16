@@ -13,7 +13,7 @@ CONVERSATION HISTORY:
 
 USER MESSAGE: {user_message}
 
-Analyze intent (ONLY these 4 options):
+Analyze intent (ONLY these 5 options):
 
 1. **recipe**: User wants a NEW SPECIFIC recipe (even if a different recipe already exists!)
    - "Spaghetti carbonara" → recipe
@@ -50,7 +50,17 @@ Analyze intent (ONLY these 4 options):
    - "anything" / "you decide"
    → Provide 3 specific dish suggestions with brief descriptions
 
-4. **question**: Clarification needed OR follow-up questions
+4. **generate_images**: User wants to generate images for recipe steps
+   - "generate images" → generate_images (all missing)
+   - "add images" → generate_images (all missing)
+   - "regenerate image for step 3" → generate_images, regenerate_step_numbers: [3]
+   - "redo images for steps 2 and 5" → generate_images, regenerate_step_numbers: [2, 5]
+   - When user specifies step numbers, set regenerate_step_numbers (1-based)
+   - When no specific steps mentioned, leave regenerate_step_numbers as null (generates all missing)
+   - ONLY use this when a recipe with steps already exists in the session
+   - If no recipe exists, use "question" and ask what they'd like to cook first
+
+5. **question**: Clarification needed OR follow-up questions
    - Vague recipe request → Ask with specific options: "Make me pasta" → "What kind? Carbonara, bolognese, alfredo?"
    - Follow-up question → Answer based on conversation history
    - NEVER repeat a question already asked in conversation history
@@ -64,6 +74,7 @@ RESPONSE FORMAT:
 - For "recipe": Set recipe_request to the specific dish
 - For "modify": Set modification_request (what to change) and what_to_modify (which specific fields: name, description, servings, difficulty, time, tags, ingredients, steps, nutrition)
 - For "suggest": Set suggestions (3 dish names) and text_response (friendly intro text)
+- For "generate_images": Optionally set regenerate_step_numbers (1-based) if user specified steps
 - For "question": Set text_response (clarifying question OR answer based on conversation context)"""
 
 GENERATE_METADATA_PROMPT = """Generate recipe metadata for the following request.

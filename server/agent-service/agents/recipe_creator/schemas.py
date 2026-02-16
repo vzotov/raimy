@@ -7,13 +7,14 @@ from pydantic import BaseModel, Field
 class RequestAnalysis(BaseModel):
     """Analysis of user's request to determine intent"""
 
-    intent: Literal["recipe", "modify", "suggest", "question"] = Field(
+    intent: Literal["recipe", "modify", "suggest", "question", "generate_images"] = Field(
         description=(
             "What the user wants: "
             "'recipe' for NEW specific recipe, "
             "'modify' to change existing recipe, "
             "'suggest' for ideas/recommendations, "
-            "'question' for clarification needed"
+            "'question' for clarification needed, "
+            "'generate_images' to generate/regenerate images for existing recipe steps"
         )
     )
     recipe_request: Optional[str] = Field(
@@ -30,6 +31,10 @@ class RequestAnalysis(BaseModel):
     ]]] = Field(
         default=None,
         description="Which specific recipe fields need regeneration for modify intent. Only include fields that DIRECTLY need to change.",
+    )
+    regenerate_step_numbers: Optional[List[int]] = Field(
+        default=None,
+        description="1-based step numbers to regenerate images for (e.g., user says 'regenerate image for step 3' → [3]). Only set when user explicitly asks to regenerate specific steps. None means generate all missing.",
     )
     suggestions: Optional[List[str]] = Field(
         default=None,

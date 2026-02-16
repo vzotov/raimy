@@ -77,10 +77,11 @@ class RecipeCreatorState(TypedDict):
     nutrition: Optional[dict]
 
     # Control flow
-    intent: Optional[Literal["recipe", "modify", "suggest", "question"]]
+    intent: Optional[Literal["recipe", "modify", "suggest", "question", "generate_images"]]
     recipe_request: Optional[str]
     modification_request: Optional[str]
     what_to_modify: Optional[List[str]]
+    regenerate_step_numbers: Optional[List[int]]  # 1-based step numbers to force-regenerate
     text_response: Optional[str]
     response_type: Optional[Literal["text", "selector"]]
     formatted_options: Optional[List[dict]]
@@ -114,6 +115,7 @@ class RecipeEvent(AgentEvent):
         "nutrition",
         "selector",
         "complete",
+        "generate_images",
     ]
     data: Any
 
@@ -181,17 +183,23 @@ class RecipeCreatorAgent(BaseAgent):
         # Entry point
         workflow.set_entry_point("analyze")
 
+        # Add generate_images node
+        workflow.add_node("generate_images", self._generate_images_intent)
+
         # Route from analyze based on intent
         workflow.add_conditional_edges(
             "analyze",
             self._route_intent,
-            {"suggest": "suggest", "question": "ask", "recipe": "check", "modify": "modify"},
+            {"suggest": "suggest", "question": "ask", "recipe": "check", "modify": "modify", "generate_images": "generate_images"},
         )
 
         # Suggest and ask route through formatter before END
         workflow.add_edge("suggest", "format_response")
         workflow.add_edge("ask", "format_response")
         workflow.add_edge("format_response", END)
+
+        # generate_images goes directly to END
+        workflow.add_edge("generate_images", END)
 
         # Modify routes back to check for regeneration
         workflow.add_edge("modify", "check")
@@ -300,6 +308,7 @@ class RecipeCreatorAgent(BaseAgent):
             "recipe_request": result.recipe_request,
             "modification_request": result.modification_request,
             "what_to_modify": result.what_to_modify,
+            "regenerate_step_numbers": result.regenerate_step_numbers,
             "text_response": result.text_response,
         }
 
@@ -331,6 +340,8 @@ class RecipeCreatorAgent(BaseAgent):
             return "question"
         if intent == "modify":
             return "modify"
+        if intent == "generate_images":
+            return "generate_images"
         return "recipe"
 
     async def _suggest_dishes(self, state: RecipeCreatorState) -> Dict:
@@ -382,6 +393,20 @@ class RecipeCreatorAgent(BaseAgent):
             full_response = result.message
 
         return {"text_response": full_response}
+
+    async def _generate_images_intent(self, state: RecipeCreatorState) -> Dict:
+        """Handle generate_images intent — signals main.py to trigger image generation."""
+        steps = state.get("steps") or []
+        regenerate = state.get("regenerate_step_numbers")
+        if regenerate:
+            logger.info(f"🖼️ Generate images intent: regenerating steps {regenerate}")
+        else:
+            missing = [i for i, s in enumerate(steps) if not s.get("image_url")]
+            logger.info(f"🖼️ Generate images intent: {len(missing)} steps missing images out of {len(steps)}")
+        return {
+            "text_response": "generating images",
+            "regenerate_step_numbers": regenerate,
+        }
 
     async def _format_response(self, state: RecipeCreatorState) -> Dict:
         """Format text response into appropriate UI type (text or selector)"""
@@ -761,6 +786,7 @@ class RecipeCreatorAgent(BaseAgent):
             "recipe_request": None,
             "modification_request": None,
             "what_to_modify": None,
+            "regenerate_step_numbers": None,
             "text_response": None,
             "response_type": None,
             "formatted_options": None,
@@ -877,6 +903,16 @@ class RecipeCreatorAgent(BaseAgent):
                                 "message_id": message_id,
                             },
                         )
+                # generate_images intent — emit event for main.py to handle
+                elif node_name == "generate_images" and state_update.get("text_response"):
+                    yield RecipeEvent(
+                        type="generate_images",
+                        data={
+                            "message_id": message_id,
+                            "regenerate_step_numbers": state_update.get("regenerate_step_numbers"),
+                        },
+                    )
+
                 # Plain text response (from final node - doesn't go through formatter)
                 elif state_update.get("text_response") and node_name == "final":
                     yield RecipeEvent(

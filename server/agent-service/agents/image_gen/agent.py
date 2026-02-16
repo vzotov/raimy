@@ -82,9 +82,11 @@ class ImageGenAgent(BaseAgent):
         recipe_context = self._format_recipe_context(recipe)
         steps = recipe.get("steps", [])
 
-        # Build list of steps that have image_description
+        # Build list of steps that have image_description and no image yet
         steps_lines = []
         for i, step in enumerate(steps):
+            if step.get("image_url"):
+                continue
             image_description = step.get("image_description")
             if not image_description:
                 continue
@@ -189,6 +191,10 @@ class ImageGenAgent(BaseAgent):
 
         for index, step in enumerate(steps):
             try:
+                # Skip steps that already have images
+                if step.get("image_url"):
+                    continue
+
                 prompt = prompt_map.get(index)
                 if not prompt:
                     logger.warning(f"Step {index} has no generated prompt, skipping")

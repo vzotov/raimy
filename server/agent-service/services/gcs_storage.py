@@ -1,8 +1,10 @@
 """Google Cloud Storage utility for uploading step images."""
 import hashlib
+import io
 import logging
 import os
 
+from PIL import Image
 from google.cloud import storage
 
 logger = logging.getLogger(__name__)
@@ -28,7 +30,30 @@ class GCSStorage:
             self._bucket = self.client.bucket(self.bucket_name)
         return self._bucket
 
-    def upload_image(self, image_bytes: bytes, image_description: str, width: int = 512, height: int = 512) -> str:
+    def _optimize_image(self, image_bytes: bytes, quality: int, max_size: int = 512) -> bytes:
+        """Optimize image for web: resize if needed, re-encode as JPEG."""
+        original_size = len(image_bytes)
+        img = Image.open(io.BytesIO(image_bytes))
+
+        # Convert to RGB if needed (e.g. PNG with alpha)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # Resize to max_size on longest side if larger
+        if max(img.size) > max_size:
+            img.thumbnail((max_size, max_size), Image.LANCZOS)
+
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        optimized_bytes = buf.getvalue()
+
+        logger.info(
+            f"GCS: Image optimized {original_size / 1024:.0f}KB -> {len(optimized_bytes) / 1024:.0f}KB "
+            f"(quality={quality}, size={img.size[0]}x{img.size[1]})"
+        )
+        return optimized_bytes
+
+    def upload_image(self, image_bytes: bytes, image_description: str, width: int = 512, height: int = 512, quality: int = 72) -> str:
         """
         Upload image to GCS, return public URL.
 
@@ -47,8 +72,10 @@ class GCSStorage:
             blob.make_public()
             return blob.public_url
 
-        blob.upload_from_string(image_bytes, content_type="image/jpeg")
+        optimized_bytes = self._optimize_image(image_bytes, quality)
+
+        blob.upload_from_string(optimized_bytes, content_type="image/jpeg")
         blob.make_public()
 
-        logger.info(f"GCS: Uploaded {filename} ({len(image_bytes)} bytes)")
+        logger.info(f"GCS: Uploaded {filename} ({len(optimized_bytes)} bytes)")
         return blob.public_url

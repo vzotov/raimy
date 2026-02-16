@@ -71,6 +71,7 @@ Each phase has its own detailed implementation file in `plans/phases/`.
 | 9 | Schema Changes | [phase-09-schema-changes.md](phases/phase-09-schema-changes.md) | [x] |
 | 10 | Frontend — Display Step Images | [phase-10-frontend.md](phases/phase-10-frontend.md) | [x] |
 | 11 | Image Generation Agent (LangGraph) | [phase-11-image-prompt-agent.md](phases/phase-11-image-prompt-agent.md) | [ ] |
+| 12 | Image Optimization for Web | [phase-12-image-optimization.md](phases/phase-12-image-optimization.md) | [ ] |
 
 ---
 

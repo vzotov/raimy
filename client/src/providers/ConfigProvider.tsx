@@ -6,6 +6,7 @@ import type { AppConfig } from '@/types/config';
 
 const defaultConfig: AppConfig = {
   instacart_enabled: false,
+  image_gen_enabled: false,
 };
 
 const ConfigContext = createContext<AppConfig>(defaultConfig);

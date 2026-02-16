@@ -292,11 +292,23 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
         existing_recipe = self._format_existing_recipe(state)
 
+        if os.getenv("IMAGE_GEN_ENABLED"):
+            generate_images_intent = (
+                '4. **generate_images**: User wants to generate images for recipe steps that are missing images\n'
+                '   - "generate images" → generate_images\n'
+                '   - "add images" → generate_images\n'
+                '   - ONLY use this when a recipe with steps already exists in the session\n'
+                '   - If no recipe exists, use "question" and ask what they\'d like to cook first\n'
+            )
+        else:
+            generate_images_intent = ""
+
         prompt = ANALYZE_REQUEST_PROMPT.format(
             user_memory=self._get_user_memory(state),
             existing_recipe=existing_recipe,
             message_history=message_history,
             user_message=state["user_message"],
+            generate_images_intent=generate_images_intent,
         )
 
         llm_with_output = self.llm.with_structured_output(RequestAnalysis)
@@ -396,6 +408,12 @@ class RecipeCreatorAgent(BaseAgent):
 
     async def _generate_images_intent(self, state: RecipeCreatorState) -> Dict:
         """Handle generate_images intent — signals main.py to trigger image generation."""
+        if not os.getenv("IMAGE_GEN_ENABLED"):
+            logger.info("🖼️ Generate images intent: disabled by feature flag")
+            return {
+                "text_response": "Image generation is not available.",
+                "response_type": "text",
+            }
         steps = state.get("steps") or []
         missing = [i for i, s in enumerate(steps) if not s.get("image_url")]
         logger.info(f"🖼️ Generate images intent: {len(missing)} steps missing images out of {len(steps)}")
@@ -694,11 +712,18 @@ class RecipeCreatorAgent(BaseAgent):
             parts.append(f"Difficulty: {state['difficulty']}")
         if state.get("servings"):
             parts.append(f"Servings: {state['servings']}")
-        # Check if steps have images
-        steps = state.get("steps") or []
-        has_images = any(s.get("image_url") for s in steps)
-        parts.append(f"Steps have images: {'yes' if has_images else 'no'}")
+        # Check if steps have images (only relevant when image gen is enabled)
+        image_gen_enabled = bool(os.getenv("IMAGE_GEN_ENABLED"))
+        if image_gen_enabled:
+            steps = state.get("steps") or []
+            has_images = any(s.get("image_url") for s in steps)
+            parts.append(f"Steps have images: {'yes' if has_images else 'no'}")
         recipe_summary = "\n".join(parts)
+
+        if image_gen_enabled:
+            generate_images_suggestion = '   - Include "Generate images" ONLY if the recipe summary says "Steps have images: no"'
+        else:
+            generate_images_suggestion = '   - Do NOT suggest "Generate images" — image generation is not available'
 
         prompt = FINAL_RESPONSE_PROMPT.format(
             action_description=action_description,
@@ -707,6 +732,7 @@ class RecipeCreatorAgent(BaseAgent):
             modification_context=modification_context,
             message_history=message_history,
             user_message=state["user_message"],
+            generate_images_suggestion=generate_images_suggestion,
         )
 
         llm_with_output = self.llm.with_structured_output(FinalResponse)

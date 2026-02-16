@@ -5,6 +5,7 @@ FastAPI service for chat agent orchestration with LangGraph.
 """
 import asyncio
 import logging
+import os
 from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
@@ -447,6 +448,14 @@ async def _handle_recipe_creator_events(
                 )
 
             case "generate_images":
+                # Check feature flag
+                if not os.getenv("IMAGE_GEN_ENABLED"):
+                    text_response = "Image generation is not available."
+                    saved_content = {"type": "text", "content": text_response}
+                    await redis_client.send_agent_text_message(
+                        request.session_id, text_response, event.data.get("message_id")
+                    )
+                    continue
                 # User explicitly asked to generate missing images
                 existing_recipe = session_data.get("recipe") or {}
                 if existing_recipe.get("steps"):

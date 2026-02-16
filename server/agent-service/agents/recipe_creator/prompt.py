@@ -13,7 +13,7 @@ CONVERSATION HISTORY:
 
 USER MESSAGE: {user_message}
 
-Analyze intent (ONLY these 5 options):
+Analyze intent (ONLY these options):
 
 1. **recipe**: User wants a NEW SPECIFIC, UNAMBIGUOUS recipe
    - "Spaghetti carbonara" → recipe (specific dish, one clear interpretation)
@@ -53,12 +53,7 @@ Analyze intent (ONLY these 5 options):
    - "flan" → recipe (specific dish, one clear interpretation)
    → Provide 3 specific dish suggestions: mix familiar options from user preferences with something new to discover
 
-4. **generate_images**: User wants to generate images for recipe steps that are missing images
-   - "generate images" → generate_images
-   - "add images" → generate_images
-   - ONLY use this when a recipe with steps already exists in the session
-   - If no recipe exists, use "question" and ask what they'd like to cook first
-
+{generate_images_intent}
 5. **question**: Clarification needed OR follow-up questions
    - Follow-up question → Answer based on conversation history
    - NEVER repeat a question already asked in conversation history
@@ -270,7 +265,7 @@ Recipe: {recipe_name}
 Respond with:
 1. "message": 1 short sentence acknowledging what you did. No fluff, be direct and natural.
 2. "suggestions": exactly 4 short suggested next actions relevant to this recipe. Each suggestion has "text" (short action label, 2-4 words) shown as a clickable button.
-   - Include "Generate images" ONLY if the recipe summary says "Steps have images: no"
+{generate_images_suggestion}
    - Other suggestions should be specific to this recipe (e.g., dietary tweaks, serving adjustments, difficulty changes, ingredient swaps)
    - Keep them varied — don't suggest things that don't apply (e.g., don't suggest "make it vegetarian" if it's already vegetarian)
 

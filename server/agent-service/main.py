@@ -274,6 +274,7 @@ async def _handle_kitchen_events(
                 message = event.data.get("message", "")
                 message_id = event.data.get("message_id")
                 next_step_prompt = event.data.get("next_step_prompt", "Continue")
+                image_url = event.data.get("image_url")
                 text_response = message
                 # Track content for database save
                 saved_content = {
@@ -281,8 +282,11 @@ async def _handle_kitchen_events(
                     "message": message,
                     "next_step_prompt": next_step_prompt,
                 }
+                if image_url:
+                    saved_content["image_url"] = image_url
                 await redis_client.send_kitchen_step_message(
-                    request.session_id, message, message_id, next_step_prompt
+                    request.session_id, message, message_id, next_step_prompt,
+                    image_url=image_url,
                 )
 
             case "text":

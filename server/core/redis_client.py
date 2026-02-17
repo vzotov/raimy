@@ -155,6 +155,7 @@ class RedisClient:
         message: str,
         message_id: str,
         next_step_prompt: str,
+        image_url: str | None = None,
     ):
         """
         Send a kitchen step message to a session (with confirmation buttons)
@@ -164,16 +165,20 @@ class RedisClient:
             message: Step guidance message
             message_id: Unique message ID
             next_step_prompt: Short prompt for continue button (e.g., "Let's go!")
+            image_url: Optional image URL for the step
         """
+        content = {
+            "type": "kitchen-step",
+            "message": message,
+            "next_step_prompt": next_step_prompt,
+        }
+        if image_url:
+            content["image_url"] = image_url
         await self.publish(
             f"session:{session_id}",
             {
                 "type": "agent_message",
-                "content": {
-                    "type": "kitchen-step",
-                    "message": message,
-                    "next_step_prompt": next_step_prompt,
-                },
+                "content": content,
                 "message_id": message_id
             }
         )

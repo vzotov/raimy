@@ -124,6 +124,7 @@ class KitchenAgentState(TypedDict):
     timer_to_set: Optional[Dict]
     new_step_index: Optional[int]
     cooking_complete: Optional[bool]
+    image_url: Optional[str]
 
 
 # Thinking messages for nodes
@@ -138,7 +139,7 @@ THINKING_MESSAGES = {
 class KitchenAgent(BaseAgent):
     """Agent for active kitchen cooking guidance with generator streaming"""
 
-    MODEL = "gpt-5-mini"
+    MODEL = "gpt-5-chat-latest"
 
     def __init__(self):
         """Initialize the kitchen agent"""
@@ -429,6 +430,7 @@ class KitchenAgent(BaseAgent):
         step_data = steps[new_step]
         step_instruction = step_data.get("instruction", "")
         step_duration = step_data.get("duration_minutes") or step_data.get("duration")
+        step_image_url = step_data.get("image_url")
 
         # Generate step guidance using LLM
         message_history = self._format_message_history(state["messages"][:-1])
@@ -487,6 +489,7 @@ class KitchenAgent(BaseAgent):
             "ingredients_to_update": ingredients_to_update if ingredients_to_update else None,
             "timer_to_set": timer_to_set,
             "new_step_index": new_step,
+            "image_url": step_image_url,
         }
 
     async def _answer_question(self, state: KitchenAgentState) -> Dict:
@@ -933,6 +936,7 @@ class KitchenAgent(BaseAgent):
                                 "message": text_response,
                                 "message_id": message_id,
                                 "next_step_prompt": next_step_prompt,
+                                "image_url": state_update.get("image_url"),
                             },
                         )
                     else:

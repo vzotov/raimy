@@ -37,6 +37,11 @@ export default function MessageRenderer({
     case 'kitchen-step':
       return (
         <div>
+          {content.image_url && (
+            <div className="mb-3 rounded-xl overflow-hidden">
+              <img src={content.image_url} alt="" className="w-full h-auto object-cover" loading="lazy" />
+            </div>
+          )}
           <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
             {content.message}
           </p>

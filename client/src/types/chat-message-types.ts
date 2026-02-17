@@ -15,6 +15,7 @@ export type KitchenStepContent = {
   type: 'kitchen-step';
   message: string;
   next_step_prompt: string;
+  image_url?: string;
 };
 
 export type IngredientsContent = {

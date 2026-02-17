@@ -133,7 +133,7 @@ export default function KitchenChat({
         )}
 
         {/* Chat */}
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="mx-auto min-h-0 max-w-6xl flex-1 overflow-hidden">
           <Chat
             messages={state.messages}
             onSendMessage={handleSendMessage}

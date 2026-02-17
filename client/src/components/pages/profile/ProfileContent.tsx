@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import ThemeSelector from '@/components/shared/ThemeSelector';
 import SignOutButton from './SignOutButton';
 
 interface ProfileData {
@@ -78,6 +79,16 @@ export default async function ProfileContent() {
         </div>
         <div className="mt-4">
           <SignOutButton />
+        </div>
+      </div>
+
+      {/* Appearance Section */}
+      <div>
+        <h2 className="text-lg font-semibold text-text mb-4">Appearance</h2>
+        <div className="bg-surface rounded-lg p-4">
+          <div className="max-w-xs">
+            <ThemeSelector />
+          </div>
         </div>
       </div>
 

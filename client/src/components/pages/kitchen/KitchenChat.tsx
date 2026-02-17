@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import NotebookIcon from '@/components/icons/NotebookIcon';
 import KitchenIngredientList, {
@@ -9,6 +9,8 @@ import KitchenIngredientList, {
 } from '@/components/pages/kitchen/KitchenIngredientList';
 import Chat from '@/components/shared/chat/Chat';
 import { ChatHeader } from '@/components/shared/ChatHeader';
+import SlidingPanel from '@/components/shared/SlidingPanel';
+import SlidingPanelTrigger from '@/components/shared/SlidingPanelTrigger';
 import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useKitchenState } from '@/hooks/useKitchenState';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -61,6 +63,8 @@ export default function KitchenChat({
     [addMessage, sendMessage],
   );
 
+  const [isIngredientsVisible, setIsIngredientsVisible] = useState(false);
+
   // Show completion UI if cooking is complete
   if (state.cookingComplete) {
     // Get the last assistant message as the final message
@@ -110,30 +114,15 @@ export default function KitchenChat({
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
-      {/* Header */}
-      <ChatHeader
-        title={state.sessionName || sessionName}
-        isConnected={isConnected}
-        error={error}
-      />
+    <div className="flex h-full w-full">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col">
+        <ChatHeader
+          title={state.sessionName || sessionName}
+          isConnected={isConnected}
+          error={error}
+        />
 
-      {/* Content area with ingredients and chat */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-        {/* Ingredients panel - stacked on mobile, sidebar on desktop */}
-        {state.ingredients.length > 0 && (
-          <div className="flex h-[32vh] w-full flex-shrink-0 flex-col md:order-last md:h-auto md:w-80 md:border-l md:border-accent/20">
-            <div className="flex min-h-0 flex-1 flex-col pl-4 pt-4 pb-4 gap-4">
-              <h2 className="flex-shrink-0 text-lg font-semibold text-text pr-4">
-                Ingredients
-              </h2>
-              <KitchenIngredientList ingredients={state.ingredients} />
-            </div>
-          </div>
-        )}
-
-        {/* Chat */}
-        <div className="mx-auto min-h-0 max-w-6xl flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
           <Chat
             messages={state.messages}
             onSendMessage={handleSendMessage}
@@ -143,6 +132,49 @@ export default function KitchenChat({
           />
         </div>
       </div>
+
+      {!isIngredientsVisible && state.ingredients.length > 0 && (
+        <SlidingPanelTrigger
+          onClick={() => setIsIngredientsVisible(true)}
+          icon={
+            <svg
+              className="w-5 h-5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="5" cy="6" r="1.5" />
+              <rect x="9" y="5" width="11" height="2" rx="1" />
+              <circle cx="5" cy="12" r="1.5" />
+              <rect x="9" y="11" width="11" height="2" rx="1" />
+              <circle cx="5" cy="18" r="1.5" />
+              <rect x="9" y="17" width="11" height="2" rx="1" />
+            </svg>
+          }
+          label="Ingredients"
+        />
+      )}
+
+      {state.ingredients.length > 0 && (
+        <SlidingPanel
+          isOpen={isIngredientsVisible}
+          onClose={() => setIsIngredientsVisible(false)}
+        >
+          <div className="flex min-h-0 flex-1 flex-col p-4 gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-text">Ingredients</h2>
+              <button
+                onClick={() => setIsIngredientsVisible(false)}
+                className="md:hidden p-2 hover:bg-accent/10 rounded text-text/60 hover:text-text"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <KitchenIngredientList ingredients={state.ingredients} />
+          </div>
+        </SlidingPanel>
+      )}
     </div>
   );
 }

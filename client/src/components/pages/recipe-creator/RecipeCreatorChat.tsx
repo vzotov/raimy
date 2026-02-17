@@ -5,6 +5,7 @@ import Chat from '@/components/shared/chat/Chat';
 import { ChatHeader } from '@/components/shared/ChatHeader';
 import RecipeDocument from '@/components/shared/RecipeDocument';
 import SlidingPanel from '@/components/shared/SlidingPanel';
+import SlidingPanelTrigger from '@/components/shared/SlidingPanelTrigger';
 import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -114,33 +115,26 @@ export default function RecipeCreatorChat({
 
       {/* Tab button on right edge to open panel - only shown when panel is closed */}
       {!isRecipeVisible && state.recipe && (
-        <button
+        <SlidingPanelTrigger
           onClick={() => setIsRecipeVisible(true)}
-          className="fixed top-[20%] right-0 z-30 md:hidden bg-surface text-text px-3 py-6 rounded-l-lg shadow-xl hover:bg-surface/90 transition-all border border-accent/20"
-          aria-label="Show recipe"
-        >
-          <div className="flex flex-col items-center gap-1">
-            <div className="relative">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              {state.isRecipeChanged && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full" />
-              )}
-            </div>
-            <span className="text-xs font-medium">Recipe</span>
-          </div>
-        </button>
+          icon={
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+          }
+          label="Recipe"
+          indicator={state.isRecipeChanged}
+        />
       )}
 
       {/* Recipe sidebar (desktop) / Expandable panel (mobile) */}

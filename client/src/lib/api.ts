@@ -110,6 +110,11 @@ export const chatSessions = {
     post<{ message: string; recipe: Recipe }>(
       `/api/chat-sessions/${sessionId}/save-recipe`,
     ),
+
+  generateStepImage: (sessionId: string, stepIndex: number) =>
+    post<{ image_url: string; step_index: number }>(
+      `/api/chat-sessions/${sessionId}/steps/${stepIndex}/generate-image`,
+    ),
 };
 
 export const recipes = {

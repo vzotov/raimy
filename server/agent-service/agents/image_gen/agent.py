@@ -20,6 +20,7 @@ from ..base import AgentEvent, BaseAgent
 from .prompt import GENERATE_IMAGE_PROMPT
 from .schemas import ImagePrompts
 from services.fal_client import FalImageClient
+from services.gcs_storage import GCSStorage
 from app.services import database_service
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,84 @@ class ImageGenAgent(BaseAgent):
         except Exception as e:
             logger.error(f"fal.ai fallback also failed: {e}")
             return None, "", 0
+
+    async def generate_single_step_image(
+        self,
+        recipe_name: str,
+        step_index: int,
+        step_instruction: str,
+        image_description: str = "",
+        recipe_description: str = "",
+        ingredients_summary: str = "",
+    ) -> str | None:
+        """
+        Generate an image for a single recipe step.
+
+        Returns the image URL (from cache or newly generated), or None on failure.
+        """
+        gcs = GCSStorage()
+
+        # Build a single-step entry for the batch prompt generator
+        visual_hint = image_description or step_instruction
+        steps_lines = (
+            f"- step_index: {step_index}\n"
+            f"  Instruction: {step_instruction}\n"
+            f"  Visual hint: {visual_hint}"
+        )
+
+        prompt_text = GENERATE_IMAGE_PROMPT.format(
+            recipe_name=recipe_name,
+            recipe_description=recipe_description,
+            ingredients_summary=ingredients_summary or "Not specified",
+            steps_to_generate=steps_lines,
+        )
+
+        llm_with_output = self.llm.with_structured_output(ImagePrompts)
+        result: ImagePrompts = await llm_with_output.ainvoke(prompt_text)
+
+        if not result.prompts:
+            logger.warning(f"🎨 Single step {step_index}: LLM returned no prompts")
+            return None
+
+        flux_prompt = result.prompts[0].prompt
+
+        # Embed the prompt
+        embedding = await self._get_embedding(flux_prompt)
+        if not embedding:
+            return None
+
+        # Cache check
+        cached_url = await database_service.find_similar_step_image(
+            normalized_text=flux_prompt.lower().strip(),
+            embedding=embedding,
+            aspect_ratio=self.aspect_ratio,
+            threshold=self.similarity_threshold,
+        )
+        if cached_url:
+            logger.info(f"🎨 Single step {step_index}: cache HIT")
+            return cached_url
+
+        # Generate image
+        logger.info(f"🎨 Single step {step_index}: generating image")
+        image_bytes, model_used, gen_time_ms = await self._generate_image(flux_prompt)
+        if not image_bytes:
+            return None
+
+        # Upload to GCS
+        image_url = gcs.upload_image(image_bytes, flux_prompt, self.width, self.height)
+
+        # Save to cache
+        await database_service.save_step_image_cache(
+            normalized_text=flux_prompt.lower().strip(),
+            embedding=embedding,
+            image_url=image_url,
+            aspect_ratio=self.aspect_ratio,
+            prompt=flux_prompt,
+            model=model_used,
+            generation_time_ms=gen_time_ms,
+        )
+
+        return image_url
 
     async def run_streaming(
         self,

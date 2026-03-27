@@ -10,6 +10,7 @@ import { useChatSessionTitle } from '@/hooks/useChatSessionTitle';
 import { useRecipeCreatorState } from '@/hooks/useRecipeCreatorState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { chatSessions } from '@/lib/api';
+import { useConfig } from '@/providers/ConfigProvider';
 import type { SessionMessage } from '@/types/chat-session';
 import type { Recipe } from '@/types/recipe';
 
@@ -28,8 +29,10 @@ export default function RecipeCreatorChat({
   initialRecipe,
   initialIsChanged = false,
 }: RecipeCreatorChatProps) {
+  const config = useConfig();
+
   // Use composed state hook
-  const { state, handleMessage, addMessage, setRecipe, resetChangedFlag } =
+  const { state, handleMessage, addMessage, setRecipe, resetChangedFlag, applyRecipeUpdate } =
     useRecipeCreatorState({
       sessionId,
       initialMessages,
@@ -58,6 +61,19 @@ export default function RecipeCreatorChat({
       sendMessage(content);
     },
     [addMessage, sendMessage],
+  );
+
+  // Handle step image generated
+  const handleStepImageGenerated = useCallback(
+    (stepIndex: number, imageUrl: string) => {
+      applyRecipeUpdate({
+        type: 'recipe_update',
+        action: 'set_step_image',
+        step_index: stepIndex,
+        image_url: imageUrl,
+      });
+    },
+    [applyRecipeUpdate],
   );
 
   // Handle saving recipe
@@ -150,6 +166,9 @@ export default function RecipeCreatorChat({
           saveError={saveError}
           isRecipeChanged={state.isRecipeChanged}
           onClearError={() => setSaveError(null)}
+          sessionId={sessionId}
+          imageGenEnabled={config.image_gen_enabled}
+          onStepImageGenerated={handleStepImageGenerated}
         />
       </SlidingPanel>
     </div>

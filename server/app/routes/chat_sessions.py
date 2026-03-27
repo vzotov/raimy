@@ -219,6 +219,71 @@ async def save_recipe_from_session(
         raise HTTPException(status_code=500, detail=f"Failed to save recipe: {str(e)}")
 
 
+@router.post("/{session_id}/steps/{step_index}/generate-image")
+async def generate_step_image(
+    session_id: str,
+    step_index: int,
+    current_user: dict = Depends(get_current_user_with_storage),
+):
+    """Generate an image for a single recipe step via agent service."""
+    # Load session and verify ownership
+    session_data = await database_service.get_chat_session(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_data["user_id"] != current_user["email"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    recipe = session_data.get("recipe")
+    if not recipe:
+        raise HTTPException(status_code=400, detail="Session has no recipe")
+
+    steps = recipe.get("steps", [])
+    if step_index < 0 or step_index >= len(steps):
+        raise HTTPException(status_code=400, detail="Invalid step index")
+
+    step = steps[step_index]
+
+    # Build recipe context
+    ingredients = recipe.get("ingredients", [])
+    ingredients_summary = ", ".join(
+        ing.get("name", "") for ing in ingredients[:10]
+    )
+    if len(ingredients) > 10:
+        ingredients_summary += f" (+{len(ingredients) - 10} more)"
+
+    # Call agent service
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{AGENT_SERVICE_URL}/agent/generate-step-image",
+                json={
+                    "recipe_name": recipe.get("name", "Recipe"),
+                    "recipe_description": recipe.get("description", ""),
+                    "ingredients_summary": ingredients_summary or "Not specified",
+                    "step_index": step_index,
+                    "step_instruction": step.get("instruction", ""),
+                    "image_description": step.get("image_description", ""),
+                },
+            )
+            response.raise_for_status()
+            result = response.json()
+    except httpx.HTTPStatusError as e:
+        detail = "Image generation service error"
+        if e.response.status_code == 503:
+            detail = "Image generation is not enabled"
+        logger.error(f"Agent service error: {e}")
+        raise HTTPException(status_code=e.response.status_code, detail=detail)
+    except Exception as e:
+        logger.error(f"Failed to call agent service for step image: {e}")
+        raise HTTPException(status_code=500, detail="Image generation failed")
+
+    # Update session recipe in DB
+    image_url = result["image_url"]
+    await database_service.update_step_image_url(session_id, step_index, image_url)
+
+    return {"image_url": image_url, "step_index": step_index}
+
+
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, current_user: dict = Depends(get_current_user_with_storage)):
     """Delete a chat session"""

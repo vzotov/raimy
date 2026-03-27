@@ -78,6 +78,22 @@ class GreetingResponse(BaseModel):
     next_step_prompt: Optional[str] = None
 
 
+class GenerateStepImageRequest(BaseModel):
+    """Request model for single-step image generation"""
+    recipe_name: str
+    recipe_description: str = ""
+    ingredients_summary: str = ""
+    step_index: int
+    step_instruction: str
+    image_description: str = ""
+
+
+class GenerateStepImageResponse(BaseModel):
+    """Response model for single-step image generation"""
+    image_url: str
+    step_index: int
+
+
 class ExtractMemoryRequest(BaseModel):
     """Request model for memory extraction endpoint"""
     session_id: str
@@ -596,6 +612,37 @@ async def agent_chat(request: ChatRequest):
         except Exception as redis_error:
             logger.error(f"Failed to publish error to Redis: {redis_error}")
 
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent/generate-step-image", response_model=GenerateStepImageResponse)
+async def generate_step_image(request: GenerateStepImageRequest):
+    """Generate an image for a single recipe step."""
+    if not os.getenv("IMAGE_GEN_ENABLED"):
+        raise HTTPException(status_code=503, detail="Image generation is not enabled")
+
+    try:
+        agent = ImageGenAgent()
+        image_url = await agent.generate_single_step_image(
+            recipe_name=request.recipe_name,
+            step_index=request.step_index,
+            step_instruction=request.step_instruction,
+            image_description=request.image_description,
+            recipe_description=request.recipe_description,
+            ingredients_summary=request.ingredients_summary,
+        )
+
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Image generation failed")
+
+        return GenerateStepImageResponse(
+            image_url=image_url,
+            step_index=request.step_index,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"🎨 Single step image generation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

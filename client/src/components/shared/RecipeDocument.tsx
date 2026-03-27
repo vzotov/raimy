@@ -1,9 +1,11 @@
+import { useCallback, useState } from 'react';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import SaveIcon from '@/components/icons/SaveIcon';
 import IngredientList from '@/components/shared/IngredientList';
 import NutritionSection from '@/components/shared/NutritionSection';
 import SectionTitle from '@/components/shared/SectionTitle';
 import StepList from '@/components/shared/StepList';
+import { chatSessions } from '@/lib/api';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeDocumentProps {
@@ -14,6 +16,9 @@ interface RecipeDocumentProps {
   saveError?: string | null;
   isRecipeChanged?: boolean;
   onClearError?: () => void;
+  sessionId?: string;
+  imageGenEnabled?: boolean;
+  onStepImageGenerated?: (stepIndex: number, imageUrl: string) => void;
 }
 
 export default function RecipeDocument({
@@ -24,8 +29,33 @@ export default function RecipeDocument({
   saveError,
   isRecipeChanged,
   onClearError,
+  sessionId,
+  imageGenEnabled,
+  onStepImageGenerated,
 }: RecipeDocumentProps) {
+  const [generatingStepIndex, setGeneratingStepIndex] = useState<number | null>(null);
+
+  const handleGenerateImage = useCallback(
+    async (stepIndex: number) => {
+      if (!sessionId) return;
+      setGeneratingStepIndex(stepIndex);
+      try {
+        const response = await chatSessions.generateStepImage(sessionId, stepIndex);
+        if (response.data) {
+          onStepImageGenerated?.(response.data.step_index, response.data.image_url);
+        }
+      } catch (error) {
+        console.error('Failed to generate step image:', error);
+      } finally {
+        setGeneratingStepIndex(null);
+      }
+    },
+    [sessionId, onStepImageGenerated],
+  );
+
   if (!recipe) return null;
+
+  const showGenerateButtons = imageGenEnabled && sessionId && onStepImageGenerated;
 
   return (
     <div className="recipe-document h-full flex flex-col bg-surface">
@@ -138,7 +168,11 @@ export default function RecipeDocument({
         {recipe.steps && recipe.steps.length > 0 && (
           <div className="mb-8">
             <SectionTitle>Instructions</SectionTitle>
-            <StepList steps={recipe.steps} />
+            <StepList
+              steps={recipe.steps}
+              onGenerateImage={showGenerateButtons ? handleGenerateImage : undefined}
+              generatingStepIndex={generatingStepIndex}
+            />
           </div>
         )}
       </div>

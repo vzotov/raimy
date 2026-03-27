@@ -97,6 +97,13 @@ Run tests before committing. Test configuration in `pytest.ini`.
 ### Database Changes
 Use Alembic for migrations. Migrations run automatically on backend startup in development.
 
+### Planning
+- For complex multi-phase features, create a plan in the `/plans` directory before implementing
+- Use the image-gen plan (`/plans/image-gen/`) as the reference format:
+  - Master plan file: context, architecture overview, phases table with status, files summary, env vars, verification
+  - Each phase gets its own file in `phases/` subdirectory with: checklist, detailed modifications (with code), verification steps, commit message
+  - Mark checklist items `[x]` as they're completed
+
 ### Git Commits
 - **DO NOT** include Claude Code signatures, co-author tags, or "Generated with Claude Code" footers
 - Add commit task only when I asked you to. We always need to test changes first

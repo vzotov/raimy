@@ -6,9 +6,10 @@ import type { ChatSession } from '@/types/chat-session';
 export const SESSIONS_KEYS = {
   recipeCreator: '/api/chat-sessions?type=recipe-creator',
   kitchen: '/api/chat-sessions?type=kitchen',
+  chat: '/api/chat-sessions?type=chat',
 } as const;
 
-type SessionType = 'recipe-creator' | 'kitchen';
+type SessionType = 'recipe-creator' | 'kitchen' | 'chat';
 
 /**
  * Generic hook for managing sessions with SWR
@@ -17,7 +18,9 @@ function useSessions(sessionType: SessionType) {
   const swrKey =
     sessionType === 'kitchen'
       ? SESSIONS_KEYS.kitchen
-      : SESSIONS_KEYS.recipeCreator;
+      : sessionType === 'chat'
+        ? SESSIONS_KEYS.chat
+        : SESSIONS_KEYS.recipeCreator;
 
   const {
     data,
@@ -122,17 +125,26 @@ export function useKitchenSessions() {
 }
 
 /**
+ * Hook for managing unified chat sessions
+ */
+export function useChatSessions() {
+  return useSessions('chat');
+}
+
+/**
  * Helper to update session name in cache from anywhere (e.g., chat components)
  */
 export function updateSessionNameInCache(
   sessionId: string,
   sessionName: string,
-  sessionType: 'recipe-creator' | 'kitchen',
+  sessionType: 'recipe-creator' | 'kitchen' | 'chat',
 ) {
   const key =
     sessionType === 'kitchen'
       ? SESSIONS_KEYS.kitchen
-      : SESSIONS_KEYS.recipeCreator;
+      : sessionType === 'chat'
+        ? SESSIONS_KEYS.chat
+        : SESSIONS_KEYS.recipeCreator;
 
   mutate(
     key,

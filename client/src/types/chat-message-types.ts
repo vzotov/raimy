@@ -16,6 +16,8 @@ export type KitchenStepContent = {
   message: string;
   next_step_prompt: string;
   image_url?: string;
+  timer_minutes?: number;
+  timer_label?: string;
 };
 
 export type IngredientsContent = {
@@ -117,6 +119,11 @@ export type CookingCompleteContent = {
   type: 'cooking_complete';
 };
 
+export type RecipeSavedContent = {
+  type: 'recipe_saved';
+  recipe_id: string;
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
@@ -128,4 +135,5 @@ export type MessageContent =
   | TimerContent
   | SystemContent
   | SelectorContent
-  | CookingCompleteContent;
+  | CookingCompleteContent
+  | RecipeSavedContent;

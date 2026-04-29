@@ -24,6 +24,7 @@ interface UnifiedChatProps {
   initialFinished?: boolean;
   initialRecipe?: Recipe | null;
   initialIsChanged?: boolean;
+  initialInput?: string;
 }
 
 export default function UnifiedChat({
@@ -33,6 +34,7 @@ export default function UnifiedChat({
   initialFinished = false,
   initialRecipe = null,
   initialIsChanged = false,
+  initialInput,
 }: UnifiedChatProps) {
   const router = useRouter();
   const config = useConfig();
@@ -193,6 +195,7 @@ export default function UnifiedChat({
             isConnected={isConnected}
             agentStatus={state.agentStatus}
             placeholder="Ask me anything, or tell me what you'd like to cook..."
+            initialInput={initialInput}
           />
         </div>
       </div>

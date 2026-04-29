@@ -99,6 +99,18 @@ class ExtractMemoryRequest(BaseModel):
     user_id: str
 
 
+class SuggestionsRequest(BaseModel):
+    """Request model for home-page suggestion chips"""
+    user_memory: Optional[str] = None
+    recent_sessions: List[str] = []
+    time_of_day: str = "morning"
+
+
+class SuggestionsResponse(BaseModel):
+    """Response model for home-page suggestion chips"""
+    suggestions: List[str]
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -527,6 +539,72 @@ async def extract_memory_endpoint(request: ExtractMemoryRequest):
     )
 
     return {"status": "extraction_started"}
+
+
+@app.post("/agent/suggestions", response_model=SuggestionsResponse)
+async def generate_suggestions(request: SuggestionsRequest):
+    """
+    Generate personalized home-page suggestion chips.
+
+    Uses user memory and recent session names to produce 4 short prompts
+    the user can tap to start a new chat session.
+    """
+    _SUGGESTIONS_PROMPT = """You are a cooking assistant. Generate exactly 4 short, natural cooking prompt suggestions for a user to tap on the home page.
+
+## User Profile
+{user_memory}
+
+## Recent Sessions (what they've cooked before)
+{recent_sessions}
+
+## Time of Day
+{time_of_day}
+
+## Instructions
+- Each suggestion should be 3-8 words, natural and conversational
+- Mix: something new to try, a classic comfort food, something quick, something seasonal or time-appropriate
+- Avoid repeating recent sessions exactly; it's fine to offer variations
+- Do NOT use quotes around the suggestions
+- Return exactly 4 suggestions as a JSON array of strings
+
+Examples of good suggestions:
+- "Quick weeknight pasta carbonara"
+- "Make a comforting chicken soup"
+- "Something with the avocados I have"
+- "Easy 20-minute stir fry"
+
+Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}"""
+
+    from pydantic import BaseModel as PydanticBase
+    class _Schema(PydanticBase):
+        suggestions: List[str]
+
+    try:
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
+        structured = llm.with_structured_output(_Schema)
+
+        recent = "\n".join(f"- {s}" for s in request.recent_sessions[:5]) if request.recent_sessions else "None yet"
+        memory = request.user_memory or "No profile yet"
+
+        result = await structured.ainvoke(
+            _SUGGESTIONS_PROMPT.format(
+                user_memory=memory,
+                recent_sessions=recent,
+                time_of_day=request.time_of_day,
+            )
+        )
+        suggestions = result.suggestions[:4]
+        logger.info(f"💡 Generated {len(suggestions)} suggestions")
+        return SuggestionsResponse(suggestions=suggestions)
+    except Exception as e:
+        logger.warning(f"💡 Suggestions LLM failed, using fallback: {e}")
+        fallbacks = {
+            "morning": ["Quick breakfast eggs Benedict", "Make a smoothie bowl", "Easy overnight oats", "Fluffy pancakes from scratch"],
+            "afternoon": ["Light chicken Caesar salad", "Quick avocado toast lunch", "Make a grain bowl", "Easy turkey wrap"],
+            "evening": ["Cozy pasta carbonara tonight", "Quick weeknight stir fry", "Make a hearty soup", "Easy sheet pan dinner"],
+        }
+        return SuggestionsResponse(suggestions=fallbacks.get(request.time_of_day, fallbacks["evening"]))
 
 
 if __name__ == "__main__":

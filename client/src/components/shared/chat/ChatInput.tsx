@@ -18,6 +18,7 @@ export interface ChatInputProps {
   disabled?: boolean;
   sendDisabled?: boolean;
   placeholder?: string;
+  defaultValue?: string;
 }
 
 /**
@@ -28,11 +29,11 @@ export interface ChatInputProps {
  */
 const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
   function ChatInput(
-    { onSend, disabled = false, sendDisabled, placeholder = 'Type a message...' },
+    { onSend, disabled = false, sendDisabled, placeholder = 'Type a message...', defaultValue = '' },
     ref,
   ) {
     const isButtonDisabled = sendDisabled ?? disabled;
-    const [message, setMessage] = useState('');
+    const [message, setMessage] = useState(defaultValue);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Expose focus method via ref

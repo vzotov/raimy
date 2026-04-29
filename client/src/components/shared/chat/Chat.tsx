@@ -14,6 +14,7 @@ export interface ChatProps {
   onFocusInput?: () => void;
   onMessageAction?: (action: string) => void;
   placeholder?: string;
+  initialInput?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export default function Chat({
   onFocusInput,
   onMessageAction,
   placeholder = 'Type a message...',
+  initialInput,
 }: ChatProps) {
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<ChatInputHandle>(null);
@@ -79,6 +81,7 @@ export default function Chat({
         disabled={isInputDisabled}
         sendDisabled={isSendDisabled}
         placeholder={isConnected ? placeholder : 'Connecting...'}
+        defaultValue={initialInput}
       />
     </div>
   );

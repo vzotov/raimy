@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request
 import asyncio
 import logging
@@ -312,6 +313,60 @@ async def delete_session(session_id: str, current_user: dict = Depends(get_curre
     except Exception as e:
         logger.error(f"Failed to delete session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
+
+
+@router.get("/home-suggestions")
+async def get_home_suggestions(current_user: dict = Depends(get_current_user_with_storage)):
+    """
+    Return 4 personalized suggestion chips for the home page.
+    Calls agent service with user memory + recent session names.
+    Falls back gracefully if agent service is unavailable.
+    """
+    user_id = current_user["email"]
+
+    # Determine time of day bucket
+    hour = datetime.now(timezone.utc).hour
+    if 5 <= hour < 12:
+        time_of_day = "morning"
+    elif 12 <= hour < 17:
+        time_of_day = "afternoon"
+    else:
+        time_of_day = "evening"
+
+    # Fetch user memory and recent sessions in parallel
+    try:
+        user_memory, sessions = await asyncio.gather(
+            database_service.get_user_memory(user_id),
+            database_service.get_user_chat_sessions(user_id, session_type="chat"),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to load user context for suggestions: {e}")
+        user_memory = None
+        sessions = []
+
+    recent_names = [s["session_name"] for s in sessions[:5] if s.get("session_name")]
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{AGENT_SERVICE_URL}/agent/suggestions",
+                json={
+                    "user_memory": user_memory,
+                    "recent_sessions": recent_names,
+                    "time_of_day": time_of_day,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return {"suggestions": data.get("suggestions", [])}
+    except Exception as e:
+        logger.warning(f"💡 Agent suggestions failed, using fallback: {e}")
+        fallbacks = {
+            "morning": ["Quick breakfast eggs Benedict", "Make a smoothie bowl", "Easy overnight oats", "Fluffy pancakes from scratch"],
+            "afternoon": ["Light chicken Caesar salad", "Quick avocado toast lunch", "Make a grain bowl", "Easy turkey wrap"],
+            "evening": ["Cozy pasta carbonara tonight", "Quick weeknight stir fry", "Make a hearty soup", "Easy sheet pan dinner"],
+        }
+        return {"suggestions": fallbacks.get(time_of_day, fallbacks["evening"])}
 
 
 def create_chat_sessions_router(broadcast_func):

@@ -4,9 +4,10 @@ import UnifiedChat from './UnifiedChat';
 
 interface UnifiedContentProps {
   id: string;
+  initialInput?: string;
 }
 
-export default async function UnifiedContent({ id }: UnifiedContentProps) {
+export default async function UnifiedContent({ id, initialInput }: UnifiedContentProps) {
   const apiUrl = process.env.API_URL || 'http://localhost:8000';
   const cookieStore = await cookies();
 
@@ -38,6 +39,7 @@ export default async function UnifiedContent({ id }: UnifiedContentProps) {
         initialFinished={session.finished || false}
         initialRecipe={initialRecipe}
         initialIsChanged={session.recipe_changed ?? false}
+        initialInput={initialInput}
       />
     );
   } catch {

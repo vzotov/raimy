@@ -5,6 +5,7 @@ import UnifiedContent from '@/components/pages/chat/UnifiedContent';
 
 interface ChatSessionPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
 export async function generateMetadata({ params }: ChatSessionPageProps): Promise<Metadata> {
@@ -32,12 +33,13 @@ function ChatSkeleton() {
   );
 }
 
-export default async function ChatSessionPage({ params }: ChatSessionPageProps) {
+export default async function ChatSessionPage({ params, searchParams }: ChatSessionPageProps) {
   const { id } = await params;
+  const { q } = await searchParams;
 
   return (
     <Suspense fallback={<ChatSkeleton />}>
-      <UnifiedContent id={id} />
+      <UnifiedContent id={id} initialInput={q} />
     </Suspense>
   );
 }

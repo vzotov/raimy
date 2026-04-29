@@ -7,7 +7,7 @@ import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { useKitchenSessions } from '@/hooks/useSessions';
+import { useChatSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import type { Recipe } from '@/types/recipe';
 
@@ -17,7 +17,7 @@ interface RecipeCardProps {
 
 export default function RecipeCard({ recipe }: RecipeCardProps) {
   const router = useRouter();
-  const { createSession } = useKitchenSessions();
+  const { createSession } = useChatSessions();
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -32,7 +32,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
       setError(null);
       const session = await createSession(recipe.id);
       if (session) {
-        router.push(`/kitchen/${session.id}`);
+        router.push(`/chat/${session.id}`);
       }
     } catch (err) {
       console.error('Error creating kitchen session:', err);

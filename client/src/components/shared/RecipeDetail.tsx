@@ -13,7 +13,7 @@ import IngredientList from '@/components/shared/IngredientList';
 import InstacartButton from '@/components/shared/InstacartButton';
 import NutritionSection from '@/components/shared/NutritionSection';
 import StepList from '@/components/shared/StepList';
-import { useKitchenSessions } from '@/hooks/useSessions';
+import { useChatSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import { useConfig } from '@/providers/ConfigProvider';
 import type { Recipe } from '@/types/recipe';
@@ -24,7 +24,7 @@ interface RecipeDetailProps {
 
 export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const router = useRouter();
-  const { createSession } = useKitchenSessions();
+  const { createSession } = useChatSessions();
   const config = useConfig();
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -38,7 +38,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       setError(null);
       const session = await createSession(recipe.id);
       if (session) {
-        router.push(`/kitchen/${session.id}`);
+        router.push(`/chat/${session.id}`);
       }
     } catch (err) {
       console.error('Error creating kitchen session:', err);
@@ -49,7 +49,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
 
   const handleEdit = () => {
     if (recipe.chat_session_id) {
-      router.push(`/recipe-creator/${recipe.chat_session_id}`);
+      router.push(`/chat/${recipe.chat_session_id}`);
     }
   };
 

@@ -4,8 +4,7 @@ import classNames from 'classnames';
 import Link from 'next/link';
 import { ChevronRightIcon, XIcon } from '@/components/icons';
 import Logo from '@/components/shared/Logo';
-import KitchenMenuSection from '@/components/shared/menu/KitchenMenuSection';
-import RecipeCreatorMenuSection from '@/components/shared/menu/RecipeCreatorMenuSection';
+import ChatMenuSection from '@/components/shared/menu/ChatMenuSection';
 import ThemeSelector from '@/components/shared/ThemeSelector';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -48,8 +47,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         {/* Navigation Links - Scrollable middle section */}
         <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
           <div className="px-3 space-y-2">
-            <KitchenMenuSection onMenuClose={onClose} />
-            <RecipeCreatorMenuSection onMenuClose={onClose} />
+            <ChatMenuSection onMenuClose={onClose} />
 
             <Link
               href="/myrecipes"

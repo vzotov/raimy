@@ -1,57 +1,36 @@
 """
 Agent Factory
 
-Simple factory for creating agents based on session type.
+Returns the single UnifiedAgent for all session types.
 """
 import logging
-from typing import Dict, Union
+from typing import Dict
 
-from .kitchen.agent import KitchenAgent
-from .recipe_creator.agent import RecipeCreatorAgent
+from .unified.agent import UnifiedAgent
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_AGENT_TYPE = "recipe-creator"
-
-# Cache of agent instances by session type
-_agent_instances: Dict[str, Union[KitchenAgent, RecipeCreatorAgent]] = {}
+_agent_instances: Dict[str, UnifiedAgent] = {}
 
 
-async def get_agent(session_type: str = "recipe-creator") -> Union[KitchenAgent, RecipeCreatorAgent]:
+async def get_agent(session_type: str = "chat") -> UnifiedAgent:
     """
-    Get or create a cached agent instance for the specified session type.
+    Get or create the cached UnifiedAgent instance.
 
     Args:
-        session_type: Session type ("kitchen" or "recipe-creator")
+        session_type: Ignored — always returns UnifiedAgent
 
     Returns:
-        Agent instance (cached or newly created)
+        UnifiedAgent instance (singleton)
     """
     global _agent_instances
 
-    # Normalize unknown session types
-    if session_type not in ("kitchen", "recipe-creator"):
-        logger.warning(
-            f"⚠️  Unknown session_type '{session_type}', defaulting to '{DEFAULT_AGENT_TYPE}'"
-        )
-        session_type = DEFAULT_AGENT_TYPE
+    if "default" not in _agent_instances:
+        logger.info("🔄 Creating UnifiedAgent")
+        _agent_instances["default"] = UnifiedAgent()
+        logger.info("✅ UnifiedAgent created")
 
-    # Return cached instance if exists
-    if session_type in _agent_instances:
-        return _agent_instances[session_type]
-
-    # Create new instance
-    logger.info(f"🔄 Creating new agent instance for session_type='{session_type}'")
-
-    if session_type == "kitchen":
-        agent = KitchenAgent()
-    else:
-        agent = RecipeCreatorAgent()
-
-    logger.info(f"✅ Created {agent.__class__.__name__} for '{session_type}'")
-
-    _agent_instances[session_type] = agent
-    return agent
+    return _agent_instances["default"]
 
 
 def clear_agent_cache():

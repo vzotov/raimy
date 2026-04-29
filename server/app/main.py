@@ -495,7 +495,7 @@ async def websocket_chat_endpoint(
                 return
 
             messages = session_data.get("messages", [])
-            session_type = session_data.get("session_type", "recipe-creator")
+            session_type = session_data.get("session_type", "chat")
 
             # Only send greeting if session has no messages
             if len(messages) > 0:
@@ -505,7 +505,7 @@ async def websocket_chat_endpoint(
             # Get recipe name if available (for kitchen sessions with pre-loaded recipe)
             recipe_name = None
             recipe_id = session_data.get("recipe_id")
-            if recipe_id and session_type == "kitchen":
+            if recipe_id and session_type in ("kitchen", "chat"):
                 logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
                 recipe_data = await database_service.get_recipe_by_id(recipe_id)
                 if recipe_data:

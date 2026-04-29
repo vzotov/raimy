@@ -156,6 +156,8 @@ class RedisClient:
         message_id: str,
         next_step_prompt: str,
         image_url: str | None = None,
+        timer_minutes: int | None = None,
+        timer_label: str | None = None,
     ):
         """
         Send a kitchen step message to a session (with confirmation buttons)
@@ -166,6 +168,8 @@ class RedisClient:
             message_id: Unique message ID
             next_step_prompt: Short prompt for continue button (e.g., "Let's go!")
             image_url: Optional image URL for the step
+            timer_minutes: Optional timer duration in minutes
+            timer_label: Optional timer label
         """
         content = {
             "type": "kitchen-step",
@@ -174,6 +178,9 @@ class RedisClient:
         }
         if image_url:
             content["image_url"] = image_url
+        if timer_minutes is not None:
+            content["timer_minutes"] = timer_minutes
+            content["timer_label"] = timer_label
         await self.publish(
             f"session:{session_id}",
             {

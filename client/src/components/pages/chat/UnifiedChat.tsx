@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Chat from '@/components/shared/chat/Chat';
 import { ChatHeader } from '@/components/shared/ChatHeader';
+import CookingCompleteScreen from './CookingCompleteScreen';
 import RecipeDocument from '@/components/shared/RecipeDocument';
 import SlidingPanel from '@/components/shared/SlidingPanel';
 import SlidingPanelTrigger from '@/components/shared/SlidingPanelTrigger';
@@ -48,6 +49,7 @@ export default function UnifiedChat({
   const [isRecipePanelOpen, setIsRecipePanelOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [completeScreenDismissed, setCompleteScreenDismissed] = useState(false);
 
   // Auto-open recipe panel when recipe first appears
   const hasRecipe = !!state.recipe;
@@ -106,7 +108,7 @@ export default function UnifiedChat({
     [state.applyRecipeUpdate],
   );
 
-  if (state.cookingComplete) {
+  if (state.cookingComplete && !completeScreenDismissed) {
     const lastAssistant = [...state.messages].reverse().find((m) => m.role === 'assistant');
     const finalMessage =
       lastAssistant?.content && 'content' in lastAssistant.content
@@ -116,29 +118,19 @@ export default function UnifiedChat({
           : null;
 
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center p-8">
-        <div className="max-w-lg text-center">
-          <div className="mb-4 text-6xl">🎉</div>
-          <h1 className="mb-4 text-3xl font-bold text-text">
-            {state.sessionName || sessionName}
-          </h1>
-          {finalMessage && <p className="text-lg text-text/80">{finalMessage}</p>}
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              onClick={() => router.push('/chat/new')}
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary/90"
-            >
-              Cook Something New
-            </button>
-            <button
-              onClick={() => router.push('/myrecipes')}
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-text/10 bg-surface px-6 py-3 font-medium text-text transition-colors hover:bg-surface/70"
-            >
-              Browse My Recipes
-            </button>
-          </div>
-        </div>
-      </div>
+      <CookingCompleteScreen
+        sessionName={state.sessionName || sessionName}
+        finalMessage={finalMessage}
+        recipe={state.recipe}
+        isSaving={isSaving}
+        saveError={saveError}
+        isRecipeChanged={state.isRecipeChanged}
+        onSave={handleSaveRecipe}
+        onClearError={() => setSaveError(null)}
+        onReturnToChat={() => setCompleteScreenDismissed(true)}
+        onNewChat={() => router.push('/chat/new')}
+        onBrowseRecipes={() => router.push('/myrecipes')}
+      />
     );
   }
 

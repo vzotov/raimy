@@ -1,4 +1,4 @@
-import { useCallback, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { ChatMessage } from '@/hooks/useChatMessages';
 import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
 import { chatReducer } from '@/lib/messageHandlers/chatReducer';
@@ -56,6 +56,9 @@ export function useUnifiedChatState({
   const { recipe, isRecipeChanged, applyRecipeUpdate, setRecipe, resetChangedFlag } =
     useMealPlannerRecipe(initialRecipe, initialIsChanged);
 
+  const recipeRef = useRef(recipe);
+  useEffect(() => { recipeRef.current = recipe; }, [recipe]);
+
   const handleMessage = useCallback(
     (wsMessage: WebSocketMessage) => {
       if (wsMessage.type === 'agent_message' && wsMessage.content) {
@@ -77,8 +80,8 @@ export function useUnifiedChatState({
             return;
 
           case 'recipe_saved':
-            if (recipe && content.recipe_id) {
-              setRecipe({ ...recipe, id: content.recipe_id });
+            if (recipeRef.current && content.recipe_id) {
+              setRecipe({ ...recipeRef.current, id: content.recipe_id });
             }
             return;
 
@@ -106,7 +109,7 @@ export function useUnifiedChatState({
         else if (sys.type === 'connected' || sys.type === 'error') setAgentStatus(null);
       }
     },
-    [sessionId, applyRecipeUpdate, recipe, setRecipe],
+    [sessionId, applyRecipeUpdate, setRecipe],
   );
 
   const addMessage = useCallback((content: string) => {

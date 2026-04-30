@@ -52,7 +52,6 @@ export function useUnifiedChatState({
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [cookingComplete, setCookingComplete] = useState(initialFinished);
-  const [cookingStarted, setCookingStarted] = useState(false);
 
   const { recipe, isRecipeChanged, applyRecipeUpdate, setRecipe, resetChangedFlag } =
     useMealPlannerRecipe(initialRecipe, initialIsChanged);
@@ -73,7 +72,6 @@ export function useUnifiedChatState({
             return;
 
           case 'kitchen-step':
-            setCookingStarted(true);
             dispatch({ type: 'ADD_OR_UPDATE_MESSAGE', payload: buildMessage(content, messageId, 'assistant') });
             setAgentStatus(null);
             return;
@@ -127,7 +125,6 @@ export function useUnifiedChatState({
     agentStatus,
     sessionName,
     cookingComplete,
-    cookingStarted,
     recipe,
     isRecipeChanged,
     handleMessage,

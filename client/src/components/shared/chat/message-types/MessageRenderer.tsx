@@ -1,3 +1,4 @@
+import ReactMarkdown from 'react-markdown';
 import type { MessageContent } from '@/types/chat-message-types';
 import MessageConfirmationButtons from './MessageConfirmationButtons';
 import MessageSelectorButtons from './MessageSelectorButtons';
@@ -29,9 +30,9 @@ export default function MessageRenderer({
   switch (content.type) {
     case 'text':
       return (
-        <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
-          {content.content}
-        </p>
+        <div className="prose prose-sm sm:prose-base prose-neutral max-w-none break-words">
+          <ReactMarkdown>{content.content}</ReactMarkdown>
+        </div>
       );
 
     case 'kitchen-step':
@@ -42,9 +43,9 @@ export default function MessageRenderer({
               <img src={content.image_url} alt="" className="w-full h-auto object-cover" loading="lazy" />
             </div>
           )}
-          <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
-            {content.message}
-          </p>
+          <div className="prose prose-sm sm:prose-base prose-neutral max-w-none break-words">
+            <ReactMarkdown>{content.message}</ReactMarkdown>
+          </div>
           {isLastMessage && onFocusInput && onMessageAction && (
             <MessageConfirmationButtons
               onAskQuestion={onFocusInput}

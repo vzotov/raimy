@@ -47,6 +47,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Next.js with React
 - TypeScript
 - Tailwind CSS
+- **Package manager: Bun** — always use `bun add`, `bun remove`, `bun install`, never `npm` or `yarn` in the client
 
 ### Backend
 - Python with FastAPI

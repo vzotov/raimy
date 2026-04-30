@@ -122,7 +122,7 @@ export default function HomeContent() {
   };
 
   return (
-    <div className="flex flex-col flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+    <div className="flex flex-col justify-between sm:justify-center flex-1 max-w-2xl mx-auto w-full px-4 py-8">
       {/* Logo + hero */}
       <div className="flex flex-col items-center text-center mt-8 mb-10">
         <div className="mb-6">

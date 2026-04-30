@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Chat from '@/components/shared/chat/Chat';
 import { ChatHeader } from '@/components/shared/ChatHeader';
@@ -13,9 +13,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { chatSessions } from '@/lib/api';
 import { useConfig } from '@/providers/ConfigProvider';
 import type { SessionMessage } from '@/types/chat-session';
-import type { KitchenStepContent } from '@/types/chat-message-types';
 import type { Recipe } from '@/types/recipe';
-import CookingView from './CookingView';
 
 interface UnifiedChatProps {
   sessionId: string;
@@ -47,25 +45,17 @@ export default function UnifiedChat({
     initialIsChanged,
   });
 
-  const [mode, setMode] = useState<'chat' | 'cook'>('chat');
   const [isRecipePanelOpen, setIsRecipePanelOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Switch to COOK mode when first kitchen-step arrives
-  useEffect(() => {
-    if (state.cookingStarted && mode === 'chat') {
-      setMode('cook');
-    }
-  }, [state.cookingStarted, mode]);
-
   // Auto-open recipe panel when recipe first appears
   const hasRecipe = !!state.recipe;
   useEffect(() => {
-    if (hasRecipe && mode === 'chat') {
+    if (hasRecipe) {
       setIsRecipePanelOpen(true);
     }
-  }, [hasRecipe, mode]);
+  }, [hasRecipe]);
 
   useChatSessionTitle(state.sessionName || sessionName);
 
@@ -116,18 +106,6 @@ export default function UnifiedChat({
     [state.applyRecipeUpdate],
   );
 
-  // Collect all kitchen-step messages received so far
-  const allSteps = useMemo(
-    () =>
-      state.messages
-        .filter((m) => m.content.type === 'kitchen-step')
-        .map((m) => m.content as KitchenStepContent),
-    [state.messages],
-  );
-
-  // Total steps from recipe if available, else from steps received so far
-  const totalSteps = state.recipe?.steps?.length ?? allSteps.length;
-
   if (state.cookingComplete) {
     const lastAssistant = [...state.messages].reverse().find((m) => m.role === 'assistant');
     const finalMessage =
@@ -161,22 +139,6 @@ export default function UnifiedChat({
           </div>
         </div>
       </div>
-    );
-  }
-
-  if (mode === 'cook') {
-    return (
-      <CookingView
-        allSteps={allSteps}
-        totalSteps={totalSteps}
-        onNext={() => handleSendMessage('next step')}
-        onPrev={() => handleSendMessage('previous step')}
-        onBack={() => setMode('chat')}
-        agentStatus={state.agentStatus}
-        messages={state.messages}
-        onSendMessage={handleSendMessage}
-        isConnected={isConnected}
-      />
     );
   }
 

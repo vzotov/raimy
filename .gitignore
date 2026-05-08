@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Temp files
+tmp/
+
 # Python
 __pycache__/
 *.pyc
@@ -19,6 +22,9 @@ htmlcov/
 out/
 build/
 .vercel
+
+# Credentials
+gcp-credentials.json
 
 # Environment files
 .env

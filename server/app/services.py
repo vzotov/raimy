@@ -9,7 +9,7 @@ from sqlalchemy import desc, delete
 from pydantic import BaseModel
 
 from .database import AsyncSessionLocal
-from .models import User, Recipe, Session, ChatSession, ChatMessage, UserMemory
+from .models import User, Recipe, Session, ChatSession, ChatMessage, UserMemory, StepImageCache
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,8 @@ class RecipeStepModel(BaseModel):
     """Step: {"instruction": "Boil water", "duration": 10}"""
     instruction: str
     duration: Optional[int] = None  # Duration in minutes
+    image_description: Optional[str] = None
+    image_url: Optional[str] = None
 
 class RecipeModel(BaseModel):
     """Recipe model matching database JSON structure"""
@@ -315,7 +317,8 @@ class DatabaseService:
         self,
         user_id: str,
         session_type: str = "recipe-creator",
-        recipe_id: str = None
+        recipe_id: str = None,
+        initial_message: str = None,
     ) -> Dict[str, Any]:
         """Create a new chat session"""
         async with AsyncSessionLocal() as db:
@@ -360,6 +363,13 @@ class DatabaseService:
                 )
                 db.add(new_session)
                 await db.commit()
+
+                if initial_message:
+                    await self.add_message_to_session(
+                        str(session_id),
+                        role="user",
+                        content={"type": "text", "content": initial_message},
+                    )
 
                 return {
                     "id": str(session_id),
@@ -1003,6 +1013,125 @@ class DatabaseService:
             except Exception as e:
                 await db.rollback()
                 logger.error(f"Error saving user memory for {user_id}: {e}", exc_info=True)
+                return False
+
+
+    async def find_similar_step_image(
+        self,
+        normalized_text: str,
+        embedding: list[float],
+        aspect_ratio: str = "1:1",
+        threshold: float = 0.92,
+    ) -> Optional[str]:
+        """
+        Find a cached step image by exact text match or vector similarity.
+        Returns image_url if found, None otherwise.
+        """
+        async with AsyncSessionLocal() as db:
+            try:
+                # Fast path: exact text match
+                result = await db.execute(
+                    select(StepImageCache)
+                    .where(StepImageCache.normalized_text == normalized_text)
+                    .where(StepImageCache.aspect_ratio == aspect_ratio)
+                    .limit(1)
+                )
+                cached = result.scalar_one_or_none()
+
+                if cached:
+                    cached.usage_count += 1
+                    cached.last_used_at = datetime.utcnow()
+                    await db.commit()
+                    return cached.image_url
+
+                # Slow path: vector similarity search
+                distance_threshold = 1.0 - threshold
+                result = await db.execute(
+                    select(StepImageCache)
+                    .where(StepImageCache.aspect_ratio == aspect_ratio)
+                    .where(StepImageCache.embedding.cosine_distance(embedding) < distance_threshold)
+                    .order_by(StepImageCache.embedding.cosine_distance(embedding))
+                    .limit(1)
+                )
+                cached = result.scalar_one_or_none()
+
+                if cached:
+                    cached.usage_count += 1
+                    cached.last_used_at = datetime.utcnow()
+                    await db.commit()
+                    return cached.image_url
+
+                return None
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error finding similar step image: {e}", exc_info=True)
+                return None
+
+    async def save_step_image_cache(
+        self,
+        normalized_text: str,
+        embedding: list[float],
+        image_url: str,
+        aspect_ratio: str,
+        prompt: str,
+        model: str,
+        generation_time_ms: int,
+    ) -> None:
+        """Insert a new entry into the step image cache."""
+        async with AsyncSessionLocal() as db:
+            try:
+                entry = StepImageCache(
+                    normalized_text=normalized_text,
+                    embedding=embedding,
+                    image_url=image_url,
+                    aspect_ratio=aspect_ratio,
+                    prompt_used=prompt,
+                    model_used=model,
+                    generation_time_ms=generation_time_ms,
+                )
+                db.add(entry)
+                await db.commit()
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error saving step image cache: {e}", exc_info=True)
+
+    async def update_step_image_url(
+        self,
+        session_id: str,
+        step_index: int,
+        image_url: str,
+    ) -> bool:
+        """Update image_url for a specific step in session.recipe.steps[step_index]."""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSession).where(ChatSession.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+
+                if not session or not session.recipe:
+                    return False
+
+                recipe = session.recipe
+                steps = recipe.get("steps", [])
+
+                if step_index < 0 or step_index >= len(steps):
+                    return False
+
+                steps[step_index]["image_url"] = image_url
+                recipe["steps"] = steps
+
+                session.recipe = recipe
+                flag_modified(session, "recipe")
+                session.updated_at = datetime.utcnow()
+
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error updating step image URL: {e}", exc_info=True)
                 return False
 
 

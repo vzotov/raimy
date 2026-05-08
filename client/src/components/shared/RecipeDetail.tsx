@@ -8,11 +8,12 @@ import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import IngredientList from '@/components/shared/IngredientList';
 import InstacartButton from '@/components/shared/InstacartButton';
 import NutritionSection from '@/components/shared/NutritionSection';
 import StepList from '@/components/shared/StepList';
-import { useKitchenSessions } from '@/hooks/useSessions';
+import { useChatSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import { useConfig } from '@/providers/ConfigProvider';
 import type { Recipe } from '@/types/recipe';
@@ -23,10 +24,11 @@ interface RecipeDetailProps {
 
 export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const router = useRouter();
-  const { createSession } = useKitchenSessions();
+  const { createSession } = useChatSessions();
   const config = useConfig();
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isOrderingIngredients, setIsOrderingIngredients] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +38,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       setError(null);
       const session = await createSession(recipe.id);
       if (session) {
-        router.push(`/kitchen/${session.id}`);
+        router.push(`/chat/${session.id}`);
       }
     } catch (err) {
       console.error('Error creating kitchen session:', err);
@@ -47,15 +49,15 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
 
   const handleEdit = () => {
     if (recipe.chat_session_id) {
-      router.push(`/recipe-creator/${recipe.chat_session_id}`);
+      router.push(`/chat/${recipe.chat_session_id}`);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this recipe?')) {
-      return;
-    }
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
     try {
       setIsDeleting(true);
       setError(null);
@@ -63,7 +65,6 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       if (response.error) {
         throw new Error(response.error);
       }
-      // Navigate to my recipes page after deletion
       router.push('/myrecipes');
     } catch (err) {
       console.error('Failed to delete recipe:', err);
@@ -249,6 +250,16 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete recipe"
+        description="Are you sure you want to delete this recipe? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
     </>
   );
 }

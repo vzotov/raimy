@@ -2,7 +2,7 @@
 Recipe Creator Agent
 
 Uses LangGraph for orchestrating recipe generation with:
-- Fast model (GPT-4o-mini) for quick responses
+- Fast model (GPT-5-mini) for quick responses
 - Sequential generation with state-based completeness checks
 - Streaming events for real-time UI updates
 """
@@ -44,6 +44,7 @@ from .prompt import (
 )
 from .schemas import (
     DishSuggestions,
+    FinalResponse,
     FormattedResponse,
     QuestionWithOptions,
     RecipeIngredients,
@@ -77,7 +78,7 @@ class RecipeCreatorState(TypedDict):
     nutrition: Optional[dict]
 
     # Control flow
-    intent: Optional[Literal["recipe", "modify", "suggest", "question"]]
+    intent: Optional[Literal["recipe", "modify", "suggest", "question", "generate_images"]]
     recipe_request: Optional[str]
     modification_request: Optional[str]
     what_to_modify: Optional[List[str]]
@@ -114,16 +115,18 @@ class RecipeEvent(AgentEvent):
         "nutrition",
         "selector",
         "complete",
+        "generate_images",
     ]
     data: Any
 
 
-# Thinking messages for each generation node
-THINKING_MESSAGES = {
-    "gen_metadata": "setting up recipe",
-    "gen_ingredients": "generating ingredients",
-    "gen_steps": "writing steps",
-    "gen_nutrition": "calculating nutrition",
+# Thinking messages: maps a completed node to the status for what's coming next
+THINKING_MESSAGES_NEXT = {
+    "analyze": "cooking up a recipe",
+    "gen_metadata": "adding ingredients",
+    "gen_ingredients": "writing steps",
+    "gen_steps": "calculating nutrition",
+    "gen_nutrition": "finishing up",
     "modify": "updating recipe",
 }
 
@@ -131,7 +134,7 @@ THINKING_MESSAGES = {
 class RecipeCreatorAgent(BaseAgent):
     """Agent for recipe creation using LangGraph workflow"""
 
-    MODEL = "gpt-4o-mini"
+    MODEL = "gpt-5.4-mini"
 
     def __init__(self):
         """Initialize the recipe creator agent"""
@@ -181,17 +184,23 @@ class RecipeCreatorAgent(BaseAgent):
         # Entry point
         workflow.set_entry_point("analyze")
 
+        # Add generate_images node
+        workflow.add_node("generate_images", self._generate_images_intent)
+
         # Route from analyze based on intent
         workflow.add_conditional_edges(
             "analyze",
             self._route_intent,
-            {"suggest": "suggest", "question": "ask", "recipe": "check", "modify": "modify"},
+            {"suggest": "suggest", "question": "ask", "recipe": "check", "modify": "modify", "generate_images": "generate_images"},
         )
 
         # Suggest and ask route through formatter before END
         workflow.add_edge("suggest", "format_response")
         workflow.add_edge("ask", "format_response")
         workflow.add_edge("format_response", END)
+
+        # generate_images goes directly to END
+        workflow.add_edge("generate_images", END)
 
         # Modify routes back to check for regeneration
         workflow.add_edge("modify", "check")
@@ -283,11 +292,23 @@ class RecipeCreatorAgent(BaseAgent):
         message_history = self._format_message_history(state["messages"][:-1])
         existing_recipe = self._format_existing_recipe(state)
 
+        if os.getenv("IMAGE_GEN_ENABLED"):
+            generate_images_intent = (
+                '4. **generate_images**: User wants to generate images for recipe steps that are missing images\n'
+                '   - "generate images" → generate_images\n'
+                '   - "add images" → generate_images\n'
+                '   - ONLY use this when a recipe with steps already exists in the session\n'
+                '   - If no recipe exists, use "question" and ask what they\'d like to cook first\n'
+            )
+        else:
+            generate_images_intent = ""
+
         prompt = ANALYZE_REQUEST_PROMPT.format(
             user_memory=self._get_user_memory(state),
             existing_recipe=existing_recipe,
             message_history=message_history,
             user_message=state["user_message"],
+            generate_images_intent=generate_images_intent,
         )
 
         llm_with_output = self.llm.with_structured_output(RequestAnalysis)
@@ -331,6 +352,8 @@ class RecipeCreatorAgent(BaseAgent):
             return "question"
         if intent == "modify":
             return "modify"
+        if intent == "generate_images":
+            return "generate_images"
         return "recipe"
 
     async def _suggest_dishes(self, state: RecipeCreatorState) -> Dict:
@@ -382,6 +405,19 @@ class RecipeCreatorAgent(BaseAgent):
             full_response = result.message
 
         return {"text_response": full_response}
+
+    async def _generate_images_intent(self, state: RecipeCreatorState) -> Dict:
+        """Handle generate_images intent — signals main.py to trigger image generation."""
+        if not os.getenv("IMAGE_GEN_ENABLED"):
+            logger.info("🖼️ Generate images intent: disabled by feature flag")
+            return {
+                "text_response": "Image generation is not available.",
+                "response_type": "text",
+            }
+        steps = state.get("steps") or []
+        missing = [i for i, s in enumerate(steps) if not s.get("image_url")]
+        logger.info(f"🖼️ Generate images intent: {len(missing)} steps missing images out of {len(steps)}")
+        return {"text_response": "generating images"}
 
     async def _format_response(self, state: RecipeCreatorState) -> Dict:
         """Format text response into appropriate UI type (text or selector)"""
@@ -535,6 +571,7 @@ class RecipeCreatorAgent(BaseAgent):
             modification_context=self._get_modification_context(state),
             existing_content=existing_content,
             message_history=message_history,
+            user_message=state.get("user_message", ""),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeMetadata)
@@ -574,6 +611,7 @@ class RecipeCreatorAgent(BaseAgent):
             servings=state.get("servings", 4),
             modification_context=self._get_modification_context(state),
             message_history=message_history,
+            user_message=state.get("user_message", ""),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeIngredients)
@@ -608,6 +646,7 @@ class RecipeCreatorAgent(BaseAgent):
             ingredients=ingredients_text or "Not yet generated",
             modification_context=self._get_modification_context(state),
             message_history=message_history,
+            user_message=state.get("user_message", ""),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeSteps)
@@ -664,17 +703,46 @@ class RecipeCreatorAgent(BaseAgent):
             action_description = "created a new recipe"
             modification_context = ""
 
+        # Build recipe summary for context-aware suggestions
+        parts = []
+        tags = state.get("tags") or []
+        if tags:
+            parts.append(f"Tags: {', '.join(tags)}")
+        if state.get("difficulty"):
+            parts.append(f"Difficulty: {state['difficulty']}")
+        if state.get("servings"):
+            parts.append(f"Servings: {state['servings']}")
+        # Check if steps have images (only relevant when image gen is enabled)
+        image_gen_enabled = bool(os.getenv("IMAGE_GEN_ENABLED"))
+        if image_gen_enabled:
+            steps = state.get("steps") or []
+            has_images = any(s.get("image_url") for s in steps)
+            parts.append(f"Steps have images: {'yes' if has_images else 'no'}")
+        recipe_summary = "\n".join(parts)
+
+        if image_gen_enabled:
+            generate_images_suggestion = '   - Include "Generate images" ONLY if the recipe summary says "Steps have images: no"'
+        else:
+            generate_images_suggestion = '   - Do NOT suggest "Generate images" — image generation is not available'
+
         prompt = FINAL_RESPONSE_PROMPT.format(
             action_description=action_description,
             recipe_name=state.get("name", "the recipe"),
+            recipe_summary=recipe_summary,
             modification_context=modification_context,
             message_history=message_history,
             user_message=state["user_message"],
+            generate_images_suggestion=generate_images_suggestion,
         )
 
-        response = await self.llm.ainvoke(prompt)
+        llm_with_output = self.llm.with_structured_output(FinalResponse)
+        response: FinalResponse = await llm_with_output.ainvoke(prompt)
 
-        result = {"text_response": response.content}
+        result = {
+            "text_response": response.message,
+            "formatted_options": [opt.model_dump() for opt in response.suggestions],
+            "response_type": "selector",
+        }
         if modification:
             result["modification_request"] = None  # Clear the modification
         return result
@@ -798,9 +866,9 @@ class RecipeCreatorAgent(BaseAgent):
                     continue
                 logger.debug(f"📦 Node '{node_name}' update: {list(state_update.keys())}")
 
-                # Send thinking message for generation nodes
-                if node_name in THINKING_MESSAGES:
-                    yield RecipeEvent(type="thinking", data=THINKING_MESSAGES[node_name])
+                # Send thinking message for what's coming next
+                if node_name in THINKING_MESSAGES_NEXT:
+                    yield RecipeEvent(type="thinking", data=THINKING_MESSAGES_NEXT[node_name])
 
                 # Emit events for state changes
                 # Check for any metadata field updates (supports partial regeneration)
@@ -877,7 +945,14 @@ class RecipeCreatorAgent(BaseAgent):
                                 "message_id": message_id,
                             },
                         )
-                # Plain text response (from final node - doesn't go through formatter)
+                # generate_images intent — emit event for main.py to handle
+                elif node_name == "generate_images" and state_update.get("text_response"):
+                    yield RecipeEvent(
+                        type="generate_images",
+                        data={"message_id": message_id},
+                    )
+
+                # Plain text response (from final node fallback)
                 elif state_update.get("text_response") and node_name == "final":
                     yield RecipeEvent(
                         type="text",

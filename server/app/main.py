@@ -457,6 +457,14 @@ async def websocket_chat_endpoint(
                         nutrition=content.get("nutrition", {})
                     )
 
+                case "set_step_image":
+                    # Update individual step image in session recipe
+                    await database_service.update_step_image_url(
+                        session_id=session_id,
+                        step_index=content.get("step_index"),
+                        image_url=content.get("image_url"),
+                    )
+
         async def handle_session_name_message(content: dict):
             """Handle session_name message - save to session.session_name"""
             session_name = content.get("name")
@@ -487,17 +495,35 @@ async def websocket_chat_endpoint(
                 return
 
             messages = session_data.get("messages", [])
-            session_type = session_data.get("session_type", "recipe-creator")
+            session_type = session_data.get("session_type", "chat")
 
             # Only send greeting if session has no messages
             if len(messages) > 0:
-                greeting_sent = True  # Already has messages, no greeting needed
+                greeting_sent = True
+                last_msg = messages[-1]
+                if last_msg.get("role") == "user":
+                    raw = last_msg.get("content", "")
+                    message_text = raw.get("content", "") if isinstance(raw, dict) else str(raw)
+                    if message_text:
+                        await connection_manager.send_message(session_id, {
+                            "type": "system",
+                            "content": {"type": "thinking", "message": "thinking"}
+                        })
+                        async with httpx.AsyncClient(timeout=120.0) as client:
+                            await client.post(
+                                f"{agent_url}/agent/chat",
+                                json={
+                                    "session_id": session_id,
+                                    "message": message_text,
+                                    "message_already_saved": True,
+                                },
+                            )
                 return
 
             # Get recipe name if available (for kitchen sessions with pre-loaded recipe)
             recipe_name = None
             recipe_id = session_data.get("recipe_id")
-            if recipe_id and session_type == "kitchen":
+            if recipe_id and session_type in ("kitchen", "chat"):
                 logger.info(f"🍳 Kitchen session with recipe_id={recipe_id}")
                 recipe_data = await database_service.get_recipe_by_id(recipe_id)
                 if recipe_data:
@@ -505,6 +531,15 @@ async def websocket_chat_endpoint(
                     logger.info(f"✅ Loaded recipe: {recipe_name}")
                 else:
                     logger.warning(f"⚠️  Recipe {recipe_id} not found")
+
+            # Send thinking indicator while generating greeting
+            await connection_manager.send_message(session_id, {
+                "type": "system",
+                "content": {
+                    "type": "thinking",
+                    "message": "Raimy is joining"
+                }
+            })
 
             # Call agent service for LLM-generated greeting
             greeting = "Hi! I'm Raimy. What would you like to cook today?"

@@ -1,4 +1,5 @@
-import type { MessageContent } from '@/types/chat-message-types';
+import ReactMarkdown from 'react-markdown';
+import type { MessageContent, ShoppingListItem } from '@/types/chat-message-types';
 import MessageConfirmationButtons from './MessageConfirmationButtons';
 import MessageSelectorButtons from './MessageSelectorButtons';
 
@@ -29,17 +30,22 @@ export default function MessageRenderer({
   switch (content.type) {
     case 'text':
       return (
-        <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
-          {content.content}
-        </p>
+        <div className="prose prose-sm sm:prose-base prose-neutral max-w-none break-words">
+          <ReactMarkdown>{content.content}</ReactMarkdown>
+        </div>
       );
 
     case 'kitchen-step':
       return (
         <div>
-          <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
-            {content.message}
-          </p>
+          {content.image_url && (
+            <div className="mb-3 rounded-xl overflow-hidden">
+              <img src={content.image_url} alt="" className="w-full h-auto object-cover" loading="lazy" />
+            </div>
+          )}
+          <div className="prose prose-sm sm:prose-base prose-neutral max-w-none break-words">
+            <ReactMarkdown>{content.message}</ReactMarkdown>
+          </div>
           {isLastMessage && onFocusInput && onMessageAction && (
             <MessageConfirmationButtons
               onAskQuestion={onFocusInput}
@@ -62,6 +68,22 @@ export default function MessageRenderer({
               onSelect={onMessageAction}
             />
           )}
+        </div>
+      );
+
+    case 'shopping_list':
+      return (
+        <div>
+          {content.recipe_name && (
+            <p className="mb-2 text-sm font-medium">{content.recipe_name}</p>
+          )}
+          <ul className="space-y-1">
+            {content.items.map((item: ShoppingListItem, i: number) => (
+              <li key={i} className="text-sm">
+                {[item.amount, item.unit, item.name].filter(Boolean).join(' ')}
+              </li>
+            ))}
+          </ul>
         </div>
       );
 

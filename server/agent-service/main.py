@@ -5,6 +5,7 @@ FastAPI service for chat agent orchestration with LangGraph.
 """
 import asyncio
 import logging
+import os
 from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
@@ -15,12 +16,16 @@ import uvicorn
 
 from app.services import database_service
 from agents import get_agent
-from agents.recipe_creator.agent import RecipeCreatorAgent
-from agents.kitchen.agent import KitchenAgent
+from agents.unified.agent import UnifiedAgent
 from agents.memory import memory_agent
 from core.redis_client import get_redis_client
 
 load_dotenv()
+
+_IMAGE_GEN_ENABLED = bool(os.getenv("IMAGE_GEN_ENABLED"))
+if _IMAGE_GEN_ENABLED:
+    from agents.image_gen import ImageGenAgent
+    from services.gcs_storage import GCSStorage
 
 # Configure logging
 logging.basicConfig(
@@ -53,6 +58,7 @@ class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
     session_id: str
     message: str
+    message_already_saved: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -75,10 +81,38 @@ class GreetingResponse(BaseModel):
     next_step_prompt: Optional[str] = None
 
 
+class GenerateStepImageRequest(BaseModel):
+    """Request model for single-step image generation"""
+    recipe_name: str
+    recipe_description: str = ""
+    ingredients_summary: str = ""
+    step_index: int
+    step_instruction: str
+    image_description: str = ""
+
+
+class GenerateStepImageResponse(BaseModel):
+    """Response model for single-step image generation"""
+    image_url: str
+    step_index: int
+
+
 class ExtractMemoryRequest(BaseModel):
     """Request model for memory extraction endpoint"""
     session_id: str
     user_id: str
+
+
+class SuggestionsRequest(BaseModel):
+    """Request model for home-page suggestion chips"""
+    user_memory: Optional[str] = None
+    recent_sessions: List[str] = []
+    time_of_day: str = "morning"
+
+
+class SuggestionsResponse(BaseModel):
+    """Response model for home-page suggestion chips"""
+    suggestions: List[str]
 
 
 @app.get("/health")
@@ -113,6 +147,53 @@ async def _extract_and_save_memory(
         logger.error(f"🧠 Memory extraction failed: {e}", exc_info=True)
 
 
+async def _generate_step_images(session_id: str, recipe_data: dict):
+    """Background task: generate images for all recipe steps using ImageGenAgent."""
+    redis_client = get_redis_client()
+    gcs = GCSStorage()
+    try:
+        await redis_client.send_system_message(
+            session_id, "thinking", "Generating step images..."
+        )
+        agent = ImageGenAgent()
+        count = 0
+        async for event in agent.run_streaming(
+            message="",
+            message_history=[],
+            session_id=session_id,
+            session_data={"recipe": recipe_data},
+        ):
+            if event.type == "step_image":
+                data = event.data
+                logger.info(f'📸 Received step image data for step {data["step_index"]}')
+                if data.get("image_bytes"):
+                    # Cache miss — upload to GCS and save to DB cache
+                    image_url = gcs.upload_image(
+                        data["image_bytes"], data["prompt"], 512, 512
+                    )
+                    await database_service.save_step_image_cache(
+                            normalized_text=data["prompt"].lower().strip(),
+                            embedding=data["embedding"],
+                            image_url=image_url,
+                            aspect_ratio="1:1",
+                            prompt=data["prompt"],
+                            model=data.get("model_used", ""),
+                            generation_time_ms=data.get("generation_time_ms", 0),
+                        )
+                else:
+                    # Cache hit
+                    image_url = data["image_url"]
+                await redis_client.send_step_image_message(
+                    session_id, data["step_index"], image_url
+                )
+                count += 1
+        logger.info(f"Generated {count} step images for session {session_id}")
+    except Exception as e:
+        logger.error(f"Step image generation failed: {e}", exc_info=True)
+    finally:
+        await redis_client.send_system_message(session_id, "thinking", None)
+
+
 @app.post("/agent/greeting", response_model=GreetingResponse)
 async def generate_greeting(request: GreetingRequest):
     """
@@ -126,36 +207,27 @@ async def generate_greeting(request: GreetingRequest):
     """
     try:
         agent = await get_agent(session_type=request.session_type)
-
-        if isinstance(agent, KitchenAgent):
-            result = await agent.generate_greeting(recipe_name=request.recipe_name)
-            logger.info(f"👋 Generated greeting for session_type={request.session_type}")
-            return GreetingResponse(
-                greeting=result["greeting"],
-                message_type=result.get("message_type", "text"),
-                next_step_prompt=result.get("next_step_prompt"),
-            )
-        elif isinstance(agent, RecipeCreatorAgent):
-            greeting = await agent.generate_greeting()
-            logger.info(f"👋 Generated greeting for session_type={request.session_type}")
-            return GreetingResponse(greeting=greeting)
-        else:
-            # Fallback for unknown agent types
-            return GreetingResponse(greeting="Hello! I'm here to help.")
+        result = await agent.generate_greeting(recipe_name=request.recipe_name)
+        logger.info(f"👋 Generated greeting for session_type={request.session_type}")
+        return GreetingResponse(
+            greeting=result["greeting"],
+            message_type=result.get("message_type", "text"),
+            next_step_prompt=result.get("next_step_prompt"),
+        )
 
     except Exception as e:
         logger.error(f"Error generating greeting: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _handle_kitchen_events(
-    agent: KitchenAgent,
+async def _handle_unified_events(
+    agent: UnifiedAgent,
     request: ChatRequest,
     messages: List[Dict],
     session_data: Dict,
 ) -> ChatResponse:
     """
-    Handle kitchen agent events and convert them to Redis messages.
+    Handle unified agent events and convert them to Redis messages.
 
     Returns:
         ChatResponse with final text
@@ -163,7 +235,7 @@ async def _handle_kitchen_events(
     text_response = ""
     message_id = None
     new_agent_state = None
-    saved_content = None  # Track content for database save
+    saved_content = None
 
     async for event in agent.run_streaming(
         message=request.message,
@@ -171,167 +243,7 @@ async def _handle_kitchen_events(
         session_id=request.session_id,
         session_data=session_data,
     ):
-        logger.debug(f"📤 Kitchen event: {event.type}")
-
-        match event.type:
-            case "thinking":
-                await redis_client.send_system_message(
-                    request.session_id, "thinking", event.data
-                )
-
-            case "ingredients_highlight":
-                # Update ingredients in database
-                await redis_client.send_ingredients_message(
-                    request.session_id,
-                    items=event.data,
-                    action="update",
-                )
-
-            case "timer":
-                await redis_client.send_timer_message(
-                    request.session_id,
-                    duration=event.data["duration"],
-                    label=event.data["label"],
-                )
-
-            case "session_name":
-                await redis_client.send_session_name_message(
-                    request.session_id, event.data
-                )
-
-            case "recipe_created":
-                # Save full recipe to session
-                recipe = event.data
-                await database_service.save_session_recipe(
-                    request.session_id, recipe
-                )
-                logger.info(f"📝 Saved recipe to session: {recipe.get('name')}")
-
-            case "ingredients_set":
-                # Set initial cooking ingredients
-                await redis_client.send_ingredients_message(
-                    request.session_id,
-                    items=event.data,
-                    action="set",
-                )
-
-            case "agent_state":
-                # Store for persistence after loop
-                new_agent_state = event.data
-
-            case "kitchen_step":
-                # Step guidance with prompt button
-                message = event.data.get("message", "")
-                message_id = event.data.get("message_id")
-                next_step_prompt = event.data.get("next_step_prompt", "Continue")
-                text_response = message
-                # Track content for database save
-                saved_content = {
-                    "type": "kitchen-step",
-                    "message": message,
-                    "next_step_prompt": next_step_prompt,
-                }
-                await redis_client.send_kitchen_step_message(
-                    request.session_id, message, message_id, next_step_prompt
-                )
-
-            case "text":
-                text_response = event.data.get("content", "")
-                message_id = event.data.get("message_id")
-                # Track content for database save (regular text)
-                saved_content = {"type": "text", "content": text_response}
-                await redis_client.send_agent_text_message(
-                    request.session_id, text_response, message_id
-                )
-
-            case "selector":
-                message = event.data.get("message", "")
-                options = event.data.get("options", [])
-                message_id = event.data.get("message_id")
-                text_response = message
-                saved_content = {
-                    "type": "selector",
-                    "message": message,
-                    "options": options,
-                }
-                logger.debug(f"🎯 Kitchen selector: {len(options)} options")
-                await redis_client.send_selector_message(
-                    request.session_id, message, options, message_id
-                )
-
-            case "cooking_complete":
-                # Mark session as finished
-                await database_service.mark_session_finished(request.session_id)
-
-                # Send cooking_complete message to frontend
-                await redis_client.send_cooking_complete_message(request.session_id)
-
-                # Trigger memory extraction
-                user_id = session_data.get("user_id")
-                if user_id:
-                    # Get updated messages from DB
-                    full_messages = messages + [
-                        {"role": "user", "content": {"type": "text", "content": request.message}},
-                    ]
-                    if saved_content:
-                        full_messages.append({"role": "assistant", "content": saved_content})
-
-                    asyncio.create_task(
-                        _extract_and_save_memory(user_id, request.session_id, full_messages)
-                    )
-
-            case "complete":
-                await redis_client.send_system_message(
-                    request.session_id, "thinking", None
-                )
-
-    # Save agent response to database with correct content type
-    if saved_content:
-        logger.debug(f"💾 Kitchen saving to DB: type={saved_content.get('type')}")
-        await database_service.add_message_to_session(
-            session_id=request.session_id,
-            role="assistant",
-            content=saved_content,
-        )
-
-    # Persist agent state if changed
-    if new_agent_state is not None:
-        await database_service.update_agent_state(
-            request.session_id,
-            new_agent_state,
-        )
-
-    return ChatResponse(
-        response=text_response or "I'm here to help you cook!",
-        message_id=message_id,
-        session_id=request.session_id,
-    )
-
-
-async def _handle_recipe_creator_events(
-    agent: RecipeCreatorAgent,
-    request: ChatRequest,
-    messages: List[Dict],
-    session_data: Dict,
-) -> ChatResponse:
-    """
-    Handle recipe creator agent events and convert them to Redis messages.
-
-    Returns:
-        ChatResponse with final text and structured outputs
-    """
-    text_response = ""
-    message_id = None
-    recipe_data = {}
-    saved_content = None  # Track content for database save
-
-    async for event in agent.run_streaming(
-        message=request.message,
-        message_history=messages,
-        session_id=request.session_id,
-        session_data=session_data,
-    ):
-        logger.debug(f"📤 Recipe event: {event.type}")
+        logger.debug(f"📤 Unified event: {event.type}")
 
         match event.type:
             case "thinking":
@@ -345,7 +257,6 @@ async def _handle_recipe_creator_events(
                 )
 
             case "metadata":
-                recipe_data.update(event.data)
                 await redis_client.send_recipe_metadata_message(
                     request.session_id,
                     name=event.data.get("name"),
@@ -357,21 +268,53 @@ async def _handle_recipe_creator_events(
                 )
 
             case "ingredients":
-                recipe_data["ingredients"] = event.data
                 await redis_client.send_recipe_ingredients_message(
                     request.session_id, event.data
                 )
 
             case "steps":
-                recipe_data["steps"] = event.data
                 await redis_client.send_recipe_steps_message(
                     request.session_id, event.data
                 )
 
             case "nutrition":
-                recipe_data["nutrition"] = event.data
                 await redis_client.send_recipe_nutrition_message(
                     request.session_id, event.data
+                )
+
+            case "recipe_created":
+                recipe = event.data
+                await database_service.save_session_recipe(
+                    request.session_id, recipe
+                )
+                logger.info(f"📝 Saved recipe to session: {recipe.get('name')}")
+
+            case "agent_state":
+                new_agent_state = event.data
+
+            case "kitchen_step":
+                message = event.data.get("message", "")
+                message_id = event.data.get("message_id")
+                next_step_prompt = event.data.get("next_step_prompt", "Continue")
+                image_url = event.data.get("image_url")
+                timer_minutes = event.data.get("timer_minutes")
+                timer_label = event.data.get("timer_label")
+                text_response = message
+                saved_content = {
+                    "type": "kitchen-step",
+                    "message": message,
+                    "next_step_prompt": next_step_prompt,
+                }
+                if image_url:
+                    saved_content["image_url"] = image_url
+                if timer_minutes is not None:
+                    saved_content["timer_minutes"] = timer_minutes
+                    saved_content["timer_label"] = timer_label
+                await redis_client.send_kitchen_step_message(
+                    request.session_id, message, message_id, next_step_prompt,
+                    image_url=image_url,
+                    timer_minutes=timer_minutes,
+                    timer_label=timer_label,
                 )
 
             case "text":
@@ -392,18 +335,62 @@ async def _handle_recipe_creator_events(
                     "message": message,
                     "options": options,
                 }
-                logger.debug(f"🎯 Recipe selector: {len(options)} options")
+                logger.debug(f"🎯 Selector: {len(options)} options")
                 await redis_client.send_selector_message(
                     request.session_id, message, options, message_id
                 )
 
+            case "save_complete":
+                # Trigger save via existing recipe_update flow in app/main.py
+                await redis_client.send_recipe_save_request(request.session_id)
+                logger.info(f"💾 Recipe save requested for session {request.session_id}")
+
+            case "shopping_list":
+                items = event.data.get("items", [])
+                recipe_name = event.data.get("recipe_name", "")
+                await redis_client.publish(
+                    f"session:{request.session_id}",
+                    {
+                        "type": "agent_message",
+                        "content": {
+                            "type": "shopping_list",
+                            "items": items,
+                            "recipe_name": recipe_name,
+                        },
+                    },
+                )
+                logger.info(f"🛒 Shopping list sent: {len(items)} items")
+
+            case "generate_images":
+                existing_recipe = session_data.get("recipe") or {}
+                if existing_recipe.get("steps"):
+                    asyncio.create_task(
+                        _generate_step_images(
+                            session_id=request.session_id,
+                            recipe_data=existing_recipe,
+                        )
+                    )
+
+            case "cooking_complete":
+                await database_service.mark_session_finished(request.session_id)
+                await redis_client.send_cooking_complete_message(request.session_id)
+
+                user_id = session_data.get("user_id")
+                if user_id:
+                    full_messages = messages + [
+                        {"role": "user", "content": {"type": "text", "content": request.message}},
+                    ]
+                    if saved_content:
+                        full_messages.append({"role": "assistant", "content": saved_content})
+                    asyncio.create_task(
+                        _extract_and_save_memory(user_id, request.session_id, full_messages)
+                    )
+
             case "complete":
-                # Clear thinking indicator
                 await redis_client.send_system_message(
                     request.session_id, "thinking", None
                 )
 
-    # Save agent response to database with correct content type
     if saved_content:
         logger.debug(f"💾 Saving to DB: type={saved_content.get('type')}")
         await database_service.add_message_to_session(
@@ -412,9 +399,14 @@ async def _handle_recipe_creator_events(
             content=saved_content,
         )
 
-    # Recipe data is already persisted via Redis → app/main.py → database_service
+    if new_agent_state is not None:
+        await database_service.update_agent_state(
+            request.session_id,
+            new_agent_state,
+        )
+
     return ChatResponse(
-        response=text_response or "I'm here to help with recipes!",
+        response=text_response or "I'm here to help!",
         message_id=message_id,
         session_id=request.session_id,
     )
@@ -440,7 +432,7 @@ async def agent_chat(request: ChatRequest):
 
         # Extract session info
         messages = session_data.get("messages", [])
-        session_type = session_data.get("session_type", "recipe-creator")
+        session_type = session_data.get("session_type", "chat")
 
         # Log if we have a recipe in session (saved via Redis → database flow)
         if session_data.get("recipe"):
@@ -465,29 +457,22 @@ async def agent_chat(request: ChatRequest):
                 session_data["user_memory"] = user_memory
                 logger.info(f"🧠 Loaded user memory for {user_id}")
 
-        # Save user message to database
-        await database_service.add_message_to_session(
-            session_id=request.session_id,
-            role="user",
-            content={"type": "text", "content": request.message},
-        )
+        if not request.message_already_saved:
+            await database_service.add_message_to_session(
+                session_id=request.session_id,
+                role="user",
+                content={"type": "text", "content": request.message},
+            )
 
-        # Get agent for this session type (cached)
+        # When the message was pre-saved (e.g. initial_message flow), strip it from
+        # history so it doesn't appear twice in the LLM context (once in history,
+        # once appended as the current message by run_streaming).
+        messages_for_agent = messages[:-1] if request.message_already_saved else messages
+
+        # Get agent for this session type (always UnifiedAgent)
         agent = await get_agent(session_type=session_type)
 
-        # Handle agents with generator streaming
-        if isinstance(agent, RecipeCreatorAgent):
-            return await _handle_recipe_creator_events(
-                agent, request, messages, session_data
-            )
-
-        if isinstance(agent, KitchenAgent):
-            return await _handle_kitchen_events(
-                agent, request, messages, session_data
-            )
-
-        # Fallback for unknown agent types (shouldn't happen)
-        raise HTTPException(status_code=500, detail=f"Unknown agent type: {type(agent)}")
+        return await _handle_unified_events(agent, request, messages_for_agent, session_data)
 
     except HTTPException:
         raise
@@ -512,6 +497,37 @@ async def agent_chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/agent/generate-step-image", response_model=GenerateStepImageResponse)
+async def generate_step_image(request: GenerateStepImageRequest):
+    """Generate an image for a single recipe step."""
+    if not os.getenv("IMAGE_GEN_ENABLED"):
+        raise HTTPException(status_code=503, detail="Image generation is not enabled")
+
+    try:
+        agent = ImageGenAgent()
+        image_url = await agent.generate_single_step_image(
+            recipe_name=request.recipe_name,
+            step_index=request.step_index,
+            step_instruction=request.step_instruction,
+            image_description=request.image_description,
+            recipe_description=request.recipe_description,
+            ingredients_summary=request.ingredients_summary,
+        )
+
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Image generation failed")
+
+        return GenerateStepImageResponse(
+            image_url=image_url,
+            step_index=request.step_index,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"🎨 Single step image generation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/agent/extract-memory")
 async def extract_memory_endpoint(request: ExtractMemoryRequest):
     """
@@ -532,6 +548,72 @@ async def extract_memory_endpoint(request: ExtractMemoryRequest):
     )
 
     return {"status": "extraction_started"}
+
+
+@app.post("/agent/suggestions", response_model=SuggestionsResponse)
+async def generate_suggestions(request: SuggestionsRequest):
+    """
+    Generate personalized home-page suggestion chips.
+
+    Uses user memory and recent session names to produce 4 short prompts
+    the user can tap to start a new chat session.
+    """
+    _SUGGESTIONS_PROMPT = """You are a cooking assistant. Generate exactly 4 short, natural cooking prompt suggestions for a user to tap on the home page.
+
+## User Profile
+{user_memory}
+
+## Recent Sessions (what they've cooked before)
+{recent_sessions}
+
+## Time of Day
+{time_of_day}
+
+## Instructions
+- Each suggestion should be 3-8 words, natural and conversational
+- Mix: something new to try, a classic comfort food, something quick, something seasonal or time-appropriate
+- Avoid repeating recent sessions exactly; it's fine to offer variations
+- Do NOT use quotes around the suggestions
+- Return exactly 4 suggestions as a JSON array of strings
+
+Examples of good suggestions:
+- "Quick weeknight pasta carbonara"
+- "Make a comforting chicken soup"
+- "Something with the avocados I have"
+- "Easy 20-minute stir fry"
+
+Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}"""
+
+    from pydantic import BaseModel as PydanticBase
+    class _Schema(PydanticBase):
+        suggestions: List[str]
+
+    try:
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(model="gpt-5.4-mini", temperature=0.9)
+        structured = llm.with_structured_output(_Schema)
+
+        recent = "\n".join(f"- {s}" for s in request.recent_sessions[:5]) if request.recent_sessions else "None yet"
+        memory = request.user_memory or "No profile yet"
+
+        result = await structured.ainvoke(
+            _SUGGESTIONS_PROMPT.format(
+                user_memory=memory,
+                recent_sessions=recent,
+                time_of_day=request.time_of_day,
+            )
+        )
+        suggestions = result.suggestions[:4]
+        logger.info(f"💡 Generated {len(suggestions)} suggestions")
+        return SuggestionsResponse(suggestions=suggestions)
+    except Exception as e:
+        logger.warning(f"💡 Suggestions LLM failed, using fallback: {e}")
+        fallbacks = {
+            "morning": ["Quick breakfast eggs Benedict", "Make a smoothie bowl", "Easy overnight oats", "Fluffy pancakes from scratch"],
+            "afternoon": ["Light chicken Caesar salad", "Quick avocado toast lunch", "Make a grain bowl", "Easy turkey wrap"],
+            "evening": ["Cozy pasta carbonara tonight", "Quick weeknight stir fry", "Make a hearty soup", "Easy sheet pan dinner"],
+        }
+        return SuggestionsResponse(suggestions=fallbacks.get(request.time_of_day, fallbacks["evening"]))
 
 
 if __name__ == "__main__":

@@ -61,12 +61,13 @@ class CreateSessionRequest(BaseModel):
     """Request model for creating a chat session"""
     model_config = ConfigDict(json_schema_extra={
         "examples": [{
-            "session_type": "recipe-creator"
+            "session_type": "chat"
         }]
     })
 
-    session_type: Optional[str] = Field("recipe-creator", description="Session type: 'recipe-creator' or 'kitchen'")
+    session_type: Optional[str] = Field("chat", description="Session type")
     recipe_id: Optional[str] = Field(None, description="Optional recipe ID to associate with the session")
+    initial_message: Optional[str] = Field(None, description="Optional first user message to send immediately")
 
 
 class UpdateSessionNameRequest(BaseModel):

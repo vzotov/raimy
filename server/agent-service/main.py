@@ -19,10 +19,13 @@ from agents import get_agent
 from agents.unified.agent import UnifiedAgent
 from agents.memory import memory_agent
 from core.redis_client import get_redis_client
-from agents.image_gen import ImageGenAgent
-from services.gcs_storage import GCSStorage
 
 load_dotenv()
+
+_IMAGE_GEN_ENABLED = bool(os.getenv("IMAGE_GEN_ENABLED"))
+if _IMAGE_GEN_ENABLED:
+    from agents.image_gen import ImageGenAgent
+    from services.gcs_storage import GCSStorage
 
 # Configure logging
 logging.basicConfig(

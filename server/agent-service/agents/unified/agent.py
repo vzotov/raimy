@@ -33,7 +33,10 @@ from .prompt import (
 from .schemas import UnifiedIntentSchema, UnifiedStepGuidanceSchema
 from ..base import AgentEvent, BaseAgent
 from ..recipe_creator.agent import RecipeCreatorAgent
-from ..image_gen.agent import ImageGenAgent
+
+_IMAGE_GEN_ENABLED = bool(os.getenv("IMAGE_GEN_ENABLED"))
+if _IMAGE_GEN_ENABLED:
+    from ..image_gen.agent import ImageGenAgent
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +100,7 @@ class UnifiedAgent(BaseAgent):
             api_key=os.getenv("OPENAI_API_KEY"),
         )
         self.recipe_creator = RecipeCreatorAgent()
-        self.image_gen = ImageGenAgent()
+        self.image_gen = ImageGenAgent() if _IMAGE_GEN_ENABLED else None
         logger.info(f"🤖 UnifiedAgent initialized with model: {self.MODEL}")
 
     async def generate_greeting(self, recipe_name: Optional[str] = None, **kwargs) -> Dict[str, Any]:
@@ -450,6 +453,7 @@ class UnifiedAgent(BaseAgent):
         shopping_items = [
             {
                 "name": ing.get("name", ""),
+                "eng_name": ing.get("eng_name") or "",
                 "amount": ing.get("amount", ""),
                 "unit": ing.get("unit", ""),
             }

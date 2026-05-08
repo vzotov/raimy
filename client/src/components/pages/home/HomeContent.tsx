@@ -1,77 +1,26 @@
 'use client';
 
-import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import AuthButton from '@/components/shared/AuthButton';
 import LoadingScreen from '@/components/shared/LoadingScreen';
 import Logo from '@/components/shared/Logo';
+import ChatInput, { type ChatInputHandle } from '@/components/shared/chat/ChatInput';
 import { useAuth } from '@/hooks/useAuth';
 import { chatSessions } from '@/lib/api';
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: 'include' }).then((r) => r.json());
 
-function HomeChatInput({ onSubmit }: { onSubmit: (q: string) => Promise<void> }) {
-  const [value, setValue] = useState('');
-  const [loading, setLoading] = useState(false);
+const FALLBACK_SUGGESTIONS = [
+  'Make pasta carbonara from scratch',
+  'Quick dinner with chicken and vegetables',
+  'Help me plan a dinner party menu',
+  'What can I cook with pantry staples?',
+];
 
-  const submit = async () => {
-    const q = value.trim();
-    if (!q || loading) return;
-    setLoading(true);
-    try {
-      await onSubmit(q);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    submit();
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="w-full">
-      <div className="flex gap-2 items-end rounded-2xl border border-accent/30 bg-surface shadow-sm p-2">
-        <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={loading}
-          placeholder="What would you like to cook today?"
-          rows={1}
-          className="flex-1 resize-none bg-transparent px-3 py-2 text-base text-text placeholder:text-text/40 focus:outline-none disabled:opacity-50 max-h-32 overflow-y-auto"
-          style={{ minHeight: '44px' }}
-        />
-        <button
-          type="submit"
-          disabled={!value.trim() || loading}
-          className="w-11 h-11 rounded-xl flex items-center justify-center bg-primary text-white hover:bg-primary/90 disabled:opacity-40 transition-colors flex-shrink-0"
-          aria-label="Start cooking"
-        >
-          {loading ? (
-            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-          )}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function SuggestionChips({ onSelect }: { onSelect: (q: string) => Promise<void> }) {
+function SuggestionChips({ onSelect }: { onSelect: (q: string) => void }) {
   const { data, isLoading } = useSWR<{ suggestions: string[] }>(
     '/api/chat-sessions/home-suggestions',
     fetcher,
@@ -88,8 +37,7 @@ function SuggestionChips({ onSelect }: { onSelect: (q: string) => Promise<void> 
     );
   }
 
-  const suggestions = data?.suggestions ?? [];
-  if (!suggestions.length) return null;
+  const suggestions = data?.suggestions?.length ? data.suggestions : FALLBACK_SUGGESTIONS;
 
   return (
     <div className="flex flex-wrap gap-2 justify-center">
@@ -107,22 +55,30 @@ function SuggestionChips({ onSelect }: { onSelect: (q: string) => Promise<void> 
 }
 
 export default function HomeContent() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const chatInputRef = useRef<ChatInputHandle>(null);
 
-  if (loading) {
+  if (authLoading) {
     return <LoadingScreen />;
   }
 
   const handleStartChat = async (q: string) => {
-    const resp = await chatSessions.create('chat');
-    if (resp.error || !resp.data?.session?.id) return;
-    const id = resp.data.session.id;
-    router.push(`/chat/${id}?q=${encodeURIComponent(q)}`);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const resp = await chatSessions.create('chat');
+      if (resp.error || !resp.data?.session?.id) return;
+      const id = resp.data.session.id;
+      router.push(`/chat/${id}?q=${encodeURIComponent(q)}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="flex flex-col justify-between sm:justify-center flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+    <div className="flex flex-col justify-center flex-1 max-w-2xl mx-auto w-full px-4 py-8">
       {/* Logo + hero */}
       <div className="flex flex-col items-center text-center mt-8 mb-10">
         <div className="mb-6">
@@ -139,8 +95,14 @@ export default function HomeContent() {
       {/* Chat input + suggestions (authenticated only) */}
       {user ? (
         <div className="flex flex-col gap-5">
-          <HomeChatInput onSubmit={handleStartChat} />
-          <SuggestionChips onSelect={handleStartChat} />
+          <ChatInput
+            ref={chatInputRef}
+            onSend={(q) => void handleStartChat(q)}
+            loading={submitting}
+            placeholder="What would you like to cook today?"
+            variant="home"
+          />
+          <SuggestionChips onSelect={(s) => chatInputRef.current?.setValue(s)} />
         </div>
       ) : (
         <div className="flex justify-center">

@@ -124,6 +124,19 @@ export type RecipeSavedContent = {
   recipe_id: string;
 };
 
+export type ShoppingListItem = {
+  name: string;
+  eng_name?: string;
+  amount?: string;
+  unit?: string;
+};
+
+export type ShoppingListContent = {
+  type: 'shopping_list';
+  items: ShoppingListItem[];
+  recipe_name?: string;
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
@@ -136,4 +149,5 @@ export type MessageContent =
   | SystemContent
   | SelectorContent
   | CookingCompleteContent
-  | RecipeSavedContent;
+  | RecipeSavedContent
+  | ShoppingListContent;

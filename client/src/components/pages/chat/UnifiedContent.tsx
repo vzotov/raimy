@@ -23,10 +23,6 @@ export default async function UnifiedContent({ id, initialInput }: UnifiedConten
     const data = await response.json();
     const session = data.session;
 
-    if (session.session_type !== 'chat') {
-      notFound();
-    }
-
     const initialRecipe = session.recipe
       ? { ...session.recipe, id: session.recipe_id || '' }
       : null;

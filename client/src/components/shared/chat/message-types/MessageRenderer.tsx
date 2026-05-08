@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import type { MessageContent } from '@/types/chat-message-types';
+import type { MessageContent, ShoppingListItem } from '@/types/chat-message-types';
 import MessageConfirmationButtons from './MessageConfirmationButtons';
 import MessageSelectorButtons from './MessageSelectorButtons';
 
@@ -68,6 +68,22 @@ export default function MessageRenderer({
               onSelect={onMessageAction}
             />
           )}
+        </div>
+      );
+
+    case 'shopping_list':
+      return (
+        <div>
+          {content.recipe_name && (
+            <p className="mb-2 text-sm font-medium">{content.recipe_name}</p>
+          )}
+          <ul className="space-y-1">
+            {content.items.map((item: ShoppingListItem, i: number) => (
+              <li key={i} className="text-sm">
+                {[item.amount, item.unit, item.name].filter(Boolean).join(' ')}
+              </li>
+            ))}
+          </ul>
         </div>
       );
 

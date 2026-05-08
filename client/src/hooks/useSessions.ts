@@ -3,7 +3,7 @@ import { chatSessions } from '@/lib/api';
 import type { ChatSession } from '@/types/chat-session';
 
 export const SESSIONS_KEYS = {
-  chat: '/api/chat-sessions?type=chat',
+  chat: '/api/chat-sessions',
 } as const;
 
 /**
@@ -20,7 +20,7 @@ export function useChatSessions() {
   } = useSWR(
     swrKey,
     async () => {
-      const response = await chatSessions.list('chat');
+      const response = await chatSessions.list();
       if (response.error) {
         throw new Error(response.error);
       }

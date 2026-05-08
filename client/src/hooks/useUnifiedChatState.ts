@@ -92,6 +92,7 @@ export function useUnifiedChatState({
 
           case 'text':
           case 'selector':
+          case 'shopping_list':
             dispatch({ type: 'ADD_OR_UPDATE_MESSAGE', payload: buildMessage(content, messageId, 'assistant') });
             setAgentStatus(null);
             return;

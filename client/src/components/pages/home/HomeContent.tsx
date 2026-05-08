@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { mutate } from 'swr';
 import useSWR from 'swr';
 import AuthButton from '@/components/shared/AuthButton';
 import LoadingScreen from '@/components/shared/LoadingScreen';
@@ -9,6 +10,7 @@ import Logo from '@/components/shared/Logo';
 import ChatInput, { type ChatInputHandle } from '@/components/shared/chat/ChatInput';
 import { useAuth } from '@/hooks/useAuth';
 import { chatSessions } from '@/lib/api';
+import { SESSIONS_KEYS } from '@/hooks/useSessions';
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: 'include' }).then((r) => r.json());
@@ -65,6 +67,7 @@ export default function HomeContent() {
       const resp = await chatSessions.create('chat', undefined, q);
       if (resp.error || !resp.data?.session?.id) return;
       const id = resp.data.session.id;
+      void mutate(SESSIONS_KEYS.chat);
       router.push(`/chat/${id}`);
     } finally {
       setSubmitting(false);

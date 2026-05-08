@@ -17,7 +17,7 @@ export default function ChatMenuSection({ onMenuClose }: ChatMenuSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
 
-  const { sessions, updateSessionName, deleteSession } = useChatSessions();
+  const { sessions, createSession, updateSessionName, deleteSession } = useChatSessions();
 
   useEffect(() => {
     if (pathname.startsWith('/chat')) {
@@ -25,9 +25,12 @@ export default function ChatMenuSection({ onMenuClose }: ChatMenuSectionProps) {
     }
   }, [pathname]);
 
-  const handleNewChat = () => {
-    router.push('/chat/new');
+  const handleNewChat = async () => {
     onMenuClose();
+    const session = await createSession();
+    if (session?.id) {
+      router.push(`/chat/${session.id}`);
+    }
   };
 
   const handleDelete = (sessionId: string) => {

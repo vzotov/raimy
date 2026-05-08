@@ -284,11 +284,10 @@ class UnifiedAgent(BaseAgent):
 
             message_id = f"offer-{session_id}-{uuid.uuid4().hex[:8]}"
             yield UnifiedEvent(type="selector", data={
-                "message": "Your recipe is ready! What would you like to do next?",
+                "message": "Your recipe is ready! Would you like to start cooking, or explore and adjust it more?",
                 "options": [
                     {"text": "Start Cooking", "description": "Get step-by-step guidance"},
-                    {"text": "Save Recipe", "description": "Save to your recipe library"},
-                    {"text": "Buy Ingredients", "description": "Get a shopping list"},
+                    {"text": "Explore More", "description": "Adjust or ask questions about the recipe"},
                 ],
                 "message_id": message_id,
             })

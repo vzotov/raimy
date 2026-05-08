@@ -148,3 +148,27 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 - Services communicate via HTTP - check environment variables for URLs
 - Database operations should use the centralized service layer
 - Service authentication required for cross-service calls
+
+## Deployment
+
+### Infrastructure
+- **Backend**: GCP Compute Engine e2-micro VM (us-east1-b), all services via Docker Compose
+- **Frontend**: Vercel (Next.js), set `NEXT_PUBLIC_API_URL` to the VM IP
+- **HTTPS**: Caddy reverse proxy with automatic Let's Encrypt (`Caddyfile` at repo root)
+- **Full docs**: `DEPLOYMENT.md` (comprehensive) and `SETUP-DEPLOYMENT.md` (quickstart)
+
+### Commands
+```bash
+cd deploy
+./gcp-vm-deploy.sh create    # First deploy (~10-15 min)
+./gcp-vm-deploy.sh update    # Redeploy after code changes
+./gcp-vm-deploy.sh ssh       # SSH into VM
+./gcp-vm-deploy.sh logs -f   # Follow logs
+./gcp-vm-deploy.sh ip        # Get VM IP
+./gcp-vm-deploy.sh destroy   # Tear down VM
+```
+
+### Environment
+- Copy `.env.prod.example` → `.env.prod` and fill in secrets before deploying
+- Key vars: `OPENAI_API_KEY`, `GOOGLE_CLIENT_ID/SECRET`, `SERVICE_API_KEY`, `JWT_SECRET`, `API_DOMAIN`, `FRONTEND_DOMAIN`
+- Migrations run automatically on API startup (`AUTO_MIGRATE=true` in `docker-compose.prod.yml`)

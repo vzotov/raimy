@@ -57,6 +57,14 @@ class RedisClient:
 
             raise ConnectionError("Failed to connect to Redis after 3 attempts")
 
+    async def get(self, key: str) -> Optional[str]:
+        await self._ensure_connected()
+        return await self._client.get(key)
+
+    async def set(self, key: str, value: str, ex: int = None):
+        await self._ensure_connected()
+        await self._client.set(key, value, ex=ex)
+
     async def publish(self, channel: str, message: dict):
         """
         Publish a message to a Redis channel.

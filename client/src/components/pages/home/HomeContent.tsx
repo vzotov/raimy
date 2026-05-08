@@ -13,16 +13,10 @@ import { chatSessions } from '@/lib/api';
 const fetcher = (url: string) =>
   fetch(url, { credentials: 'include' }).then((r) => r.json());
 
-const FALLBACK_SUGGESTIONS = [
-  'Make pasta carbonara from scratch',
-  'Quick dinner with chicken and vegetables',
-  'Help me plan a dinner party menu',
-  'What can I cook with pantry staples?',
-];
-
 function SuggestionChips({ onSelect }: { onSelect: (q: string) => void }) {
+  const [t] = useState(() => Date.now() - new Date().getTimezoneOffset() * 60000);
   const { data, isLoading } = useSWR<{ suggestions: string[] }>(
-    '/api/chat-sessions/home-suggestions',
+    `/api/chat-sessions/home-suggestions?t=${t}`,
     fetcher,
     { revalidateOnFocus: false },
   );
@@ -37,7 +31,7 @@ function SuggestionChips({ onSelect }: { onSelect: (q: string) => void }) {
     );
   }
 
-  const suggestions = data?.suggestions?.length ? data.suggestions : FALLBACK_SUGGESTIONS;
+  const suggestions = data?.suggestions ?? [];
 
   return (
     <div className="flex flex-wrap gap-2 justify-center">
@@ -68,7 +62,7 @@ export default function HomeContent() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const resp = await chatSessions.create('chat', undefined, q);
+      const resp = await chatSessions.create('chat', undefined);
       if (resp.error || !resp.data?.session?.id) return;
       const id = resp.data.session.id;
       router.push(`/chat/${id}`);

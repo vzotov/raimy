@@ -81,7 +81,11 @@ export const del = <T = unknown>(endpoint: string) =>
   });
 
 export const chatSessions = {
-  create: (sessionType: string = 'recipe-creator', recipeId?: string, initialMessage?: string) =>
+  create: (
+    sessionType: string = 'recipe-creator',
+    recipeId?: string,
+    initialMessage?: string,
+  ) =>
     post<CreateSessionResponse>('/api/chat-sessions', {
       session_type: sessionType,
       ...(recipeId && { recipe_id: recipeId }),
@@ -90,27 +94,18 @@ export const chatSessions = {
 
   list: (sessionType?: string) =>
     get<ListSessionsResponse>(
-      sessionType
-        ? `/api/chat-sessions?session_type=${sessionType}`
-        : '/api/chat-sessions',
+      sessionType ? `/api/chat-sessions?session_type=${sessionType}` : '/api/chat-sessions',
     ),
 
-  get: (sessionId: string) =>
-    get<GetSessionResponse>(`/api/chat-sessions/${sessionId}`),
+  get: (sessionId: string) => get<GetSessionResponse>(`/api/chat-sessions/${sessionId}`),
 
   updateName: (sessionId: string, data: UpdateSessionNameRequest) =>
-    put<UpdateSessionNameResponse>(
-      `/api/chat-sessions/${sessionId}/name`,
-      data,
-    ),
+    put<UpdateSessionNameResponse>(`/api/chat-sessions/${sessionId}/name`, data),
 
-  delete: (sessionId: string) =>
-    del<DeleteSessionResponse>(`/api/chat-sessions/${sessionId}`),
+  delete: (sessionId: string) => del<DeleteSessionResponse>(`/api/chat-sessions/${sessionId}`),
 
   saveRecipe: (sessionId: string) =>
-    post<{ message: string; recipe: Recipe }>(
-      `/api/chat-sessions/${sessionId}/save-recipe`,
-    ),
+    post<{ message: string; recipe: Recipe }>(`/api/chat-sessions/${sessionId}/save-recipe`),
 
   generateStepImage: (sessionId: string, stepIndex: number) =>
     post<{ image_url: string; step_index: number }>(

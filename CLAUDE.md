@@ -172,3 +172,15 @@ cd deploy
 - Copy `.env.prod.example` → `.env.prod` and fill in secrets before deploying
 - Key vars: `OPENAI_API_KEY`, `GOOGLE_CLIENT_ID/SECRET`, `SERVICE_API_KEY`, `JWT_SECRET`, `API_DOMAIN`, `FRONTEND_DOMAIN`
 - Migrations run automatically on API startup (`AUTO_MIGRATE=true` in `docker-compose.prod.yml`)
+
+### Release Process
+1. **Develop in dev** — all work happens on the `dev` branch
+2. **Create PR to main** — open a pull request from `dev` → `main` summarizing changes
+3. **Merge to main** — `git checkout main && git merge dev && git push origin main`
+4. **Tag the release** — `git tag vX.Y.Z && git push origin vX.Y.Z`
+5. **Deploy main** — `cd deploy && ./deploy-from-github.sh main`
+
+**Versioning:** `vMAJOR.MINOR.PATCH`
+- PATCH: bug fixes
+- MINOR: new features, non-breaking changes
+- MAJOR: breaking architectural changes

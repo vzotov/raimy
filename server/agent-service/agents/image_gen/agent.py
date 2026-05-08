@@ -43,7 +43,7 @@ class ImageGenEvent(AgentEvent):
 class ImageGenAgent(BaseAgent):
     """Agent for generating recipe step images with LLM-powered prompts."""
 
-    MODEL = "gpt-5-mini"
+    MODEL = "gpt-5.4-nano"
 
     def __init__(self):
         self.llm = ChatOpenAI(

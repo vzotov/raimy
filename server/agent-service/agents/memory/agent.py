@@ -22,7 +22,7 @@ class MemoryAgent:
     Called at the end of other agents' sessions.
     """
 
-    MODEL = "gpt-5-mini"
+    MODEL = "gpt-5.4-nano"
 
     def __init__(self):
         self.llm = ChatOpenAI(

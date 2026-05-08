@@ -134,7 +134,7 @@ THINKING_MESSAGES_NEXT = {
 class RecipeCreatorAgent(BaseAgent):
     """Agent for recipe creation using LangGraph workflow"""
 
-    MODEL = "gpt-5-mini"
+    MODEL = "gpt-5.4-nano"
 
     def __init__(self):
         """Initialize the recipe creator agent"""

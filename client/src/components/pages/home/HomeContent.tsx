@@ -39,7 +39,7 @@ function SuggestionChips({ onSelect }: { onSelect: (q: string) => void }) {
         <button
           key={s}
           onClick={() => onSelect(s)}
-          className="px-4 py-1.5 rounded-full border border-accent/30 bg-surface text-sm text-text/80 hover:bg-accent/20 hover:text-text transition-colors"
+          className="cursor-pointer px-4 py-1.5 rounded-full border border-accent/30 bg-surface text-sm text-text/80 hover:bg-accent/20 hover:text-text transition-colors"
         >
           {s}
         </button>

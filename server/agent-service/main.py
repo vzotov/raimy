@@ -590,7 +590,7 @@ Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}"""
 
     try:
         from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
+        llm = ChatOpenAI(model="gpt-5.4-nano", temperature=0.9)
         structured = llm.with_structured_output(_Schema)
 
         recent = "\n".join(f"- {s}" for s in request.recent_sessions[:5]) if request.recent_sessions else "None yet"

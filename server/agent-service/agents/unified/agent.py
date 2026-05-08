@@ -91,7 +91,7 @@ class UnifiedEvent(AgentEvent):
 class UnifiedAgent(BaseAgent):
     """Single agent handling all intents for the unified chat experience"""
 
-    MODEL = "gpt-4o-mini"
+    MODEL = "gpt-5.4-mini"
 
     def __init__(self):
         self.llm = ChatOpenAI(

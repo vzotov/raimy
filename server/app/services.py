@@ -317,7 +317,8 @@ class DatabaseService:
         self,
         user_id: str,
         session_type: str = "recipe-creator",
-        recipe_id: str = None
+        recipe_id: str = None,
+        initial_message: str = None,
     ) -> Dict[str, Any]:
         """Create a new chat session"""
         async with AsyncSessionLocal() as db:
@@ -362,6 +363,13 @@ class DatabaseService:
                 )
                 db.add(new_session)
                 await db.commit()
+
+                if initial_message:
+                    await self.add_message_to_session(
+                        str(session_id),
+                        role="user",
+                        content={"type": "text", "content": initial_message},
+                    )
 
                 return {
                     "id": str(session_id),

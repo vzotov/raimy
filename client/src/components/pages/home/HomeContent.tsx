@@ -68,10 +68,10 @@ export default function HomeContent() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const resp = await chatSessions.create('chat');
+      const resp = await chatSessions.create('chat', undefined, q);
       if (resp.error || !resp.data?.session?.id) return;
       const id = resp.data.session.id;
-      router.push(`/chat/${id}?q=${encodeURIComponent(q)}`);
+      router.push(`/chat/${id}`);
     } finally {
       setSubmitting(false);
     }

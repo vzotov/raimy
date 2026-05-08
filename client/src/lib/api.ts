@@ -81,10 +81,11 @@ export const del = <T = unknown>(endpoint: string) =>
   });
 
 export const chatSessions = {
-  create: (sessionType: string = 'recipe-creator', recipeId?: string) =>
+  create: (sessionType: string = 'recipe-creator', recipeId?: string, initialMessage?: string) =>
     post<CreateSessionResponse>('/api/chat-sessions', {
       session_type: sessionType,
       ...(recipeId && { recipe_id: recipeId }),
+      ...(initialMessage && { initial_message: initialMessage }),
     }),
 
   list: (sessionType?: string) =>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Chat from '@/components/shared/chat/Chat';
 import { ChatHeader } from '@/components/shared/ChatHeader';
@@ -50,14 +50,6 @@ export default function UnifiedChat({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [completeScreenDismissed, setCompleteScreenDismissed] = useState(false);
-
-  // Auto-open recipe panel when recipe first appears
-  const hasRecipe = !!state.recipe;
-  useEffect(() => {
-    if (hasRecipe) {
-      setIsRecipePanelOpen(true);
-    }
-  }, [hasRecipe]);
 
   useChatSessionTitle(state.sessionName || sessionName);
 

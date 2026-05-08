@@ -57,10 +57,12 @@ async def create_session(
     try:
         session_type = request.session_type if request else "recipe-creator"
         recipe_id = request.recipe_id if request else None
+        initial_message = request.initial_message if request else None
         session = await database_service.create_chat_session(
             current_user["email"],
             session_type,
-            recipe_id
+            recipe_id,
+            initial_message,
         )
 
         return {

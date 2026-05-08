@@ -67,6 +67,7 @@ class CreateSessionRequest(BaseModel):
 
     session_type: Optional[str] = Field("chat", description="Session type")
     recipe_id: Optional[str] = Field(None, description="Optional recipe ID to associate with the session")
+    initial_message: Optional[str] = Field(None, description="Optional first user message to send immediately")
 
 
 class UpdateSessionNameRequest(BaseModel):

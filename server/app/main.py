@@ -499,7 +499,25 @@ async def websocket_chat_endpoint(
 
             # Only send greeting if session has no messages
             if len(messages) > 0:
-                greeting_sent = True  # Already has messages, no greeting needed
+                greeting_sent = True
+                last_msg = messages[-1]
+                if last_msg.get("role") == "user":
+                    raw = last_msg.get("content", "")
+                    message_text = raw.get("content", "") if isinstance(raw, dict) else str(raw)
+                    if message_text:
+                        await connection_manager.send_message(session_id, {
+                            "type": "system",
+                            "content": {"type": "thinking", "message": "thinking"}
+                        })
+                        async with httpx.AsyncClient(timeout=120.0) as client:
+                            await client.post(
+                                f"{agent_url}/agent/chat",
+                                json={
+                                    "session_id": session_id,
+                                    "message": message_text,
+                                    "message_already_saved": True,
+                                },
+                            )
                 return
 
             # Get recipe name if available (for kitchen sessions with pre-loaded recipe)

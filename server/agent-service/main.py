@@ -58,6 +58,7 @@ class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
     session_id: str
     message: str
+    message_already_saved: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -456,17 +457,22 @@ async def agent_chat(request: ChatRequest):
                 session_data["user_memory"] = user_memory
                 logger.info(f"🧠 Loaded user memory for {user_id}")
 
-        # Save user message to database
-        await database_service.add_message_to_session(
-            session_id=request.session_id,
-            role="user",
-            content={"type": "text", "content": request.message},
-        )
+        if not request.message_already_saved:
+            await database_service.add_message_to_session(
+                session_id=request.session_id,
+                role="user",
+                content={"type": "text", "content": request.message},
+            )
+
+        # When the message was pre-saved (e.g. initial_message flow), strip it from
+        # history so it doesn't appear twice in the LLM context (once in history,
+        # once appended as the current message by run_streaming).
+        messages_for_agent = messages[:-1] if request.message_already_saved else messages
 
         # Get agent for this session type (always UnifiedAgent)
         agent = await get_agent(session_type=session_type)
 
-        return await _handle_unified_events(agent, request, messages, session_data)
+        return await _handle_unified_events(agent, request, messages_for_agent, session_data)
 
     except HTTPException:
         raise

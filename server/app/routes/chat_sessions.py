@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 import asyncio
+import json
 import logging
 import os
 from typing import List
@@ -9,6 +11,7 @@ import httpx
 from ..services import database_service, RecipeModel, RecipeStepModel, RecipeIngredientModel
 from .models import UpdateSessionNameRequest, CreateSessionRequest
 from core.auth_client import auth_client
+from core.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +59,12 @@ async def create_session(
     try:
         session_type = request.session_type if request else "recipe-creator"
         recipe_id = request.recipe_id if request else None
+        initial_message = request.initial_message if request else None
         session = await database_service.create_chat_session(
             current_user["email"],
             session_type,
-            recipe_id
+            recipe_id,
+            initial_message,
         )
 
         return {
@@ -89,6 +94,82 @@ async def list_sessions(
     except Exception as e:
         logger.error(f"Failed to list sessions: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list sessions: {str(e)}")
+
+
+@router.get("/home-suggestions")
+async def get_home_suggestions(
+    current_user: dict = Depends(get_current_user_with_storage),
+    t: int = Query(None),
+):
+    """
+    Return 4 personalized suggestion chips for the home page.
+    Calls agent service with user memory + recent session names.
+    Falls back gracefully if agent service is unavailable.
+    """
+    user_id = current_user["email"]
+
+    # Determine time of day bucket from client timestamp (local time encoded as UTC epoch ms)
+    if t is not None:
+        hour = datetime.fromtimestamp(t / 1000, tz=timezone.utc).hour
+    else:
+        hour = datetime.now(timezone.utc).hour
+    if 5 <= hour < 12:
+        time_of_day = "morning"
+    elif 12 <= hour < 17:
+        time_of_day = "afternoon"
+    else:
+        time_of_day = "evening"
+
+    # Return cached suggestions if available (1 hour TTL per user per time-of-day)
+    redis = get_redis_client()
+    cache_key = f"suggestions:{user_id}:{time_of_day}"
+    try:
+        cached = await redis.get(cache_key)
+        if cached:
+            logger.info(f"💡 Returning cached suggestions for {user_id} ({time_of_day})")
+            return {"suggestions": json.loads(cached)}
+    except Exception as e:
+        logger.warning(f"Redis cache read failed: {e}")
+
+    # Fetch user memory and recent sessions in parallel
+    try:
+        user_memory, sessions = await asyncio.gather(
+            database_service.get_user_memory(user_id),
+            database_service.get_user_chat_sessions(user_id, session_type="chat"),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to load user context for suggestions: {e}")
+        user_memory = None
+        sessions = []
+
+    recent_names = [s["session_name"] for s in sessions[:5] if s.get("session_name")]
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{AGENT_SERVICE_URL}/agent/suggestions",
+                json={
+                    "user_memory": user_memory,
+                    "recent_sessions": recent_names,
+                    "time_of_day": time_of_day,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            suggestions = data.get("suggestions", [])
+            try:
+                await redis.set(cache_key, json.dumps(suggestions), ex=3600)
+            except Exception as e:
+                logger.warning(f"Redis cache write failed: {e}")
+            return {"suggestions": suggestions}
+    except Exception as e:
+        logger.warning(f"💡 Agent suggestions failed, using fallback: {e}")
+        fallbacks = {
+            "morning": ["Quick breakfast eggs Benedict", "Make a smoothie bowl", "Easy overnight oats", "Fluffy pancakes from scratch"],
+            "afternoon": ["Light chicken Caesar salad", "Quick avocado toast lunch", "Make a grain bowl", "Easy turkey wrap"],
+            "evening": ["Cozy pasta carbonara tonight", "Quick weeknight stir fry", "Make a hearty soup", "Easy sheet pan dinner"],
+        }
+        return {"suggestions": fallbacks.get(time_of_day, fallbacks["evening"])}
 
 
 @router.get("/{session_id}")
@@ -217,6 +298,71 @@ async def save_recipe_from_session(
     except Exception as e:
         logger.error(f"Failed to save recipe from session: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to save recipe: {str(e)}")
+
+
+@router.post("/{session_id}/steps/{step_index}/generate-image")
+async def generate_step_image(
+    session_id: str,
+    step_index: int,
+    current_user: dict = Depends(get_current_user_with_storage),
+):
+    """Generate an image for a single recipe step via agent service."""
+    # Load session and verify ownership
+    session_data = await database_service.get_chat_session(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_data["user_id"] != current_user["email"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    recipe = session_data.get("recipe")
+    if not recipe:
+        raise HTTPException(status_code=400, detail="Session has no recipe")
+
+    steps = recipe.get("steps", [])
+    if step_index < 0 or step_index >= len(steps):
+        raise HTTPException(status_code=400, detail="Invalid step index")
+
+    step = steps[step_index]
+
+    # Build recipe context
+    ingredients = recipe.get("ingredients", [])
+    ingredients_summary = ", ".join(
+        ing.get("name", "") for ing in ingredients[:10]
+    )
+    if len(ingredients) > 10:
+        ingredients_summary += f" (+{len(ingredients) - 10} more)"
+
+    # Call agent service
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{AGENT_SERVICE_URL}/agent/generate-step-image",
+                json={
+                    "recipe_name": recipe.get("name", "Recipe"),
+                    "recipe_description": recipe.get("description", ""),
+                    "ingredients_summary": ingredients_summary or "Not specified",
+                    "step_index": step_index,
+                    "step_instruction": step.get("instruction", ""),
+                    "image_description": step.get("image_description", ""),
+                },
+            )
+            response.raise_for_status()
+            result = response.json()
+    except httpx.HTTPStatusError as e:
+        detail = "Image generation service error"
+        if e.response.status_code == 503:
+            detail = "Image generation is not enabled"
+        logger.error(f"Agent service error: {e}")
+        raise HTTPException(status_code=e.response.status_code, detail=detail)
+    except Exception as e:
+        logger.error(f"Failed to call agent service for step image: {e}")
+        raise HTTPException(status_code=500, detail="Image generation failed")
+
+    # Update session recipe in DB
+    image_url = result["image_url"]
+    await database_service.update_step_image_url(session_id, step_index, image_url)
+
+    return {"image_url": image_url, "step_index": step_index}
 
 
 @router.delete("/{session_id}")

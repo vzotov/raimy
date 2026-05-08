@@ -13,5 +13,6 @@ async def get_features():
     environment configuration.
     """
     return {
-        "instacart_enabled": bool(os.getenv("INSTACART_API_KEY"))
+        "instacart_enabled": bool(os.getenv("INSTACART_API_KEY")),
+        "image_gen_enabled": bool(os.getenv("IMAGE_GEN_ENABLED")),
     }

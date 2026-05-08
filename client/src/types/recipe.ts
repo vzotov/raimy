@@ -10,6 +10,8 @@ export interface RecipeIngredient extends BaseIngredient {
 export interface RecipeStep {
   instruction: string;
   duration?: number;
+  image_description?: string;
+  image_url?: string;
 }
 
 export interface RecipeNutrition {

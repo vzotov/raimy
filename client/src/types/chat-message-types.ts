@@ -15,6 +15,9 @@ export type KitchenStepContent = {
   type: 'kitchen-step';
   message: string;
   next_step_prompt: string;
+  image_url?: string;
+  timer_minutes?: number;
+  timer_label?: string;
 };
 
 export type IngredientsContent = {
@@ -75,11 +78,19 @@ export type RecipeNutritionUpdate = {
   nutrition: RecipeNutrition;
 };
 
+export type RecipeStepImageUpdate = {
+  type: 'recipe_update';
+  action: 'set_step_image';
+  step_index: number;
+  image_url: string;
+};
+
 export type RecipeUpdateContent =
   | RecipeMetadataUpdate
   | RecipeIngredientsUpdate
   | RecipeStepsUpdate
-  | RecipeNutritionUpdate;
+  | RecipeNutritionUpdate
+  | RecipeStepImageUpdate;
 
 export type TimerContent = {
   type: 'timer';
@@ -108,6 +119,24 @@ export type CookingCompleteContent = {
   type: 'cooking_complete';
 };
 
+export type RecipeSavedContent = {
+  type: 'recipe_saved';
+  recipe_id: string;
+};
+
+export type ShoppingListItem = {
+  name: string;
+  eng_name?: string;
+  amount?: string;
+  unit?: string;
+};
+
+export type ShoppingListContent = {
+  type: 'shopping_list';
+  items: ShoppingListItem[];
+  recipe_name?: string;
+};
+
 // Union type for all message content types
 export type MessageContent =
   | TextContent
@@ -119,4 +148,6 @@ export type MessageContent =
   | TimerContent
   | SystemContent
   | SelectorContent
-  | CookingCompleteContent;
+  | CookingCompleteContent
+  | RecipeSavedContent
+  | ShoppingListContent;

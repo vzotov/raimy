@@ -5,11 +5,12 @@ export interface ChatSession {
   id: string;
   user_id: string;
   session_name: string;
-  session_type: 'recipe-creator' | 'kitchen';
+  session_type: 'recipe-creator' | 'kitchen' | 'chat';
   room_name?: string; // Optional - LiveKit remnant
   ingredients?: RecipeIngredient[];
   recipe?: RecipeContent | null; // Work-in-progress recipe data
   recipe_id?: string | null; // Saved recipe reference
+  recipe_changed?: boolean; // True when recipe has unsaved changes
   finished?: boolean; // True when cooking session is completed
   created_at: string;
   updated_at: string;

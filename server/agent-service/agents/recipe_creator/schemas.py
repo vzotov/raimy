@@ -7,13 +7,14 @@ from pydantic import BaseModel, Field
 class RequestAnalysis(BaseModel):
     """Analysis of user's request to determine intent"""
 
-    intent: Literal["recipe", "modify", "suggest", "question"] = Field(
+    intent: Literal["recipe", "modify", "suggest", "question", "generate_images"] = Field(
         description=(
             "What the user wants: "
             "'recipe' for NEW specific recipe, "
             "'modify' to change existing recipe, "
             "'suggest' for ideas/recommendations, "
-            "'question' for clarification needed"
+            "'question' for clarification needed, "
+            "'generate_images' to generate/regenerate images for existing recipe steps"
         )
     )
     recipe_request: Optional[str] = Field(
@@ -85,6 +86,12 @@ class Step(BaseModel):
     duration_minutes: Optional[int] = Field(
         default=None, description="Estimated duration in minutes"
     )
+    image_description: str = Field(
+        description="Short visual description of this step for image generation and caching. "
+        "Describe the cooking action and key visible elements without quantities or timing. "
+        "Examples: 'dicing onions finely on a cutting board', "
+        "'combining flour salt and eggs in a mixing bowl'"
+    )
 
 
 class RecipeSteps(BaseModel):
@@ -149,6 +156,17 @@ class SelectorOption(BaseModel):
     description: Optional[str] = Field(
         default=None,
         description="Brief explanation of the option (1 sentence max)"
+    )
+
+
+class FinalResponse(BaseModel):
+    """Final response after recipe generation/modification with suggested next actions"""
+
+    message: str = Field(description="Short acknowledgment of what was done")
+    suggestions: List[SelectorOption] = Field(
+        description="4 suggested next actions as clickable options",
+        min_length=4,
+        max_length=4,
     )
 
 

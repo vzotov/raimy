@@ -57,6 +57,14 @@ class RedisClient:
 
             raise ConnectionError("Failed to connect to Redis after 3 attempts")
 
+    async def get(self, key: str) -> Optional[str]:
+        await self._ensure_connected()
+        return await self._client.get(key)
+
+    async def set(self, key: str, value: str, ex: int = None):
+        await self._ensure_connected()
+        await self._client.set(key, value, ex=ex)
+
     async def publish(self, channel: str, message: dict):
         """
         Publish a message to a Redis channel.
@@ -155,6 +163,9 @@ class RedisClient:
         message: str,
         message_id: str,
         next_step_prompt: str,
+        image_url: str | None = None,
+        timer_minutes: int | None = None,
+        timer_label: str | None = None,
     ):
         """
         Send a kitchen step message to a session (with confirmation buttons)
@@ -164,16 +175,25 @@ class RedisClient:
             message: Step guidance message
             message_id: Unique message ID
             next_step_prompt: Short prompt for continue button (e.g., "Let's go!")
+            image_url: Optional image URL for the step
+            timer_minutes: Optional timer duration in minutes
+            timer_label: Optional timer label
         """
+        content = {
+            "type": "kitchen-step",
+            "message": message,
+            "next_step_prompt": next_step_prompt,
+        }
+        if image_url:
+            content["image_url"] = image_url
+        if timer_minutes is not None:
+            content["timer_minutes"] = timer_minutes
+            content["timer_label"] = timer_label
         await self.publish(
             f"session:{session_id}",
             {
                 "type": "agent_message",
-                "content": {
-                    "type": "kitchen-step",
-                    "message": message,
-                    "next_step_prompt": next_step_prompt,
-                },
+                "content": content,
                 "message_id": message_id
             }
         )
@@ -370,6 +390,29 @@ class RedisClient:
                     "type": "recipe_update",
                     "action": "set_nutrition",
                     "nutrition": nutrition
+                }
+            }
+        )
+
+    async def send_step_image_message(self, session_id: str, step_index: int, image_url: str):
+        """
+        Send step image update to session.
+
+        Args:
+            session_id: Session ID
+            step_index: Index of the step in the recipe steps array (0-based)
+            image_url: Public GCS URL of the generated image
+        """
+        logger.info('📸 Sending step image update message for session %s, step %d: %s', session_id, step_index, image_url)
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_step_image",
+                    "step_index": step_index,
+                    "image_url": image_url,
                 }
             }
         )

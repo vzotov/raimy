@@ -7,12 +7,12 @@ import SessionItem from './SessionItem';
 interface SessionListProps {
   sessions: ChatSession[];
   currentPath: string;
-  sessionType: 'recipe-creator' | 'kitchen';
+  sessionType: 'recipe-creator' | 'kitchen' | 'chat';
   onUpdateSessionName: (sessionId: string, newName: string) => Promise<unknown>;
   onDelete: (sessionId: string) => void;
   onSessionClick: (
     sessionId: string,
-    sessionType: 'recipe-creator' | 'kitchen',
+    sessionType: 'recipe-creator' | 'kitchen' | 'chat',
   ) => void;
 }
 

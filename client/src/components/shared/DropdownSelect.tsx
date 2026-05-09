@@ -16,7 +16,7 @@ interface DropdownProps {
   label?: string;
 }
 
-export default function Dropdown({
+export default function DropdownSelect({
   options,
   value,
   onChange,

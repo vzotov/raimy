@@ -25,12 +25,13 @@ from .prompt import (
     GREETING_TIPS,
     GREETING_WITH_RECIPE_PROMPT,
     NO_RECIPE_PROMPT,
+    RECIPE_READY_PROMPT,
     SAVE_RECIPE_PROMPT,
     SHOPPING_LIST_PROMPT,
     TIMER_CONFIRMATION_PROMPT,
     TIMER_QUESTION_PROMPT,
 )
-from .schemas import UnifiedIntentSchema, UnifiedStepGuidanceSchema
+from .schemas import RecipeReadySchema, UnifiedIntentSchema, UnifiedStepGuidanceSchema
 from ..base import AgentEvent, BaseAgent
 from ..recipe_creator.agent import RecipeCreatorAgent
 
@@ -282,13 +283,18 @@ class UnifiedAgent(BaseAgent):
             yield UnifiedEvent(type="recipe_created", data=accumulated_recipe)
             logger.info(f"📝 Recipe created: {accumulated_recipe.get('name')}")
 
+            language = session_data.get("user_language", "English")
+            prompt = RECIPE_READY_PROMPT.format(
+                recipe_name=accumulated_recipe.get("name", "your recipe"),
+                language=language,
+            )
+            llm_with_output = self.llm.with_structured_output(RecipeReadySchema)
+            ready: RecipeReadySchema = await llm_with_output.ainvoke(prompt)
+
             message_id = f"offer-{session_id}-{uuid.uuid4().hex[:8]}"
             yield UnifiedEvent(type="selector", data={
-                "message": "Your recipe is ready! Would you like to start cooking, or explore and adjust it more?",
-                "options": [
-                    {"text": "Start Cooking", "description": "Get step-by-step guidance"},
-                    {"text": "Explore More", "description": "Adjust or ask questions about the recipe"},
-                ],
+                "message": ready.message,
+                "options": [opt.model_dump() for opt in ready.options],
                 "message_id": message_id,
             })
 
@@ -305,11 +311,14 @@ class UnifiedAgent(BaseAgent):
         current_step = agent_state.get("current_step")
         message_id = f"msg-{uuid.uuid4()}"
 
+        language = session_data.get("user_language", "English")
+
         if not recipe or not recipe.get("steps"):
             message_history = self._format_message_history(langchain_messages[:-1])
             prompt = NO_RECIPE_PROMPT.format(
                 message_history=message_history,
                 user_message=message,
+                language=language,
             )
             response = await self.llm.ainvoke(prompt)
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
@@ -326,7 +335,7 @@ class UnifiedAgent(BaseAgent):
                 new_step = 0
             elif current_step >= total_steps - 1:
                 # Already at/past last step — trigger completion
-                prompt = COOKING_COMPLETE_PROMPT.format(recipe_name=recipe.get("name", "your dish"))
+                prompt = COOKING_COMPLETE_PROMPT.format(recipe_name=recipe.get("name", "your dish"), language=language)
                 response = await self.llm.ainvoke(prompt)
                 yield UnifiedEvent(type="cooking_complete", data=None)
                 yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
@@ -341,7 +350,7 @@ class UnifiedAgent(BaseAgent):
 
         # Last step triggers completion (it's the "enjoy your meal" step)
         if new_step == total_steps - 1:
-            prompt = COOKING_COMPLETE_PROMPT.format(recipe_name=recipe.get("name", "your dish"))
+            prompt = COOKING_COMPLETE_PROMPT.format(recipe_name=recipe.get("name", "your dish"), language=language)
             response = await self.llm.ainvoke(prompt)
             yield UnifiedEvent(type="cooking_complete", data=None)
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
@@ -367,6 +376,7 @@ class UnifiedAgent(BaseAgent):
             all_steps=self._format_all_steps(recipe),
             message_history=message_history,
             user_message=message,
+            language=language,
         )
 
         llm_with_output = self.llm.with_structured_output(UnifiedStepGuidanceSchema)
@@ -394,8 +404,10 @@ class UnifiedAgent(BaseAgent):
         timer_label = intent_result.timer_label or "Timer"
         message_id = f"msg-{uuid.uuid4()}"
 
+        language = session_data.get("user_language", "English")
+
         if not timer_minutes:
-            prompt = TIMER_QUESTION_PROMPT.format(user_message="set a timer")
+            prompt = TIMER_QUESTION_PROMPT.format(user_message="set a timer", language=language)
             response = await self.llm.ainvoke(prompt)
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
             return
@@ -403,6 +415,7 @@ class UnifiedAgent(BaseAgent):
         prompt = TIMER_CONFIRMATION_PROMPT.format(
             timer_minutes=timer_minutes,
             timer_label=timer_label,
+            language=language,
         )
         response = await self.llm.ainvoke(prompt)
         yield UnifiedEvent(type="kitchen_step", data={
@@ -428,7 +441,8 @@ class UnifiedAgent(BaseAgent):
             })
             return
 
-        prompt = SAVE_RECIPE_PROMPT.format(recipe_name=recipe.get("name", "your recipe"))
+        language = session_data.get("user_language", "English")
+        prompt = SAVE_RECIPE_PROMPT.format(recipe_name=recipe.get("name", "your recipe"), language=language)
         response = await self.llm.ainvoke(prompt)
         yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
         yield UnifiedEvent(type="save_complete", data={"recipe": recipe})
@@ -459,7 +473,8 @@ class UnifiedAgent(BaseAgent):
             for ing in ingredients
         ]
 
-        prompt = SHOPPING_LIST_PROMPT.format(recipe_name=recipe.get("name", "your recipe"))
+        language = session_data.get("user_language", "English")
+        prompt = SHOPPING_LIST_PROMPT.format(recipe_name=recipe.get("name", "your recipe"), language=language)
         response = await self.llm.ainvoke(prompt)
         yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
         yield UnifiedEvent(type="shopping_list", data={
@@ -518,11 +533,14 @@ class UnifiedAgent(BaseAgent):
         current_step = agent_state.get("current_step")
         message_id = f"msg-{uuid.uuid4()}"
 
+        language = session_data.get("user_language", "English")
+
         if not recipe:
             message_history = self._format_message_history(langchain_messages[:-1])
             prompt = NO_RECIPE_PROMPT.format(
                 message_history=message_history,
                 user_message=question,
+                language=language,
             )
             response = await self.llm.ainvoke(prompt)
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
@@ -550,6 +568,7 @@ class UnifiedAgent(BaseAgent):
             ingredients_list=self._format_ingredients_list(recipe),
             message_history=message_history,
             question=question,
+            language=language,
         )
 
         response = await self.llm.ainvoke(prompt)
@@ -581,12 +600,14 @@ class UnifiedAgent(BaseAgent):
 
         message_history = self._format_message_history(langchain_messages[:-1])
 
+        language = session_data.get("user_language", "English")
         prompt = GENERAL_RESPONSE_PROMPT.format(
             has_recipe=has_recipe,
             recipe_name=recipe_name,
             current_step_info=current_step_info,
             message_history=message_history,
             user_message=message,
+            language=language,
         )
 
         response = await self.llm.ainvoke(prompt)

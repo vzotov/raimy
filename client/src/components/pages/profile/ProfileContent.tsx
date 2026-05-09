@@ -2,6 +2,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import ThemeSelector from '@/components/shared/ThemeSelector';
 import SignOutButton from './SignOutButton';
+import LanguageSelector from './LanguageSelector';
+import WipeMemoryButton from './WipeMemoryButton';
 
 interface ProfileData {
   user: {
@@ -10,6 +12,7 @@ interface ProfileData {
     picture: string | null;
   };
   memory: string | null;
+  language: string;
 }
 
 async function getProfile(): Promise<ProfileData | null> {
@@ -46,7 +49,7 @@ export default async function ProfileContent() {
     redirect('/');
   }
 
-  const { user, memory } = profile;
+  const { user, memory, language } = profile;
 
   return (
     <div className="space-y-8">
@@ -93,11 +96,27 @@ export default async function ProfileContent() {
         </div>
       </div>
 
+      {/* Language Section */}
+      <div>
+        <h2 className="text-lg font-semibold text-text mb-4">Language</h2>
+        <div className="bg-surface rounded-lg p-4">
+          <div className="max-w-xs">
+            <p className="text-sm text-text/70 mb-3">
+              Raimy will respond in this language during cooking sessions.
+            </p>
+            <LanguageSelector initialLanguage={language} />
+          </div>
+        </div>
+      </div>
+
       {/* Memory Section */}
       <div>
-        <h2 className="text-lg font-semibold text-text mb-4">
-          What Raimy Knows About You
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-text">
+            What Raimy Knows About You
+          </h2>
+          <WipeMemoryButton />
+        </div>
         <div className="bg-surface rounded-lg p-4">
           {memory ? (
             <pre className="whitespace-pre-wrap text-sm text-text/80 font-mono overflow-x-auto">

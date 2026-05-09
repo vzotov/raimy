@@ -70,14 +70,14 @@ RESPONSE FORMAT:
 - For "generate_images": No additional fields needed
 - For "question": Set text_response (clarifying question OR answer based on conversation context)
 
-OUTPUT LANGUAGE: Respond in the same language the user is writing in. Determine language from the USER MESSAGE, not from the user profile."""
+Always respond in {language}."""
 
 GENERATE_METADATA_PROMPT = """Generate recipe metadata for the following request.
 
 ## User Profile (consider these preferences)
 {user_memory}
 
-IMPORTANT: Write ALL text in the same language as the user's original message below. Do NOT use the language from the user profile.
+Write ALL text in {language}.
 
 Recipe request: {recipe_request}
 {modification_context}
@@ -101,14 +101,14 @@ Do NOT invent a different recipe - derive the name and description from the exis
 
 Be specific and realistic with time estimates.
 
-OUTPUT LANGUAGE: Generate all text (name, description, tags) in the same language the user is writing in. Determine language from the user's original message, not from the user profile."""
+Always generate all text (name, description, tags) in {language}."""
 
 GENERATE_INGREDIENTS_PROMPT = """Generate ingredients list for this recipe.
 
 ## User Profile (consider dietary restrictions, allergies, preferences)
 {user_memory}
 
-IMPORTANT: Write ALL text in the same language as the user's original request below. Do NOT use the language from the user profile.
+Write ALL text in {language}.
 
 Recipe: {recipe_name}
 Description: {recipe_description}
@@ -129,14 +129,14 @@ Provide a complete ingredients list with:
 Include ALL ingredients needed. Be specific with amounts.
 Group similar ingredients together (proteins, vegetables, seasonings, etc.).
 
-OUTPUT LANGUAGE: Generate all text in the same language the user is asking in. Determine language from the user's original request, not from the user profile."""
+Always generate all text in {language}."""
 
 GENERATE_STEPS_PROMPT = """Generate cooking steps for this recipe.
 
 ## User Profile (consider skill level, equipment availability)
 {user_memory}
 
-IMPORTANT: Write ALL step instructions in the same language as the user's original request below. Do NOT use the language from the user profile.
+Write ALL step instructions in {language}.
 
 Recipe: {recipe_name}
 Description: {recipe_description}
@@ -161,7 +161,7 @@ Guidelines:
 - Include timing for steps that require it
 - End with plating/serving suggestions
 
-OUTPUT LANGUAGE: Generate all step instructions in the same language the user is asking in. Determine language from the user's original request, not from the user profile. image_description must always be in English since it's used for image generation."""
+Always generate all step instructions in {language}. image_description must always be in English since it's used for image generation."""
 
 GENERATE_NUTRITION_PROMPT = """Estimate nutrition information for this recipe.
 
@@ -209,7 +209,7 @@ Also provide a friendly response_text that:
 - Ends with a natural follow-up question inviting them to pick one or ask for different options
 - Vary your phrasing - don't always use the same words
 
-OUTPUT LANGUAGE: Respond in the same language the user is writing in. Determine language from the user message, not from the user profile."""
+Always respond in {language}."""
 
 ASK_QUESTION_PROMPT = """You are Raimy, a friendly recipe assistant.
 
@@ -230,7 +230,7 @@ Rules for clarification:
 - DO NOT repeat options from previous conversation
 - Keep message short and conversational
 
-OUTPUT LANGUAGE: Respond in the same language the user is writing in. Determine language from the user's message, not from the user profile."""
+Always respond in {language}."""
 
 # Greeting prompt with tips
 GREETING_PROMPT = """Generate a short welcome as Raimy.
@@ -269,7 +269,7 @@ Respond with:
    - Other suggestions should be specific to this recipe (e.g., dietary tweaks, serving adjustments, difficulty changes, ingredient swaps)
    - Keep them varied — don't suggest things that don't apply (e.g., don't suggest "make it vegetarian" if it's already vegetarian)
 
-OUTPUT LANGUAGE: Both message and suggestions must be in the same language the user is writing in. Determine language from the user's request, not from the user profile."""
+Always respond in {language}."""
 
 FORMAT_RESPONSE_PROMPT = """Analyze this response and determine if it contains options the user should choose from.
 

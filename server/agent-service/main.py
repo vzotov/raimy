@@ -449,13 +449,15 @@ async def agent_chat(request: ChatRequest):
             else:
                 logger.error(f"❌ Recipe {recipe_id} not found")
 
-        # Load user memory for context
+        # Load user memory and preferences for context
         user_id = session_data.get("user_id")
         if user_id:
             user_memory = await database_service.get_user_memory(user_id)
             if user_memory:
                 session_data["user_memory"] = user_memory
                 logger.info(f"🧠 Loaded user memory for {user_id}")
+            user_metadata = await database_service.get_user_metadata(user_id)
+            session_data["user_language"] = (user_metadata or {}).get("language", "English")
 
         if not request.message_already_saved:
             await database_service.add_message_to_session(

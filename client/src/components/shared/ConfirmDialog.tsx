@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'default' | 'destructive';
   onConfirm: () => void | Promise<void>;
+  children?: React.ReactNode;
 }
 
 export default function ConfirmDialog({
@@ -24,6 +25,7 @@ export default function ConfirmDialog({
   cancelLabel = 'Cancel',
   variant = 'default',
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +50,7 @@ export default function ConfirmDialog({
           <AlertDialog.Description className="mt-2 text-sm text-text/70">
             {description}
           </AlertDialog.Description>
+          {children && <div className="mt-4">{children}</div>}
           <div className="mt-6 flex justify-end gap-3">
             <AlertDialog.Cancel asChild>
               <button className="rounded-lg px-4 py-2 text-sm font-medium text-text/70 hover:bg-surface-hover transition-colors cursor-pointer">

@@ -65,6 +65,7 @@ class RecipeCreatorState(TypedDict):
     session_id: str
     user_message: str
     user_memory: Optional[str]  # User profile/preferences markdown
+    user_language: str  # Language for agent responses (e.g. "English", "French")
 
     # Recipe data (progressively filled)
     name: Optional[str]
@@ -309,6 +310,7 @@ class RecipeCreatorAgent(BaseAgent):
             message_history=message_history,
             user_message=state["user_message"],
             generate_images_intent=generate_images_intent,
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(RequestAnalysis)
@@ -364,6 +366,7 @@ class RecipeCreatorAgent(BaseAgent):
             user_memory=self._get_user_memory(state),
             message_history=message_history,
             user_message=state["user_message"],
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(DishSuggestions)
@@ -387,6 +390,7 @@ class RecipeCreatorAgent(BaseAgent):
             user_memory=self._get_user_memory(state),
             message_history=message_history,
             user_message=state["user_message"],
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(QuestionWithOptions)
@@ -572,6 +576,7 @@ class RecipeCreatorAgent(BaseAgent):
             existing_content=existing_content,
             message_history=message_history,
             user_message=state.get("user_message", ""),
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeMetadata)
@@ -612,6 +617,7 @@ class RecipeCreatorAgent(BaseAgent):
             modification_context=self._get_modification_context(state),
             message_history=message_history,
             user_message=state.get("user_message", ""),
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeIngredients)
@@ -647,6 +653,7 @@ class RecipeCreatorAgent(BaseAgent):
             modification_context=self._get_modification_context(state),
             message_history=message_history,
             user_message=state.get("user_message", ""),
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeSteps)
@@ -733,6 +740,7 @@ class RecipeCreatorAgent(BaseAgent):
             message_history=message_history,
             user_message=state["user_message"],
             generate_images_suggestion=generate_images_suggestion,
+            language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(FinalResponse)
@@ -814,6 +822,7 @@ class RecipeCreatorAgent(BaseAgent):
             "session_id": session_id,
             "user_message": message,
             "user_memory": session_data.get("user_memory"),
+            "user_language": session_data.get("user_language", "English"),
             # Load existing recipe data
             "name": existing_recipe.get("name"),
             "description": existing_recipe.get("description"),

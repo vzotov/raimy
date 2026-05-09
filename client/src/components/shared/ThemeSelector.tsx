@@ -3,7 +3,7 @@
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { CogIcon, MoonIcon, SunIcon } from '@/components/icons';
-import Dropdown from './Dropdown';
+import DropdownSelect from './DropdownSelect';
 
 const themeOptions = [
   { value: 'dark', label: 'Dark', icon: <MoonIcon className="h-5 w-5 text-text" /> },
@@ -24,7 +24,7 @@ export default function ThemeSelector() {
   }
 
   return (
-    <Dropdown
+    <DropdownSelect
       options={themeOptions}
       value={theme || 'system'}
       onChange={setTheme}

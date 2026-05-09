@@ -1016,6 +1016,52 @@ class DatabaseService:
                 return False
 
 
+    async def get_user_metadata(self, user_id: str) -> dict:
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(select(User).where(User.email == user_id))
+                user = result.scalar_one_or_none()
+                return user.user_metadata or {} if user else {}
+            except Exception as e:
+                logger.error(f"Error getting user metadata for {user_id}: {e}", exc_info=True)
+                return {}
+
+    async def update_user_metadata(self, user_id: str, key: str, value) -> bool:
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(select(User).where(User.email == user_id))
+                user = result.scalar_one_or_none()
+                if not user:
+                    return False
+                metadata = dict(user.user_metadata or {})
+                metadata[key] = value
+                user.user_metadata = metadata
+                flag_modified(user, "user_metadata")
+                await db.commit()
+                logger.info(f"Updated user metadata for {user_id}: {key}={value}")
+                return True
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error updating user metadata for {user_id}: {e}", exc_info=True)
+                return False
+
+    async def clear_user_memory(self, user_id: str) -> bool:
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(select(UserMemory).where(UserMemory.user_id == user_id))
+                memory = result.scalar_one_or_none()
+                if memory:
+                    memory.memory_document = ""
+                    memory.updated_at = datetime.utcnow()
+                await db.commit()
+                logger.info(f"Cleared user memory for {user_id}")
+                return True
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error clearing user memory for {user_id}: {e}", exc_info=True)
+                return False
+
+
     async def find_similar_step_image(
         self,
         normalized_text: str,

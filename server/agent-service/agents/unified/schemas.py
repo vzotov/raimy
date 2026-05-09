@@ -57,6 +57,17 @@ class UnifiedIntentSchema(BaseModel):
     )
 
 
+class RecipeReadyOption(BaseModel):
+    text: str = Field(description="Short action label shown on the button (2-4 words)")
+    description: str = Field(description="One short sentence describing the option")
+
+
+class RecipeReadySchema(BaseModel):
+    """Response when a recipe has just been created"""
+    message: str = Field(description="1 sentence announcing the recipe is ready and inviting the user to choose next step")
+    options: list[RecipeReadyOption] = Field(description="Exactly 2 options: start cooking and explore/adjust")
+
+
 class UnifiedStepGuidanceSchema(BaseModel):
     """Response for step guidance with inline-bolded ingredients"""
 

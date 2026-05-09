@@ -174,9 +174,11 @@ cd deploy
 - Migrations run automatically on API startup (`AUTO_MIGRATE=true` in `docker-compose.prod.yml`)
 
 ### Release Process
-1. **Deploy dev** — test on the VM using `deploy-from-github.sh dev`
-2. **Merge to main** — `git checkout main && git merge dev && git push origin main`
-3. **Tag the release** — `git tag vX.Y.Z && git push origin vX.Y.Z`
+1. **Develop in dev** — all work happens on the `dev` branch
+2. **Create PR to main** — open a pull request from `dev` → `main` summarizing changes
+3. **Merge to main** — `git checkout main && git merge dev && git push origin main`
+4. **Tag the release** — `git tag vX.Y.Z && git push origin vX.Y.Z`
+5. **Deploy main** — `cd deploy && ./deploy-from-github.sh main`
 
 **Versioning:** `vMAJOR.MINOR.PATCH`
 - PATCH: bug fixes

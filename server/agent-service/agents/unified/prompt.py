@@ -1,5 +1,7 @@
 """Unified agent system prompts"""
 
+LANGUAGE_RULE = "Always respond in the same language the user is writing in."
+
 # Intent analysis prompt
 ANALYZE_INTENT_PROMPT = """Analyze the user's message to determine their intent.
 
@@ -69,7 +71,7 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
    - Keep it 2-4 words, natural and specific to THIS step
    - NEVER use generic phrases like "Let's go", "Continue", "Next", "Ready?"
 
-3. Timer: ONLY for passive cooking (boiling, baking, simmering). NOT for mixing/chopping."""
+3. Timer: ONLY for passive cooking (boiling, baking, simmering). NOT for mixing/chopping.""" + f"\n\n{LANGUAGE_RULE}"
 
 # Question answering prompt
 ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
@@ -93,7 +95,7 @@ ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
 ## User's Question:
 {question}
 
-Provide a helpful, concise answer (1-3 sentences). Stay focused on the cooking context."""
+Provide a helpful, concise answer (1-3 sentences). Stay focused on the cooking context.""" + f"\n\n{LANGUAGE_RULE}"
 
 # General chat response prompt
 GENERAL_RESPONSE_PROMPT = """Generate a response to the user's message in the cooking context.
@@ -110,7 +112,7 @@ Current step: {current_step_info}
 {user_message}
 
 Respond naturally and helpfully. If they seem to have drifted off-topic, gently guide them back to cooking.
-Keep it concise (1-2 sentences)."""
+Keep it concise (1-2 sentences).""" + f"\n\n{LANGUAGE_RULE}"
 
 # No recipe loaded
 NO_RECIPE_PROMPT = """No recipe is loaded yet.
@@ -123,31 +125,31 @@ NO_RECIPE_PROMPT = """No recipe is loaded yet.
 
 If the conversation mentions a specific dish, ask if they want to cook that.
 If no dish is mentioned, ask what they want to make.
-Write 1 sentence. No fluff."""
+Write 1 sentence. No fluff.""" + f"\n\n{LANGUAGE_RULE}"
 
 # Cooking complete prompt
 COOKING_COMPLETE_PROMPT = """User finished cooking {recipe_name}!
 
-Write 1 sentence wishing them to enjoy their meal. Be genuine, no over-the-top enthusiasm."""
+Write 1 sentence wishing them to enjoy their meal. Be genuine, no over-the-top enthusiasm.""" + f"\n\n{LANGUAGE_RULE}"
 
 # Timer prompts
 TIMER_QUESTION_PROMPT = """User wants a timer but didn't say how long. Their message: {user_message}
 
-Write 1 sentence asking how long. Keep it natural."""
+Write 1 sentence asking how long. Keep it natural.""" + f"\n\n{LANGUAGE_RULE}"
 
 TIMER_CONFIRMATION_PROMPT = """You set a {timer_minutes}-minute timer for "{timer_label}".
 
-Write 1 short sentence confirming. Don't just say "Timer set for X minutes"."""
+Write 1 short sentence confirming. Don't just say "Timer set for X minutes".""" + f"\n\n{LANGUAGE_RULE}"
 
 # Save recipe prompt
 SAVE_RECIPE_PROMPT = """User wants to save the recipe "{recipe_name}".
 
-Write 1 short sentence confirming you're saving it. Be warm and brief."""
+Write 1 short sentence confirming you're saving it. Be warm and brief.""" + f"\n\n{LANGUAGE_RULE}"
 
 # Shopping list prompt
 SHOPPING_LIST_PROMPT = """User wants a shopping list for "{recipe_name}".
 
-Write 1 short sentence confirming you're putting together the list. Be warm and brief."""
+Write 1 short sentence confirming you're putting together the list. Be warm and brief.""" + f"\n\n{LANGUAGE_RULE}"
 
 # Greeting prompts
 GREETING_PROMPT = """Generate a short welcome as Raimy.

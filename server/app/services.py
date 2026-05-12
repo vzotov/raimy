@@ -446,6 +446,12 @@ class DatabaseService:
                     for msg in session.message_records
                 ]
 
+                recipe_data = session.recipe or None
+                recipe_id_str = str(session.recipe_id) if session.recipe_id else None
+
+                if not recipe_data and recipe_id_str:
+                    recipe_data = await self.get_recipe_by_id(recipe_id_str)
+
                 return {
                     "id": str(session.id),
                     "user_id": session.user_id,
@@ -453,8 +459,8 @@ class DatabaseService:
                     "session_type": session.session_type,
                     "room_name": session.room_name,
                     "ingredients": session.ingredients or [],
-                    "recipe": session.recipe or None,
-                    "recipe_id": str(session.recipe_id) if session.recipe_id else None,
+                    "recipe": recipe_data,
+                    "recipe_id": recipe_id_str,
                     "recipe_changed": session.recipe_changed,
                     "agent_state": session.agent_state,
                     "finished": session.finished,

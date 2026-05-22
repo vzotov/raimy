@@ -71,6 +71,14 @@ class Ingredient(BaseModel):
     eng_name: Optional[str] = Field(
         default=None, description="English name for non-English recipes"
     )
+    group: Optional[str] = Field(
+        default=None,
+        description=(
+            "Component group name for multi-part recipes (e.g. 'Caramel layer', 'Flan layer', 'Chocolate cake base'). "
+            "All ingredients in the same component must share the exact same group string. "
+            "Use null for simple single-component recipes."
+        ),
+    )
 
 
 class RecipeIngredients(BaseModel):
@@ -91,6 +99,14 @@ class Step(BaseModel):
         "Describe the cooking action and key visible elements without quantities or timing. "
         "Examples: 'dicing onions finely on a cutting board', "
         "'combining flour salt and eggs in a mixing bowl'"
+    )
+    group: Optional[str] = Field(
+        default=None,
+        description=(
+            "Component group name matching the ingredient group this step belongs to "
+            "(e.g. 'Caramel layer', 'Flan layer'). Must match ingredient group names exactly. "
+            "Use null for simple single-component recipes."
+        ),
     )
 
 

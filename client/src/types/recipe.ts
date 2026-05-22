@@ -5,6 +5,7 @@ import type { BaseIngredient } from './ingredient';
  */
 export interface RecipeIngredient extends BaseIngredient {
   notes?: string;
+  group?: string;
 }
 
 export interface RecipeStep {
@@ -12,6 +13,7 @@ export interface RecipeStep {
   duration?: number;
   image_description?: string;
   image_url?: string;
+  group?: string;
 }
 
 export interface RecipeNutrition {

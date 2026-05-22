@@ -270,6 +270,8 @@ class UnifiedAgent(BaseAgent):
                 yield UnifiedEvent(type="session_name", data=event.data)
             elif event.type == "complete":
                 pass  # We emit complete ourselves
+            elif event.type == "selector":
+                pass  # We emit our own offer after recipe_created
             else:
                 yield UnifiedEvent(type=event.type, data=event.data)
 

@@ -125,9 +125,12 @@ Provide a complete ingredients list with:
 - amount: Numeric amount (e.g., "2", "1/2", "3-4")
 - unit: Measurement unit (e.g., "cups", "tbsp", "lb", "pieces")
 - eng_name: English translation if original is in another language (optional)
+- group: For multi-component recipes (e.g. layered cakes, dishes with a separate sauce/filling/topping),
+  set group to the component name (e.g. "Caramel layer", "Flan layer", "Chocolate cake base").
+  All ingredients in the same component must share the exact same group string.
+  For simple single-component recipes, omit group (leave null).
 
 Include ALL ingredients needed. Be specific with amounts.
-Group similar ingredients together (proteins, vegetables, seasonings, etc.).
 
 Always generate all text in {language}."""
 
@@ -160,6 +163,9 @@ Guidelines:
 - Mention specific ingredients by name
 - Include timing for steps that require it
 - End with plating/serving suggestions
+- group: For multi-component recipes, set group on each step to match the ingredient group it belongs to
+  (e.g. "Caramel layer", "Flan layer"). Must match ingredient group names exactly.
+  For simple single-component recipes, omit group (leave null).
 
 Always generate all step instructions in {language}. image_description must always be in English since it's used for image generation."""
 

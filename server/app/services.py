@@ -22,6 +22,7 @@ class RecipeIngredientModel(BaseModel):
     unit: Optional[str] = None
     notes: Optional[str] = None
     eng_name: Optional[str] = None  # English name for Instacart (if name is not English)
+    group: Optional[str] = None  # Component group for multi-part recipes (e.g. "Caramel layer")
 
 class RecipeStepModel(BaseModel):
     """Step: {"instruction": "Boil water", "duration": 10}"""
@@ -29,6 +30,7 @@ class RecipeStepModel(BaseModel):
     duration: Optional[int] = None  # Duration in minutes
     image_description: Optional[str] = None
     image_url: Optional[str] = None
+    group: Optional[str] = None  # Component group for multi-part recipes (e.g. "Caramel layer")
 
 class RecipeModel(BaseModel):
     """Recipe model matching database JSON structure"""

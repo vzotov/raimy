@@ -147,4 +147,4 @@ curl http://localhost/api/health
 - `setup-vm.sh` - VM initialization script (runs on VM)
 - `../docker-compose.prod.yml` - Production docker-compose config
 - `../.env.prod` - Production environment variables (not committed)
-- `../DEPLOYMENT.md` - Full deployment guide
+- `../docs/deployment.md` - Full deployment guide

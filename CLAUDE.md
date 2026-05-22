@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Reference Documentation
+
+- [docs/architecture.md](docs/architecture.md) — full codebase file map, data flows, infrastructure
+- [docs/agents.md](docs/agents.md) — agent system: LangGraph workflows, event types, schemas
+- [docs/deployment.md](docs/deployment.md) — ops guide (GCP, Docker, release process)
+- [docs/setup.md](docs/setup.md) — first-time deployment checklist
+
+**Keep docs up to date:** When making changes that affect file structure, data flows, agent events, schemas, or infrastructure, update the relevant file in `docs/` in the same task — not as a separate follow-up.
+
 ## Code Generation Principles
 
 ### Clarification Over Assumption
@@ -155,7 +164,7 @@ Use Alembic for migrations. Migrations run automatically on backend startup in d
 - **Backend**: GCP Compute Engine e2-micro VM (us-east1-b), all services via Docker Compose
 - **Frontend**: Vercel (Next.js), set `NEXT_PUBLIC_API_URL` to the VM IP
 - **HTTPS**: Caddy reverse proxy with automatic Let's Encrypt (`Caddyfile` at repo root)
-- **Full docs**: `DEPLOYMENT.md` (comprehensive) and `SETUP-DEPLOYMENT.md` (quickstart)
+- **Full docs**: `docs/deployment.md` (comprehensive) and `docs/setup.md` (quickstart)
 
 ### Commands
 ```bash
@@ -178,7 +187,7 @@ cd deploy
 2. **Create PR to main** — open a pull request from `dev` → `main` summarizing changes
 3. **Merge to main** — `git checkout main && git merge dev && git push origin main`
 4. **Tag the release** — `git tag vX.Y.Z && git push origin vX.Y.Z`
-5. **Deploy main** — `cd deploy && ./deploy-from-github.sh main`
+5. **Deploy main** — ask the user to run: `cd deploy && ./deploy-from-github.sh main` (never run this yourself)
 
 **Versioning:** `vMAJOR.MINOR.PATCH`
 - PATCH: bug fixes

@@ -109,12 +109,6 @@ export function useUnifiedChatState({
         const sys = wsMessage.content;
         if (sys.type === 'thinking') setAgentStatus(sys.message ?? null);
         else if (sys.type === 'connected' || sys.type === 'error') setAgentStatus(null);
-        else if (sys.type === 'recipe_saved' && sys.session_id === sessionId) {
-          if (recipeRef.current && sys.recipe_id) {
-            setRecipe({ ...recipeRef.current, id: sys.recipe_id });
-          }
-          resetChangedFlag();
-        }
       }
     },
     [sessionId, applyRecipeUpdate, setRecipe, resetChangedFlag],

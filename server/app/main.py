@@ -365,7 +365,7 @@ async def websocket_chat_endpoint(
                                 logger.info(f"{msg_type} passed through")
                                 pass
 
-                    # Always forward message to WebSocket for UI
+                    # Forward all messages to WebSocket for UI
                     try:
                         await websocket.send_json(message)
                     except Exception as e:
@@ -408,10 +408,9 @@ async def websocket_chat_endpoint(
                             "message_id": message_id,
                         })
                         await websocket.send_json({
-                            "type": "system",
+                            "type": "agent_message",
                             "content": {
                                 "type": "recipe_saved",
-                                "session_id": session_id,
                                 "recipe_id": recipe_id,
                             },
                         })

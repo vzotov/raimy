@@ -522,18 +522,7 @@ class UnifiedAgent(BaseAgent):
 
         language = session_data.get("user_language", "English")
 
-        if not recipe:
-            message_history = self._format_message_history(langchain_messages[:-1])
-            prompt = NO_RECIPE_PROMPT.format(
-                message_history=message_history,
-                user_message=question,
-                language=language,
-            )
-            response = await self.llm.ainvoke(prompt)
-            yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
-            return
-
-        steps = recipe.get("steps", [])
+        steps = recipe.get("steps", []) if recipe else []
         total_steps = len(steps)
 
         if current_step is not None and 0 <= current_step < total_steps:
@@ -547,12 +536,12 @@ class UnifiedAgent(BaseAgent):
 
         prompt = ANSWER_QUESTION_PROMPT.format(
             user_memory=session_data.get("user_memory") or "(No user profile available)",
-            recipe_name=recipe.get("name", "Recipe"),
+            recipe_name=recipe.get("name", "Recipe") if recipe else "None",
             step_number=step_number,
             total_steps=total_steps,
             step_instruction=step_instruction,
-            all_steps=self._format_all_steps(recipe),
-            ingredients_list=self._format_ingredients_list(recipe),
+            all_steps=self._format_all_steps(recipe) if recipe else "None",
+            ingredients_list=self._format_ingredients_list(recipe) if recipe else "None",
             message_history=message_history,
             question=question,
             language=language,

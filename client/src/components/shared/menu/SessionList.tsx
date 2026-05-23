@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChatSession } from '@/types/chat-session';
 import SessionItem from './SessionItem';
 
@@ -26,6 +26,11 @@ export default function SessionList({
 }: SessionListProps) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const activeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [currentPath]);
 
   const handleStartEdit = (sessionId: string, sessionName: string) => {
     setEditingSessionId(sessionId);
@@ -72,6 +77,7 @@ export default function SessionList({
         return (
           <SessionItem
             key={session.id}
+            ref={isActive ? activeRef : null}
             session={session}
             isActive={isActive}
             isEditing={isEditing}

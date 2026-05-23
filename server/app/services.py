@@ -256,6 +256,22 @@ class DatabaseService:
                 logger.error(f"Error updating Instacart link for recipe {recipe_id}: {e}", exc_info=True)
                 return False
 
+    async def update_recipe_session_id(self, recipe_id: str, session_id: str) -> bool:
+        """Link a chat session to a recipe (sets recipe.chat_session_id)"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(select(Recipe).where(Recipe.id == recipe_id))
+                recipe = result.scalar_one_or_none()
+                if not recipe:
+                    return False
+                recipe.chat_session_id = session_id
+                await db.commit()
+                return True
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error linking session to recipe {recipe_id}: {e}", exc_info=True)
+                return False
+
     async def save_user(self, user_data: Dict[str, Any]) -> bool:
         """Save or update user data in PostgreSQL"""
         async with AsyncSessionLocal() as db:

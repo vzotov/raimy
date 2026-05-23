@@ -151,6 +151,31 @@ SHOPPING_LIST_PROMPT = """User wants a shopping list for "{recipe_name}".
 
 Write 1 short sentence confirming you're putting together the list. Be warm and brief.""" + "\n\n" + LANGUAGE_RULE
 
+# Edit suggestions prompt — shown when user wants to edit but hasn't specified what
+EDIT_SUGGESTIONS_PROMPT = """The user wants to edit their recipe but hasn't said what to change yet.
+
+## Recipe: {recipe_name}
+- Servings: {servings}
+- Difficulty: {difficulty}
+- Total time: {total_time_minutes} min
+- Tags: {tags}
+
+## Ingredients:
+{ingredients_list}
+
+## User Profile:
+{user_memory}
+
+Generate:
+1. message: 1 warm sentence offering to help edit the recipe.
+2. options: exactly 4–5 personalized suggestions.
+   - Prioritize changes that align with the user's dietary preferences, restrictions, or dislikes from their profile.
+   - Include practical options relevant to THIS recipe (e.g. adjust servings, reduce time, simplify steps).
+   - text: 2–5 words, specific and action-oriented (e.g. "Make it vegetarian", "Cut cooking time", "Double servings").
+   - description: 1 sentence explaining what changes.
+   - Avoid suggesting changes that are already true of this recipe.
+   All text must be in {language}.""" + "\n\n" + LANGUAGE_RULE
+
 # Recipe ready prompt
 RECIPE_READY_PROMPT = """Recipe "{recipe_name}" was just created.
 

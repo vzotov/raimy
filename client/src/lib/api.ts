@@ -131,6 +131,8 @@ export const recipes = {
     get<{ recipe: Recipe }>(`/api/recipes/shared/${token}`),
   addSharedToMyRecipes: (token: string) =>
     post<{ message: string; recipe_id: string }>(`/api/recipes/shared/${token}/add`),
+  linkSession: (recipeId: string, sessionId: string) =>
+    post<{ message: string }>(`/api/recipes/${recipeId}/link-session`, { session_id: sessionId }),
 };
 
 export const config = {

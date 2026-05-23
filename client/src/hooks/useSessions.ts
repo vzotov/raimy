@@ -33,8 +33,8 @@ export function useChatSessions({ enabled = true }: { enabled?: boolean } = {}) 
     },
   );
 
-  const createSession = async (recipeId?: string) => {
-    const response = await chatSessions.create('chat', recipeId);
+  const createSession = async (recipeId?: string, initialMessage?: string) => {
+    const response = await chatSessions.create('chat', recipeId, initialMessage);
     if (response.error) {
       throw new Error(response.error);
     }

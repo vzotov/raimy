@@ -159,6 +159,31 @@ async def unshare_recipe(recipe_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=500, detail=f"Failed to unshare recipe: {str(e)}")
 
 
+@router.post("/{recipe_id}/link-session")
+async def link_session_to_recipe(
+    recipe_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user_with_storage)
+):
+    """Link a new chat session to a recipe that has no originating session"""
+    try:
+        recipe = await database_service.get_recipe_by_id(recipe_id)
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        if recipe["user_id"] != current_user["email"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        session_id = body.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id required")
+        await database_service.update_recipe_session_id(recipe_id, session_id)
+        return {"message": "Session linked"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error linking session to recipe {recipe_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to link session: {str(e)}")
+
+
 @router.delete("/{recipe_id}")
 async def delete_recipe(recipe_id: str, current_user: dict = Depends(get_current_user_with_storage)):
     """Delete a recipe by ID"""

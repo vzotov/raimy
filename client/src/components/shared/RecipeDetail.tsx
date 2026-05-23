@@ -44,6 +44,7 @@ export default function RecipeDetail({
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(recipe.share_token ?? null);
+  const [isCreatingEditSession, setIsCreatingEditSession] = useState(false);
 
   useEffect(() => {
     if (mode === 'shared' && recipe.id && user?.email === recipe.user_id) {
@@ -57,6 +58,7 @@ export default function RecipeDetail({
       setError(null);
       const session = await createSession(recipe.id);
       if (session) {
+        setIsCreating(false);
         router.push(`/chat/${session.id}`);
       }
     } catch (err) {
@@ -66,9 +68,24 @@ export default function RecipeDetail({
     }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (recipe.chat_session_id) {
       router.push(`/chat/${recipe.chat_session_id}`);
+      return;
+    }
+    try {
+      setIsCreatingEditSession(true);
+      setError(null);
+      const session = await createSession(recipe.id, "I'd like to edit this recipe.");
+      if (session) {
+        await recipes.linkSession(recipe.id, session.id);
+        setIsCreatingEditSession(false);
+        router.push(`/chat/${session.id}`);
+      }
+    } catch (err) {
+      console.error('Error creating edit session:', err);
+      setError('Failed to open recipe in chat. Please try again.');
+      setIsCreatingEditSession(false);
     }
   };
 
@@ -244,15 +261,23 @@ export default function RecipeDetail({
                 {shareToken ? 'Shared' : 'Share'}
               </button>
 
-              {recipe.chat_session_id && (
-                <button
-                  onClick={handleEdit}
-                  className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer"
-                >
-                  <EditIcon className="w-5 h-5" />
-                  Edit in Chat
-                </button>
-              )}
+              <button
+                onClick={handleEdit}
+                disabled={isCreatingEditSession}
+                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCreatingEditSession ? (
+                  <>
+                    <HourglassIcon className="animate-spin w-5 h-5" />
+                    Opening...
+                  </>
+                ) : (
+                  <>
+                    <EditIcon className="w-5 h-5" />
+                    Edit in Chat
+                  </>
+                )}
+              </button>
 
               <button
                 onClick={handleDelete}

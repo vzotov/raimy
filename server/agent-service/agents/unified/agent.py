@@ -19,6 +19,7 @@ from .prompt import (
     ANALYZE_INTENT_PROMPT,
     ANSWER_QUESTION_PROMPT,
     COOKING_COMPLETE_PROMPT,
+    EDIT_SUGGESTIONS_PROMPT,
     GENERAL_RESPONSE_PROMPT,
     GENERATE_STEP_GUIDANCE_PROMPT,
     GREETING_PROMPT,
@@ -31,7 +32,7 @@ from .prompt import (
     TIMER_CONFIRMATION_PROMPT,
     TIMER_QUESTION_PROMPT,
 )
-from .schemas import RecipeReadySchema, UnifiedIntentSchema, UnifiedStepGuidanceSchema
+from .schemas import EditSuggestionsSchema, RecipeReadySchema, UnifiedIntentSchema, UnifiedStepGuidanceSchema
 from ..base import AgentEvent, BaseAgent
 from ..recipe_creator.agent import RecipeCreatorAgent
 
@@ -242,9 +243,12 @@ class UnifiedAgent(BaseAgent):
         message_history: List[Dict],
         session_id: str,
         session_data: Dict[str, Any],
+        preserve_recipe: bool = False,
     ) -> AsyncGenerator[UnifiedEvent, None]:
         """Delegate to RecipeCreatorAgent and emit proactive selector on completion"""
-        session_data_for_recipe = {**session_data, "recipe": None}
+        # For new recipes, clear existing recipe so agent starts fresh.
+        # For modifications, keep it so RecipeCreatorAgent can modify the existing recipe.
+        session_data_for_recipe = session_data if preserve_recipe else {**session_data, "recipe": None}
         accumulated_recipe: Dict[str, Any] = {}
 
         async for event in self.recipe_creator.run_streaming(
@@ -576,6 +580,56 @@ class UnifiedAgent(BaseAgent):
         response = await self.llm.ainvoke(prompt)
         yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
 
+    _VAGUE_EDIT_WORDS = frozenset([
+        # generic edit verbs
+        "edit", "update", "change", "modify", "adjust", "fix", "revise",
+        "alter", "tweak", "improve", "rework",
+        # generic objects
+        "this", "the", "a", "an", "it", "my", "recipe", "dish", "meal",
+        # filler / intent words
+        "i", "want", "like", "would", "could", "can", "please", "help",
+        "to", "some", "make", "something", "bit", "little", "few",
+        "changes", "thing", "things", "bit",
+    ])
+
+    def _is_vague_modification(self, modification: str) -> bool:
+        """Return True when modification contains no specific actionable content."""
+        if not modification:
+            return True
+        words = frozenset(modification.lower().split())
+        return not (words - self._VAGUE_EDIT_WORDS)
+
+    async def _handle_edit_suggestions(
+        self,
+        session_id: str,
+        session_data: Dict[str, Any],
+    ) -> AsyncGenerator[UnifiedEvent, None]:
+        """Emit a personalized selector when user wants to edit but hasn't specified what"""
+        recipe = session_data.get("recipe") or {}
+        language = session_data.get("user_language", "English")
+
+        tags = recipe.get("tags") or []
+        prompt = EDIT_SUGGESTIONS_PROMPT.format(
+            recipe_name=recipe.get("name", "this recipe"),
+            servings=recipe.get("servings", "?"),
+            difficulty=recipe.get("difficulty", "?"),
+            total_time_minutes=recipe.get("total_time_minutes", "?"),
+            tags=", ".join(tags) if tags else "none",
+            ingredients_list=self._format_ingredients_list(recipe),
+            user_memory=session_data.get("user_memory") or "(No user profile available)",
+            language=language,
+        )
+
+        llm_with_output = self.llm.with_structured_output(EditSuggestionsSchema)
+        result: EditSuggestionsSchema = await llm_with_output.ainvoke(prompt)
+
+        message_id = f"edit-{session_id}-{uuid.uuid4().hex[:8]}"
+        yield UnifiedEvent(type="selector", data={
+            "message": result.message,
+            "options": [opt.model_dump() for opt in result.options],
+            "message_id": message_id,
+        })
+
     async def _handle_general_chat(
         self,
         message: str,
@@ -637,7 +691,19 @@ class UnifiedAgent(BaseAgent):
         intent_result = await self._analyze_intent(message, langchain_messages, session_data)
         intent = intent_result.intent
 
-        if intent in ("create_recipe", "modify_recipe"):
+        if intent == "modify_recipe" and session_data.get("recipe"):
+            modification = (intent_result.modification_request or "").strip()
+            vague = self._is_vague_modification(modification)
+            if vague:
+                async for event in self._handle_edit_suggestions(session_id, session_data):
+                    yield event
+            else:
+                async for event in self._handle_recipe_creation(
+                    modification, message_history, session_id, session_data, preserve_recipe=True
+                ):
+                    yield event
+
+        elif intent in ("create_recipe", "modify_recipe"):
             request = (
                 intent_result.recipe_request
                 or intent_result.modification_request

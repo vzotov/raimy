@@ -71,14 +71,16 @@ export default function ChatMenuSection({ onMenuClose }: ChatMenuSectionProps) {
             + New Chat
           </button>
 
-          <SessionList
-            sessions={sessions}
-            currentPath={pathname}
-            sessionType="chat"
-            onUpdateSessionName={updateSessionName}
-            onDelete={handleDelete}
-            onSessionClick={handleSessionClick}
-          />
+          <div className="overflow-y-auto max-h-[calc(100dvh-22rem)]">
+            <SessionList
+              sessions={sessions}
+              currentPath={pathname}
+              sessionType="chat"
+              onUpdateSessionName={updateSessionName}
+              onDelete={handleDelete}
+              onSessionClick={handleSessionClick}
+            />
+          </div>
         </div>
       )}
 

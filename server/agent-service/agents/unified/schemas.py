@@ -57,6 +57,17 @@ class UnifiedIntentSchema(BaseModel):
     )
 
 
+class EditSuggestionOption(BaseModel):
+    text: str = Field(description="Short action label shown on the button (2-5 words)")
+    description: str = Field(description="One short sentence describing what will change")
+
+
+class EditSuggestionsSchema(BaseModel):
+    """Personalized edit suggestions when user wants to edit but hasn't specified what"""
+    message: str = Field(description="1 sentence acknowledging you can help edit, inviting them to pick a direction")
+    options: list[EditSuggestionOption] = Field(description="4-5 personalized edit suggestions based on recipe and user profile")
+
+
 class RecipeReadyOption(BaseModel):
     text: str = Field(description="Short action label shown on the button (2-4 words)")
     description: str = Field(description="One short sentence describing the option")

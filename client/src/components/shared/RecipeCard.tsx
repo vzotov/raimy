@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
+import EditIcon from '@/components/icons/EditIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
@@ -20,6 +21,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
   const router = useRouter();
   const { createSession } = useChatSessions();
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingEditSession, setIsCreatingEditSession] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -35,6 +37,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
       setError(null);
       const session = await createSession(recipe.id);
       if (session) {
+        setIsCreating(false);
         router.push(`/chat/${session.id}`);
       }
     } catch (err) {
@@ -48,6 +51,29 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
     e.preventDefault();
     e.stopPropagation();
     setShowDeleteConfirm(true);
+  };
+
+  const handleEdit = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (recipe.chat_session_id) {
+      router.push(`/chat/${recipe.chat_session_id}`);
+      return;
+    }
+    try {
+      setIsCreatingEditSession(true);
+      setError(null);
+      const session = await createSession(recipe.id, "I'd like to edit this recipe.");
+      if (session) {
+        await recipes.linkSession(recipe.id, session.id);
+        setIsCreatingEditSession(false);
+        router.push(`/chat/${session.id}`);
+      }
+    } catch (err) {
+      console.error('Error creating edit session:', err);
+      setError('Failed to open recipe in chat. Please try again.');
+      setIsCreatingEditSession(false);
+    }
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -129,6 +155,18 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                 {isCreating
                   ? <HourglassIcon className="animate-spin w-5 h-5" />
                   : <ChefHatIcon className="w-5 h-5" />
+                }
+              </button>
+
+              <button
+                onClick={handleEdit}
+                disabled={isCreatingEditSession}
+                title="Edit in Chat"
+                className="px-4 py-2 bg-surface hover:bg-surface/70 text-text/50 hover:text-text border border-text/10 font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCreatingEditSession
+                  ? <HourglassIcon className="animate-spin w-5 h-5" />
+                  : <EditIcon className="w-5 h-5" />
                 }
               </button>
 

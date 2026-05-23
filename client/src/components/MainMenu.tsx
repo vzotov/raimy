@@ -28,7 +28,7 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
         )}
       >
         {/* Header with Logo and Close button */}
-        <div className="flex-shrink-0 px-6 py-6 border-b border-accent/20">
+        <div className="flex-shrink-0 px-6 py-6">
           <div className="flex items-center justify-between">
             <div onClick={onClose}>
               <Logo size="md" />
@@ -44,14 +44,13 @@ export default function MainMenu({ isOpen, onClose }: MainMenuProps) {
           </div>
         </div>
 
-        {/* Navigation Links - Scrollable middle section */}
-        <div className="flex-1 overflow-y-auto py-6 min-h-0 overscroll-contain">
-          <div className="px-3 space-y-2">
+        {/* Nav list — scrollable, takes remaining space */}
+        <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain">
+          <div className="px-3">
             <ChatMenuSection onMenuClose={onClose} />
-
             <Link
               href="/myrecipes"
-              className="block px-4 py-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
+              className="block px-4 py-2 mt-2 text-base font-medium text-text hover:text-primary hover:bg-accent/30 rounded-lg transition-colors duration-150"
               onClick={onClose}
             >
               My Recipes

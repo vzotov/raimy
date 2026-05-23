@@ -1,6 +1,7 @@
 'use client';
 
 import classNames from 'classnames';
+import { forwardRef } from 'react';
 import type { ChatSession } from '@/types/chat-session';
 import SessionItemDisplayMode from './SessionItemDisplayMode';
 import SessionItemEditMode from './SessionItemEditMode';
@@ -18,7 +19,7 @@ interface SessionItemProps {
   onClick: () => void;
 }
 
-export default function SessionItem({
+const SessionItem = forwardRef<HTMLDivElement, SessionItemProps>(function SessionItem({
   session,
   isActive,
   isEditing,
@@ -29,9 +30,10 @@ export default function SessionItem({
   onCancelEdit,
   onDelete,
   onClick,
-}: SessionItemProps) {
+}, ref) {
   return (
     <div
+      ref={ref}
       key={session.id}
       className={classNames('group relative rounded-lg transition-colors', {
         'bg-accent/30': isActive,
@@ -55,4 +57,6 @@ export default function SessionItem({
       )}
     </div>
   );
-}
+});
+
+export default SessionItem;

@@ -260,7 +260,7 @@ After each recipe save, `MemoryAgent` is triggered asynchronously. It reads the 
 | raimy-api | local Dockerfile | Main API |
 | agent-service | server/agent-service/Dockerfile | Agent service |
 | auth-service | server/auth-service/Dockerfile | Auth service |
-| postgres | pgvector/pgvector:pg15 (dev) / postgres:15-alpine (prod) | Database; dev image includes pgvector extension |
+| postgres | pgvector/pgvector:pg15 | Database with pgvector extension (required for migration 008) |
 | redis | redis:7-alpine | Pub/sub + session cache |
 | pgadmin | dpage/pgadmin4 | DB admin UI (port 8080) |
 

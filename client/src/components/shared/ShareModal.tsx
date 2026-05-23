@@ -140,7 +140,7 @@ export default function ShareModal({
                 <button
                   onClick={() =>
                     openSocial(
-                      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+                      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(`Check out this recipe: ${recipeName}`)}`,
                     )
                   }
                   title="Share on Facebook"

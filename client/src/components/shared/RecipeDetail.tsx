@@ -10,7 +10,9 @@ import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import IngredientList from '@/components/shared/IngredientList';
+import ActionMenu from '@/components/shared/ActionMenu';
 import InstacartButton from '@/components/shared/InstacartButton';
+import InstacartCarrotIcon from '@/components/icons/InstacartCarrotIcon';
 import NutritionSection from '@/components/shared/NutritionSection';
 import ShareModal from '@/components/shared/ShareModal';
 import StepList from '@/components/shared/StepList';
@@ -200,7 +202,7 @@ export default function RecipeDetail({
         <div className="mb-8 px-4 sm:px-6 lg:px-8">
           <h2 className="text-xl font-semibold text-text mb-4">Ingredients</h2>
           <IngredientList ingredients={recipe.ingredients} />
-          {config.instacart_enabled && (
+          {config.instacart_enabled && isAuthenticated && (
             <div className="mt-4">
               <InstacartButton
                 onClick={handleOrderIngredients}
@@ -230,11 +232,12 @@ export default function RecipeDetail({
           )}
 
           {mode === 'owner' ? (
-            <div className="flex flex-row gap-2 sm:gap-3 items-stretch sm:justify-center">
+            <div className="flex flex-row gap-2 sm:gap-3 items-center sm:justify-center">
+              {/* Start Cooking — always visible */}
               <button
                 onClick={handleSendToKitchen}
                 disabled={isCreating}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {isCreating ? (
                   <>
@@ -249,56 +252,138 @@ export default function RecipeDetail({
                 )}
               </button>
 
+              {/* Desktop: individual labeled buttons */}
               <button
                 onClick={() => setShowShareModal(true)}
                 title="Share"
-                className="px-3 sm:px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer"
+                className="hidden sm:flex px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors items-center justify-center gap-2 border border-text/10 cursor-pointer whitespace-nowrap"
               >
                 <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                   <polyline points="16 6 12 2 8 6" />
                   <line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
-                <span className="hidden sm:inline">{shareToken ? 'Shared' : 'Share'}</span>
+                {shareToken ? 'Shared' : 'Share'}
               </button>
 
               <button
                 onClick={handleEdit}
                 disabled={isCreatingEditSession}
                 title="Edit in Chat"
-                className="px-3 sm:px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="hidden sm:flex px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {isCreatingEditSession ? (
                   <>
                     <HourglassIcon className="animate-spin w-5 h-5" />
-                    <span className="hidden sm:inline">Opening...</span>
+                    Opening...
                   </>
                 ) : (
                   <>
                     <EditIcon className="w-5 h-5" />
-                    <span className="hidden sm:inline">Edit in Chat</span>
+                    Edit
                   </>
                 )}
               </button>
+
+              {config.instacart_enabled && (
+                <button
+                  onClick={handleOrderIngredients}
+                  disabled={isOrderingIngredients || !recipe.ingredients?.length}
+                  title="Get Recipe Ingredients"
+                  className="hidden sm:flex px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isOrderingIngredients ? (
+                    <>
+                      <HourglassIcon className="animate-spin w-5 h-5" />
+                      Opening...
+                    </>
+                  ) : (
+                    <>
+                      <InstacartCarrotIcon className="w-5 h-5" />
+                      Get Ingredients
+                    </>
+                  )}
+                </button>
+              )}
 
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
                 title="Delete Recipe"
-                className="px-3 sm:px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                className="hidden sm:flex px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
               >
                 {isDeleting ? (
                   <>
                     <HourglassIcon className="animate-spin w-5 h-5" />
-                    <span className="hidden sm:inline">Deleting...</span>
+                    Deleting...
                   </>
                 ) : (
                   <>
                     <TrashIcon className="w-5 h-5" />
-                    <span className="hidden sm:inline">Delete Recipe</span>
+                    Delete
                   </>
                 )}
               </button>
+
+              {/* Mobile: ⋯ dropdown via Radix */}
+              <div className="sm:hidden">
+                <ActionMenu
+                  side="top"
+                  align="end"
+                  sections={[
+                    [
+                      {
+                        label: shareToken ? 'Shared' : 'Share',
+                        icon: (
+                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                            <polyline points="16 6 12 2 8 6" />
+                            <line x1="12" y1="2" x2="12" y2="15" />
+                          </svg>
+                        ),
+                        onClick: () => setShowShareModal(true),
+                      },
+                      {
+                        label: isCreatingEditSession ? 'Opening...' : 'Edit in Chat',
+                        icon: isCreatingEditSession
+                          ? <HourglassIcon className="w-4 h-4 animate-spin" />
+                          : <EditIcon className="w-4 h-4" />,
+                        onClick: handleEdit,
+                        disabled: isCreatingEditSession,
+                      },
+                      ...(config.instacart_enabled ? [{
+                        label: isOrderingIngredients ? 'Opening...' : 'Get Ingredients',
+                        icon: isOrderingIngredients
+                          ? <HourglassIcon className="w-4 h-4 animate-spin" />
+                          : <InstacartCarrotIcon className="w-4 h-4" />,
+                        onClick: handleOrderIngredients,
+                        disabled: isOrderingIngredients || !recipe.ingredients?.length,
+                      }] : []),
+                    ],
+                    [
+                      {
+                        label: isDeleting ? 'Deleting...' : 'Delete Recipe',
+                        icon: isDeleting
+                          ? <HourglassIcon className="w-4 h-4 animate-spin" />
+                          : <TrashIcon className="w-4 h-4" />,
+                        onClick: handleDelete,
+                        disabled: isDeleting,
+                        destructive: true,
+                      },
+                    ],
+                  ]}
+                  trigger={
+                    <button
+                      className="px-3 py-3 bg-surface hover:bg-surface/70 text-text rounded-lg border border-text/10 transition-colors flex items-center justify-center cursor-pointer"
+                      aria-label="More actions"
+                    >
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden>
+                        <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+                      </svg>
+                    </button>
+                  }
+                />
+              </div>
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-center">

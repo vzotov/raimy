@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import SaveIcon from '@/components/icons/SaveIcon';
@@ -191,31 +192,46 @@ export default function RecipeDocument({
               </button>
             </div>
           )}
-          <button
-            onClick={onSave}
-            disabled={!isRecipeChanged || isSaving}
-            className="w-full px-4 py-3 bg-primary hover:bg-primary/90
-                       disabled:bg-primary/50 disabled:cursor-not-allowed
-                       text-white font-medium rounded-lg transition-colors
-                       flex items-center justify-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <HourglassIcon className="animate-spin w-5 h-5" />
-                Saving...
-              </>
-            ) : isRecipeChanged ? (
-              <>
-                <SaveIcon className="w-5 h-5" />
-                Save Recipe
-              </>
-            ) : (
-              <>
-                <SaveIcon className="w-5 h-5" />
-                Saved
-              </>
+          <div className="flex gap-2">
+            <button
+              onClick={onSave}
+              disabled={!isRecipeChanged || isSaving}
+              className="flex-1 px-4 py-3 bg-primary hover:bg-primary/90
+                         disabled:bg-primary/50 disabled:cursor-not-allowed
+                         text-white font-medium rounded-lg transition-colors
+                         flex items-center justify-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <HourglassIcon className="animate-spin w-5 h-5" />
+                  Saving...
+                </>
+              ) : isRecipeChanged ? (
+                <>
+                  <SaveIcon className="w-5 h-5" />
+                  Save Recipe
+                </>
+              ) : (
+                <>
+                  <SaveIcon className="w-5 h-5" />
+                  Saved
+                </>
+              )}
+            </button>
+            {recipe?.id && (
+              <Link
+                href={`/recipe/${recipe.id}`}
+                title="Open in My Recipes"
+                className="px-3 py-3 bg-surface hover:bg-surface/70 text-text rounded-lg border border-text/10 transition-colors flex items-center justify-center"
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </Link>
             )}
-          </button>
+          </div>
         </div>
       )}
     </div>

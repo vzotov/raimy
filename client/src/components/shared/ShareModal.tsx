@@ -179,6 +179,19 @@ export default function ShareModal({
                 <button
                   onClick={() =>
                     openSocial(
+                      `fb-messenger://share?link=${encodeURIComponent(shareUrl)}`,
+                    )
+                  }
+                  title="Share on Messenger"
+                  className="flex-1 flex items-center justify-center py-2.5 border border-text/15 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer text-text/70"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden>
+                    <path d="M12 0C5.374 0 0 4.975 0 11.111c0 3.498 1.744 6.614 4.469 8.652V24l4.088-2.242c1.092.3 2.246.464 3.443.464 6.626 0 12-4.975 12-11.111S18.626 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() =>
+                    openSocial(
                       `https://www.instagram.com/`,
                     )
                   }

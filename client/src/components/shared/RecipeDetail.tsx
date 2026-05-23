@@ -230,11 +230,11 @@ export default function RecipeDetail({
           )}
 
           {mode === 'owner' ? (
-            <div className="flex flex-col sm:flex-row gap-3 sm:justify-center">
+            <div className="flex flex-row gap-2 sm:gap-3 items-stretch sm:justify-center">
               <button
                 onClick={handleSendToKitchen}
                 disabled={isCreating}
-                className="sm:w-auto px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
                 {isCreating ? (
                   <>
@@ -251,30 +251,32 @@ export default function RecipeDetail({
 
               <button
                 onClick={() => setShowShareModal(true)}
-                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer"
+                title="Share"
+                className="px-3 sm:px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer"
               >
                 <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                   <polyline points="16 6 12 2 8 6" />
                   <line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
-                {shareToken ? 'Shared' : 'Share'}
+                <span className="hidden sm:inline">{shareToken ? 'Shared' : 'Share'}</span>
               </button>
 
               <button
                 onClick={handleEdit}
                 disabled={isCreatingEditSession}
-                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Edit in Chat"
+                className="px-3 sm:px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCreatingEditSession ? (
                   <>
                     <HourglassIcon className="animate-spin w-5 h-5" />
-                    Opening...
+                    <span className="hidden sm:inline">Opening...</span>
                   </>
                 ) : (
                   <>
                     <EditIcon className="w-5 h-5" />
-                    Edit in Chat
+                    <span className="hidden sm:inline">Edit in Chat</span>
                   </>
                 )}
               </button>
@@ -282,17 +284,18 @@ export default function RecipeDetail({
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                title="Delete Recipe"
+                className="px-3 sm:px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isDeleting ? (
                   <>
                     <HourglassIcon className="animate-spin w-5 h-5" />
-                    Deleting...
+                    <span className="hidden sm:inline">Deleting...</span>
                   </>
                 ) : (
                   <>
                     <TrashIcon className="w-5 h-5" />
-                    Delete Recipe
+                    <span className="hidden sm:inline">Delete Recipe</span>
                   </>
                 )}
               </button>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import ClockIcon from '@/components/icons/ClockIcon';
 import EditIcon from '@/components/icons/EditIcon';
@@ -12,7 +12,9 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import IngredientList from '@/components/shared/IngredientList';
 import InstacartButton from '@/components/shared/InstacartButton';
 import NutritionSection from '@/components/shared/NutritionSection';
+import ShareModal from '@/components/shared/ShareModal';
 import StepList from '@/components/shared/StepList';
+import { useAuth } from '@/hooks/useAuth';
 import { useChatSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import { useConfig } from '@/providers/ConfigProvider';
@@ -20,17 +22,34 @@ import type { Recipe } from '@/types/recipe';
 
 interface RecipeDetailProps {
   recipe: Recipe;
+  mode?: 'owner' | 'shared';
+  onAddToMyRecipes?: () => void;
+  isAddingToMyRecipes?: boolean;
 }
 
-export default function RecipeDetail({ recipe }: RecipeDetailProps) {
+export default function RecipeDetail({
+  recipe,
+  mode = 'owner',
+  onAddToMyRecipes,
+  isAddingToMyRecipes = false,
+}: RecipeDetailProps) {
   const router = useRouter();
-  const { createSession } = useChatSessions();
+  const { createSession } = useChatSessions({ enabled: mode === 'owner' });
   const config = useConfig();
+  const { isAuthenticated, user, login } = useAuth();
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isOrderingIngredients, setIsOrderingIngredients] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(recipe.share_token ?? null);
+
+  useEffect(() => {
+    if (mode === 'shared' && recipe.id && user?.email === recipe.user_id) {
+      router.replace(`/recipe/${recipe.id}`);
+    }
+  }, [mode, recipe.id, recipe.user_id, user?.email, router]);
 
   const handleSendToKitchen = async () => {
     try {
@@ -192,55 +211,108 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
               {error}
             </div>
           )}
-          <div className="flex flex-col sm:flex-row gap-3 sm:justify-center">
-            <button
-              onClick={handleSendToKitchen}
-              disabled={isCreating}
-              className="sm:w-auto px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-            >
-              {isCreating ? (
-                <>
-                  <HourglassIcon className="animate-spin w-5 h-5" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  <ChefHatIcon className="w-5 h-5" />
-                  Send to Kitchen
-                </>
-              )}
-            </button>
 
-            {recipe.chat_session_id && (
+          {mode === 'owner' ? (
+            <div className="flex flex-col sm:flex-row gap-3 sm:justify-center">
               <button
-                onClick={handleEdit}
+                onClick={handleSendToKitchen}
+                disabled={isCreating}
+                className="sm:w-auto px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+              >
+                {isCreating ? (
+                  <>
+                    <HourglassIcon className="animate-spin w-5 h-5" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <ChefHatIcon className="w-5 h-5" />
+                    Start Cooking
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowShareModal(true)}
                 className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer"
               >
-                <EditIcon className="w-5 h-5" />
-                Edit in Creator
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+                {shareToken ? 'Shared' : 'Share'}
               </button>
-            )}
 
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isDeleting ? (
-                <>
-                  <HourglassIcon className="animate-spin w-5 h-5" />
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <TrashIcon className="w-5 h-5" />
-                  Delete Recipe
-                </>
+              {recipe.chat_session_id && (
+                <button
+                  onClick={handleEdit}
+                  className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer"
+                >
+                  <EditIcon className="w-5 h-5" />
+                  Edit in Chat
+                </button>
               )}
-            </button>
-          </div>
+
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="sm:w-auto px-6 py-3 bg-surface hover:bg-surface/70 text-text font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-text/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <HourglassIcon className="animate-spin w-5 h-5" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon className="w-5 h-5" />
+                    Delete Recipe
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-3 sm:justify-center">
+              {!isAuthenticated ? (
+                <button
+                  onClick={() => login(window.location.pathname)}
+                  className="sm:w-auto px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Sign in to save this recipe
+                </button>
+              ) : user?.email !== recipe.user_id ? (
+                <button
+                  onClick={onAddToMyRecipes}
+                  disabled={isAddingToMyRecipes}
+                  className="sm:w-auto px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isAddingToMyRecipes ? (
+                    <>
+                      <HourglassIcon className="animate-spin w-5 h-5" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add to My Recipes'
+                  )}
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
+
+      {mode === 'owner' && (
+        <ShareModal
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          recipeId={recipe.id}
+          recipeName={recipe.name}
+          shareToken={shareToken}
+          onShared={(token) => setShareToken(token)}
+          onUnshared={() => setShareToken(null)}
+        />
+      )}
 
       {/* Metadata */}
       {recipe.created_at && (

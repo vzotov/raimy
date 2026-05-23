@@ -48,6 +48,7 @@ class RecipeModel(BaseModel):
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None
     chat_session_id: Optional[str] = None
+    share_token: Optional[str] = None
 
 class DatabaseService:
     def __init__(self):
@@ -223,6 +224,7 @@ class DatabaseService:
                     "user_id": recipe.user_id,
                     "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
                     "instacart_link_url": recipe.instacart_link_url,
+                    "share_token": recipe.share_token,
                     "created_at": recipe.created_at,
                     "updated_at": recipe.updated_at,
                 }
@@ -579,6 +581,61 @@ class DatabaseService:
                 await db.rollback()
                 logger.error(f"Error deleting recipe {recipe_id}: {e}", exc_info=True)
                 return False
+
+    async def set_recipe_share_token(self, recipe_id: str, share_token: Optional[str]) -> bool:
+        """Set or clear the share token for a recipe"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(Recipe).where(Recipe.id == recipe_id)
+                )
+                recipe = result.scalar_one_or_none()
+
+                if not recipe:
+                    return False
+
+                recipe.share_token = share_token
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error updating share token for recipe {recipe_id}: {e}", exc_info=True)
+                return False
+
+    async def get_recipe_by_share_token(self, share_token: str) -> Optional[Dict[str, Any]]:
+        """Get a recipe by its public share token"""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(Recipe).where(Recipe.share_token == share_token)
+                )
+                recipe = result.scalar_one_or_none()
+
+                if not recipe:
+                    return None
+
+                return {
+                    "id": str(recipe.id),
+                    "name": recipe.name,
+                    "description": recipe.description,
+                    "ingredients": recipe.ingredients,
+                    "steps": recipe.steps,
+                    "total_time_minutes": recipe.total_time_minutes,
+                    "difficulty": recipe.difficulty,
+                    "servings": recipe.servings,
+                    "tags": recipe.tags,
+                    "nutrition": recipe.nutrition,
+                    "user_id": recipe.user_id,
+                    "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
+                    "share_token": recipe.share_token,
+                    "created_at": recipe.created_at,
+                    "updated_at": recipe.updated_at,
+                }
+
+            except Exception as e:
+                logger.error(f"Error getting recipe by share token: {e}", exc_info=True)
+                return None
 
     async def save_or_update_ingredients(
         self,

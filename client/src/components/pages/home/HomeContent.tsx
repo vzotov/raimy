@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { mutate } from 'swr';
 import useSWR from 'swr';
@@ -55,6 +55,16 @@ export default function HomeContent() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const chatInputRef = useRef<ChatInputHandle>(null);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      const redirect = sessionStorage.getItem('post_login_redirect');
+      if (redirect?.startsWith('/')) {
+        sessionStorage.removeItem('post_login_redirect');
+        router.push(redirect);
+      }
+    }
+  }, [authLoading, user, router]);
 
   if (authLoading) {
     return <LoadingScreen />;

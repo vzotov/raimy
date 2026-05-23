@@ -32,7 +32,7 @@ export default function AuthButton() {
         'px-4 py-2 rounded text-white transition',
         'bg-primary hover:bg-primary-hover',
       )}
-      onClick={login}
+      onClick={() => login()}
     >
       Sign in with Google
     </button>

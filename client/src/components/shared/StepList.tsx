@@ -25,20 +25,20 @@ function StepItem({
 
   return (
     <li key={step.instruction} className="flex gap-3">
+      {step.image_url && (
+        <div className="flex-shrink-0 w-32 h-32 sm:w-48 sm:h-48 rounded-xl overflow-hidden">
+          <img
+            src={step.image_url}
+            alt={`Step ${displayNumber}`}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
       <span className="flex-shrink-0 w-6 h-6 bg-primary/20 text-primary text-sm font-medium rounded-full flex items-center justify-center">
         {displayNumber}
       </span>
       <div className="flex-1">
-        {step.image_url && (
-          <div className="mb-3 rounded-xl overflow-hidden">
-            <img
-              src={step.image_url}
-              alt={`Step ${displayNumber}`}
-              className="w-full h-auto object-cover"
-              loading="lazy"
-            />
-          </div>
-        )}
         <p className="text-text/80 leading-relaxed">{step.instruction}</p>
         {step.duration && (
           <p className="text-text/60 text-sm mt-1 flex items-center gap-1">

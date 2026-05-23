@@ -7,6 +7,7 @@ import ChefHatIcon from '@/components/icons/ChefHatIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import ShareModal from '@/components/shared/ShareModal';
 import { useChatSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
 import type { Recipe } from '@/types/recipe';
@@ -21,6 +22,8 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(recipe.share_token ?? null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSendToKitchen = async (e: React.MouseEvent) => {
@@ -45,6 +48,12 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
     e.preventDefault();
     e.stopPropagation();
     setShowDeleteConfirm(true);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowShareModal(true);
   };
 
   const confirmDelete = async () => {
@@ -114,26 +123,32 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
               <button
                 onClick={handleSendToKitchen}
                 disabled={isCreating}
-                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                title="Start Cooking"
+                className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
               >
-                {isCreating ? (
-                  <>
-                    <HourglassIcon className="animate-spin w-5 h-5" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <ChefHatIcon className="w-5 h-5" />
-                    Send to Kitchen
-                  </>
-                )}
+                {isCreating
+                  ? <HourglassIcon className="animate-spin w-5 h-5" />
+                  : <ChefHatIcon className="w-5 h-5" />
+                }
+              </button>
+
+              <button
+                onClick={handleShare}
+                title="Share recipe"
+                className="px-4 py-2 bg-surface hover:bg-surface/70 text-text/50 hover:text-text border border-text/10 font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
               </button>
 
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 bg-surface hover:bg-surface/70 text-text/50 hover:text-red-500 border border-text/10 font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 title="Delete recipe"
+                className="px-4 py-2 bg-surface hover:bg-surface/70 text-text/50 hover:text-red-500 border border-text/10 font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <TrashIcon className="w-5 h-5" />
               </button>
@@ -156,6 +171,16 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={confirmDelete}
+      />
+
+      <ShareModal
+        open={showShareModal}
+        onOpenChange={setShowShareModal}
+        recipeId={recipe.id}
+        recipeName={recipe.name}
+        shareToken={shareToken}
+        onShared={(token) => setShareToken(token)}
+        onUnshared={() => setShareToken(null)}
       />
     </>
   );

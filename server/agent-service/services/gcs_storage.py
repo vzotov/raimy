@@ -69,13 +69,11 @@ class GCSStorage:
         # Skip upload if already exists (same description = same hash = same file)
         if blob.exists():
             logger.info(f"GCS: File already exists: {filename}")
-            blob.make_public()
             return blob.public_url
 
         optimized_bytes = self._optimize_image(image_bytes, quality)
 
         blob.upload_from_string(optimized_bytes, content_type="image/jpeg")
-        blob.make_public()
 
         logger.info(f"GCS: Uploaded {filename} ({len(optimized_bytes)} bytes)")
         return blob.public_url

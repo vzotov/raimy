@@ -123,6 +123,14 @@ export const recipes = {
     post<{ products_link_url: string }>(
       `/api/recipes/${recipeId}/instacart-link`,
     ),
+  share: (recipeId: string) =>
+    post<{ share_token: string }>(`/api/recipes/${recipeId}/share`),
+  unshare: (recipeId: string) =>
+    del<{ message: string }>(`/api/recipes/${recipeId}/share`),
+  getShared: (token: string) =>
+    get<{ recipe: Recipe }>(`/api/recipes/shared/${token}`),
+  addSharedToMyRecipes: (token: string) =>
+    post<{ message: string; recipe_id: string }>(`/api/recipes/shared/${token}/add`),
 };
 
 export const config = {

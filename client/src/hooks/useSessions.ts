@@ -9,8 +9,8 @@ export const SESSIONS_KEYS = {
 /**
  * Hook for managing unified chat sessions
  */
-export function useChatSessions() {
-  const swrKey = SESSIONS_KEYS.chat;
+export function useChatSessions({ enabled = true }: { enabled?: boolean } = {}) {
+  const swrKey = enabled ? SESSIONS_KEYS.chat : null;
 
   const {
     data,

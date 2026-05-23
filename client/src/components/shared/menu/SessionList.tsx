@@ -51,7 +51,7 @@ export default function SessionList({
 
   return (
     <>
-      {sessions.slice(0, 10).map((session) => {
+      {sessions.map((session) => {
         const isActive = currentPath === `/${sessionType}/${session.id}`;
         const isEditing = editingSessionId === session.id;
 

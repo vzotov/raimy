@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 import os
+import uuid
 
 import httpx
 
@@ -46,6 +47,41 @@ router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
 
+@router.get("/shared/{share_token}")
+async def get_shared_recipe(share_token: str):
+    """Get a shared recipe by its public share token — no authentication required"""
+    recipe = await database_service.get_recipe_by_share_token(share_token)
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return {"recipe": recipe}
+
+
+@router.post("/shared/{share_token}/add")
+async def add_shared_recipe(share_token: str, current_user: dict = Depends(get_current_user_with_storage)):
+    """Clone a shared recipe into the current user's account"""
+    source = await database_service.get_recipe_by_share_token(share_token)
+    if not source:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    steps = [RecipeStepModel(**s) if isinstance(s, dict) else s for s in source.get("steps", [])]
+
+    recipe = RecipeModel(
+        name=source["name"],
+        description=source.get("description"),
+        ingredients=source.get("ingredients", []),
+        steps=steps,
+        total_time_minutes=source.get("total_time_minutes"),
+        difficulty=source.get("difficulty"),
+        servings=source.get("servings"),
+        tags=source.get("tags"),
+        nutrition=source.get("nutrition"),
+        user_id=current_user["email"],
+    )
+    recipe_id = await database_service.save_recipe(recipe)
+    logger.info(f"User {current_user['email']} added shared recipe {source['id']} as {recipe_id}")
+    return {"message": "Recipe added to your collection", "recipe_id": recipe_id}
+
+
 @router.get("/")
 async def get_recipes(current_user: dict = Depends(get_current_user_with_storage)):
     """Get recipes for the current user from PostgreSQL database"""
@@ -80,6 +116,47 @@ async def get_recipe(recipe_id: str, current_user: dict = Depends(get_current_us
     except Exception as e:
         logger.error(f"Error getting recipe {recipe_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get recipe: {str(e)}")
+
+
+@router.post("/{recipe_id}/share")
+async def share_recipe(recipe_id: str, current_user: dict = Depends(get_current_user_with_storage)):
+    """Enable sharing for a recipe — returns existing token if already shared"""
+    try:
+        recipe = await database_service.get_recipe_by_id(recipe_id)
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        if recipe["user_id"] != current_user["email"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        token = recipe.get("share_token") or str(uuid.uuid4())
+        if not recipe.get("share_token"):
+            await database_service.set_recipe_share_token(recipe_id, token)
+
+        return {"share_token": token}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sharing recipe {recipe_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to share recipe: {str(e)}")
+
+
+@router.delete("/{recipe_id}/share")
+async def unshare_recipe(recipe_id: str, current_user: dict = Depends(get_current_user_with_storage)):
+    """Disable sharing for a recipe"""
+    try:
+        recipe = await database_service.get_recipe_by_id(recipe_id)
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        if recipe["user_id"] != current_user["email"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        await database_service.set_recipe_share_token(recipe_id, None)
+        return {"message": "Sharing disabled"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unsharing recipe {recipe_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to unshare recipe: {str(e)}")
 
 
 @router.delete("/{recipe_id}")

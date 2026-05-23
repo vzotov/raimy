@@ -37,6 +37,7 @@ export interface Recipe {
   nutrition?: RecipeNutrition; // Nutrition data for full recipe
   user_id?: string; // Populated after save
   chat_session_id?: string;
+  share_token?: string; // Set when owner enables public sharing
   created_at?: string; // Populated after save
   updated_at?: string; // Populated after save
 }

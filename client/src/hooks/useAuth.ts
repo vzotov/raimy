@@ -29,8 +29,11 @@ export function useAuth() {
   const user = data?.authenticated ? data.user : null;
   const isAuthenticated = data?.authenticated || false;
 
-  const login = () => {
-    window.location.href = `/auth/google`;
+  const login = (redirectTo?: string) => {
+    if (redirectTo) {
+      sessionStorage.setItem('post_login_redirect', redirectTo);
+    }
+    window.location.href = '/auth/google';
   };
 
   const logout = async () => {

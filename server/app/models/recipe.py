@@ -17,6 +17,9 @@ class Recipe(Base, TimestampMixin):
     servings = Column(Integer)
     tags = Column(ARRAY(String), default=list)
 
+    # Public sharing token — set when owner enables sharing
+    share_token = Column(String(36), nullable=True, unique=True, index=True)
+
     # Instacart integration - cached shopping link
     instacart_link_url = Column(String(512), nullable=True)
 

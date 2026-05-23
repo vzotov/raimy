@@ -180,9 +180,9 @@ class FinalResponse(BaseModel):
 
     message: str = Field(description="Short acknowledgment of what was done")
     suggestions: List[SelectorOption] = Field(
-        description="4 suggested next actions as clickable options",
-        min_length=4,
-        max_length=4,
+        description="2 recipe-specific modification suggestions as clickable options",
+        min_length=2,
+        max_length=2,
     )
 
 

@@ -719,18 +719,7 @@ class RecipeCreatorAgent(BaseAgent):
             parts.append(f"Difficulty: {state['difficulty']}")
         if state.get("servings"):
             parts.append(f"Servings: {state['servings']}")
-        # Check if steps have images (only relevant when image gen is enabled)
-        image_gen_enabled = bool(os.getenv("IMAGE_GEN_ENABLED"))
-        if image_gen_enabled:
-            steps = state.get("steps") or []
-            has_images = any(s.get("image_url") for s in steps)
-            parts.append(f"Steps have images: {'yes' if has_images else 'no'}")
         recipe_summary = "\n".join(parts)
-
-        if image_gen_enabled:
-            generate_images_suggestion = '   - Include "Generate images" ONLY if the recipe summary says "Steps have images: no"'
-        else:
-            generate_images_suggestion = '   - Do NOT suggest "Generate images" — image generation is not available'
 
         prompt = FINAL_RESPONSE_PROMPT.format(
             action_description=action_description,
@@ -739,16 +728,19 @@ class RecipeCreatorAgent(BaseAgent):
             modification_context=modification_context,
             message_history=message_history,
             user_message=state["user_message"],
-            generate_images_suggestion=generate_images_suggestion,
             language=state.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(FinalResponse)
         response: FinalResponse = await llm_with_output.ainvoke(prompt)
 
+        fixed_options = [
+            {"text": "Start Cooking", "description": "Begin step-by-step cooking guidance"},
+            {"text": "Save Recipe", "description": "Save to my recipes"},
+        ]
         result = {
             "text_response": response.message,
-            "formatted_options": [opt.model_dump() for opt in response.suggestions],
+            "formatted_options": fixed_options + [opt.model_dump() for opt in response.suggestions],
             "response_type": "selector",
         }
         if modification:

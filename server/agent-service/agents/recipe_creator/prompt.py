@@ -270,10 +270,10 @@ Recipe: {recipe_name}
 
 Respond with:
 1. "message": 1 short sentence acknowledging what you did. No fluff, be direct and natural.
-2. "suggestions": exactly 4 short suggested next actions relevant to this recipe. Each suggestion has "text" (short action label, 2-4 words) shown as a clickable button.
-{generate_images_suggestion}
-   - Other suggestions should be specific to this recipe (e.g., dietary tweaks, serving adjustments, difficulty changes, ingredient swaps)
+2. "suggestions": exactly 2 recipe-specific modification suggestions. Each has "text" (short action label, 2-4 words) shown as a clickable button.
+   - Suggestions must be specific modifications to this recipe (e.g., dietary tweaks, serving adjustments, difficulty changes, ingredient swaps)
    - Keep them varied — don't suggest things that don't apply (e.g., don't suggest "make it vegetarian" if it's already vegetarian)
+   - Do NOT suggest "Start Cooking", "Save Recipe", or image generation — those are added separately
 
 Always respond in {language}."""
 

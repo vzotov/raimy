@@ -83,6 +83,7 @@ export function useUnifiedChatState({
             if (recipeRef.current && content.recipe_id) {
               setRecipe({ ...recipeRef.current, id: content.recipe_id });
             }
+            resetChangedFlag();
             return;
 
           case 'session_name':
@@ -108,9 +109,15 @@ export function useUnifiedChatState({
         const sys = wsMessage.content;
         if (sys.type === 'thinking') setAgentStatus(sys.message ?? null);
         else if (sys.type === 'connected' || sys.type === 'error') setAgentStatus(null);
+        else if (sys.type === 'recipe_saved' && sys.session_id === sessionId) {
+          if (recipeRef.current && sys.recipe_id) {
+            setRecipe({ ...recipeRef.current, id: sys.recipe_id });
+          }
+          resetChangedFlag();
+        }
       }
     },
-    [sessionId, applyRecipeUpdate, setRecipe],
+    [sessionId, applyRecipeUpdate, setRecipe, resetChangedFlag],
   );
 
   const addMessage = useCallback((content: string) => {

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import uuid
 from contextlib import asynccontextmanager
 from typing import List, Dict
 import os
@@ -392,21 +393,29 @@ async def websocket_chat_endpoint(
 
             match action:
                 case "save_recipe":
-                    # Immediate save to Recipe table (no debouncing)
                     try:
-                        logger.info(f"💾 Saving recipe to Recipe table")
                         result = await database_service.save_recipe_from_session_data(session_id)
-
-                        # Send success message
+                        recipe_name = result["recipe"]["name"]
+                        recipe_id = result["recipe_id"]
+                        message_id = f"saved-{uuid.uuid4().hex[:8]}"
+                        await websocket.send_json({
+                            "type": "agent_message",
+                            "content": {
+                                "type": "kitchen-step",
+                                "message": f'"{recipe_name}" is saved to your recipes.',
+                                "next_step_prompt": "Start cooking",
+                            },
+                            "message_id": message_id,
+                        })
                         await websocket.send_json({
                             "type": "system",
                             "content": {
                                 "type": "recipe_saved",
-                                "recipe_id": result["recipe_id"],
-                                "message": f"Recipe '{result['recipe']['name']}' saved successfully!"
-                            }
+                                "session_id": session_id,
+                                "recipe_id": recipe_id,
+                            },
                         })
-                        logger.info(f"✅ Recipe saved: {result['recipe_id']}")
+                        logger.info(f"✅ Recipe saved: {recipe_id}")
                     except Exception as e:
                         logger.error(f"❌ Failed to save recipe: {e}")
                         try:

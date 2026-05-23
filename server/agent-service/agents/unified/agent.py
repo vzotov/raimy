@@ -26,13 +26,11 @@ from .prompt import (
     GREETING_TIPS,
     GREETING_WITH_RECIPE_PROMPT,
     NO_RECIPE_PROMPT,
-    RECIPE_READY_PROMPT,
-    SAVE_RECIPE_PROMPT,
     SHOPPING_LIST_PROMPT,
     TIMER_CONFIRMATION_PROMPT,
     TIMER_QUESTION_PROMPT,
 )
-from .schemas import EditSuggestionsSchema, RecipeReadySchema, UnifiedIntentSchema, UnifiedStepGuidanceSchema
+from .schemas import EditSuggestionsSchema, UnifiedIntentSchema, UnifiedStepGuidanceSchema
 from ..base import AgentEvent, BaseAgent
 from ..recipe_creator.agent import RecipeCreatorAgent
 
@@ -275,7 +273,7 @@ class UnifiedAgent(BaseAgent):
             elif event.type == "complete":
                 pass  # We emit complete ourselves
             elif event.type == "selector":
-                pass  # We emit our own offer after recipe_created
+                yield UnifiedEvent(type="selector", data=event.data)
             else:
                 yield UnifiedEvent(type=event.type, data=event.data)
 
@@ -288,21 +286,6 @@ class UnifiedAgent(BaseAgent):
         if has_valid_recipe:
             yield UnifiedEvent(type="recipe_created", data=accumulated_recipe)
             logger.info(f"📝 Recipe created: {accumulated_recipe.get('name')}")
-
-            language = session_data.get("user_language", "English")
-            prompt = RECIPE_READY_PROMPT.format(
-                recipe_name=accumulated_recipe.get("name", "your recipe"),
-                language=language,
-            )
-            llm_with_output = self.llm.with_structured_output(RecipeReadySchema)
-            ready: RecipeReadySchema = await llm_with_output.ainvoke(prompt)
-
-            message_id = f"offer-{session_id}-{uuid.uuid4().hex[:8]}"
-            yield UnifiedEvent(type="selector", data={
-                "message": ready.message,
-                "options": [opt.model_dump() for opt in ready.options],
-                "message_id": message_id,
-            })
 
     async def _handle_step_action(
         self,
@@ -438,19 +421,17 @@ class UnifiedAgent(BaseAgent):
     ) -> AsyncGenerator[UnifiedEvent, None]:
         """Handle save_recipe intent"""
         recipe = session_data.get("recipe")
-        message_id = f"msg-{uuid.uuid4()}"
 
         if not recipe:
+            message_id = f"msg-{uuid.uuid4()}"
             yield UnifiedEvent(type="text", data={
                 "content": "No recipe to save yet. Create a recipe first!",
                 "message_id": message_id,
             })
             return
 
-        language = session_data.get("user_language", "English")
-        prompt = SAVE_RECIPE_PROMPT.format(recipe_name=recipe.get("name", "your recipe"), language=language)
-        response = await self.llm.ainvoke(prompt)
-        yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
+        recipe_name = recipe.get("name", "your recipe")
+        yield UnifiedEvent(type="thinking", data=f'Saving "{recipe_name}"…')
         yield UnifiedEvent(type="save_complete", data={"recipe": recipe})
 
     async def _handle_shopping_list(

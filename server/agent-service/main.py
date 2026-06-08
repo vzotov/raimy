@@ -603,7 +603,8 @@ Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}"""
                 user_memory=memory,
                 recent_sessions=recent,
                 time_of_day=request.time_of_day,
-            )
+            ),
+            config={"run_name": "RecipeSuggestions"},
         )
         suggestions = result.suggestions[:4]
         logger.info(f"💡 Generated {len(suggestions)} suggestions")

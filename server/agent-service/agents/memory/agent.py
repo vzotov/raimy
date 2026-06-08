@@ -95,7 +95,7 @@ class MemoryAgent:
         )
 
         try:
-            response = await self.llm.ainvoke(prompt)
+            response = await self.llm.ainvoke(prompt, config={"run_name": "MemoryExtraction"})
             updated_memory = response.content.strip()
 
             # Clean up markdown code block if LLM wrapped it

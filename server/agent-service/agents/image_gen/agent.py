@@ -108,7 +108,7 @@ class ImageGenAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(ImagePrompts)
-        result: ImagePrompts = await llm_with_output.ainvoke(prompt)
+        result: ImagePrompts = await llm_with_output.ainvoke(prompt, config={"run_name": "ImagePromptGeneration"})
 
         prompt_map = {sp.step_index: sp.prompt for sp in result.prompts}
         logger.info(f"🎨 Generated {len(prompt_map)} prompts in single LLM call")
@@ -201,7 +201,7 @@ class ImageGenAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(ImagePrompts)
-        result: ImagePrompts = await llm_with_output.ainvoke(prompt_text)
+        result: ImagePrompts = await llm_with_output.ainvoke(prompt_text, config={"run_name": "SingleStepImagePrompt"})
 
         if not result.prompts:
             logger.warning(f"🎨 Single step {step_index}: LLM returned no prompts")

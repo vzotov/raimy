@@ -161,7 +161,7 @@ class RecipeCreatorAgent(BaseAgent):
             tip=tip,
         )
 
-        response = await self.llm.ainvoke(prompt)
+        response = await self.llm.ainvoke(prompt, config={"run_name": "RecipeGreeting"})
         logger.info(f"👋 Generated recipe creator greeting (tip: {tip[:30]}...)")
         return response.content
 
@@ -314,7 +314,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(RequestAnalysis)
-        result: RequestAnalysis = await llm_with_output.ainvoke(prompt)
+        result: RequestAnalysis = await llm_with_output.ainvoke(prompt, config={"run_name": "RecipeIntentClassification"})
 
         logger.info(f"📊 Request analysis: intent={result.intent}, recipe_request={result.recipe_request}")
 
@@ -370,7 +370,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(DishSuggestions)
-        result: DishSuggestions = await llm_with_output.ainvoke(prompt)
+        result: DishSuggestions = await llm_with_output.ainvoke(prompt, config={"run_name": "DishSuggestion"})
 
         logger.info(f"💡 Generated {len(result.suggestions)} dish suggestions")
 
@@ -394,7 +394,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(QuestionWithOptions)
-        result: QuestionWithOptions = await llm_with_output.ainvoke(prompt)
+        result: QuestionWithOptions = await llm_with_output.ainvoke(prompt, config={"run_name": "RecipeQuestion"})
 
         logger.info(f"❓ Question/answer with {len(result.options)} options")
 
@@ -432,7 +432,7 @@ class RecipeCreatorAgent(BaseAgent):
         prompt = FORMAT_RESPONSE_PROMPT.format(text_response=text_response)
 
         llm_with_output = self.llm.with_structured_output(FormattedResponse)
-        result: FormattedResponse = await llm_with_output.ainvoke(prompt)
+        result: FormattedResponse = await llm_with_output.ainvoke(prompt, config={"run_name": "ResponseFormatter"})
 
         logger.info(f"📝 Formatted response: type={result.response_type}, options={len(result.options) if result.options else 0}")
 
@@ -580,7 +580,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeMetadata)
-        result: RecipeMetadata = await llm_with_output.ainvoke(prompt)
+        result: RecipeMetadata = await llm_with_output.ainvoke(prompt, config={"run_name": "RecipeMetadataGeneration"})
 
         logger.info(f"📝 Generated metadata: {result.name} (partial={not needs_name})")
 
@@ -621,7 +621,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeIngredients)
-        result: RecipeIngredients = await llm_with_output.ainvoke(prompt)
+        result: RecipeIngredients = await llm_with_output.ainvoke(prompt, config={"run_name": "IngredientsGeneration"})
 
         logger.info(f"🥗 Generated {len(result.ingredients)} ingredients")
 
@@ -657,7 +657,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeSteps)
-        result: RecipeSteps = await llm_with_output.ainvoke(prompt)
+        result: RecipeSteps = await llm_with_output.ainvoke(prompt, config={"run_name": "StepsGeneration"})
 
         logger.info(f"📋 Generated {len(result.steps)} steps")
 
@@ -689,7 +689,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(RecipeNutrition)
-        result: RecipeNutrition = await llm_with_output.ainvoke(prompt)
+        result: RecipeNutrition = await llm_with_output.ainvoke(prompt, config={"run_name": "NutritionGeneration"})
 
         logger.info(f"🥗 Generated nutrition: {result.calories} cal")
 
@@ -732,7 +732,7 @@ class RecipeCreatorAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(FinalResponse)
-        response: FinalResponse = await llm_with_output.ainvoke(prompt)
+        response: FinalResponse = await llm_with_output.ainvoke(prompt, config={"run_name": "RecipeFinalResponse"})
 
         fixed_options = [
             {"text": "Start Cooking", "description": "Begin step-by-step cooking guidance"},
@@ -860,7 +860,7 @@ class RecipeCreatorAgent(BaseAgent):
         }
 
         # Stream through the graph
-        async for event in self.graph.astream(initial_state, stream_mode="updates"):
+        async for event in self.graph.astream(initial_state, config={"run_name": "RecipeGeneration"}, stream_mode="updates"):
             for node_name, state_update in event.items():
                 # Skip if node returned None or empty dict
                 if not state_update:

@@ -107,7 +107,7 @@ class UnifiedAgent(BaseAgent):
         """Generate a personalized greeting for new sessions."""
         if recipe_name:
             prompt = GREETING_WITH_RECIPE_PROMPT.format(recipe_name=recipe_name)
-            response = await self.llm.ainvoke(prompt)
+            response = await self.llm.ainvoke(prompt, config={"run_name": "Greeting"})
             logger.info(f"👋 Generated greeting with recipe: {recipe_name}")
             return {
                 "greeting": response.content,
@@ -117,7 +117,7 @@ class UnifiedAgent(BaseAgent):
         else:
             tip = random.choice(GREETING_TIPS)
             prompt = GREETING_PROMPT.format(tip=tip)
-            response = await self.llm.ainvoke(prompt)
+            response = await self.llm.ainvoke(prompt, config={"run_name": "Greeting"})
             logger.info("👋 Generated greeting (no recipe)")
             return {
                 "greeting": response.content,
@@ -231,7 +231,7 @@ class UnifiedAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(UnifiedIntentSchema)
-        result: UnifiedIntentSchema = await llm_with_output.ainvoke(prompt)
+        result: UnifiedIntentSchema = await llm_with_output.ainvoke(prompt, config={"run_name": "IntentClassification"})
         logger.info(f"📊 Unified intent: {result.intent}")
         return result
 
@@ -309,7 +309,7 @@ class UnifiedAgent(BaseAgent):
                 user_message=message,
                 language=language,
             )
-            response = await self.llm.ainvoke(prompt)
+            response = await self.llm.ainvoke(prompt, config={"run_name": "NoRecipeResponse"})
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
             return
 
@@ -325,7 +325,7 @@ class UnifiedAgent(BaseAgent):
             elif current_step >= total_steps - 1:
                 # Already at/past last step — trigger completion
                 prompt = COOKING_COMPLETE_PROMPT.format(recipe_name=recipe.get("name", "your dish"), language=language)
-                response = await self.llm.ainvoke(prompt)
+                response = await self.llm.ainvoke(prompt, config={"run_name": "CookingComplete"})
                 yield UnifiedEvent(type="cooking_complete", data=None)
                 yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
                 yield UnifiedEvent(type="agent_state", data={"current_step": current_step})
@@ -340,7 +340,7 @@ class UnifiedAgent(BaseAgent):
         # Last step triggers completion (it's the "enjoy your meal" step)
         if new_step == total_steps - 1:
             prompt = COOKING_COMPLETE_PROMPT.format(recipe_name=recipe.get("name", "your dish"), language=language)
-            response = await self.llm.ainvoke(prompt)
+            response = await self.llm.ainvoke(prompt, config={"run_name": "CookingComplete"})
             yield UnifiedEvent(type="cooking_complete", data=None)
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
             yield UnifiedEvent(type="agent_state", data={"current_step": new_step})
@@ -369,7 +369,7 @@ class UnifiedAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(UnifiedStepGuidanceSchema)
-        guidance: UnifiedStepGuidanceSchema = await llm_with_output.ainvoke(prompt)
+        guidance: UnifiedStepGuidanceSchema = await llm_with_output.ainvoke(prompt, config={"run_name": "StepGuidance"})
 
         logger.info(f"📋 Step {new_step + 1}/{total_steps} guidance generated")
 
@@ -397,7 +397,7 @@ class UnifiedAgent(BaseAgent):
 
         if not timer_minutes:
             prompt = TIMER_QUESTION_PROMPT.format(user_message="set a timer", language=language)
-            response = await self.llm.ainvoke(prompt)
+            response = await self.llm.ainvoke(prompt, config={"run_name": "TimerResponse"})
             yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
             return
 
@@ -406,7 +406,7 @@ class UnifiedAgent(BaseAgent):
             timer_label=timer_label,
             language=language,
         )
-        response = await self.llm.ainvoke(prompt)
+        response = await self.llm.ainvoke(prompt, config={"run_name": "TimerConfirmation"})
         yield UnifiedEvent(type="kitchen_step", data={
             "message": response.content,
             "message_id": message_id,
@@ -462,7 +462,7 @@ class UnifiedAgent(BaseAgent):
 
         language = session_data.get("user_language", "English")
         prompt = SHOPPING_LIST_PROMPT.format(recipe_name=recipe.get("name", "your recipe"), language=language)
-        response = await self.llm.ainvoke(prompt)
+        response = await self.llm.ainvoke(prompt, config={"run_name": "ShoppingListResponse"})
         yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
         yield UnifiedEvent(type="shopping_list", data={
             "items": shopping_items,
@@ -547,7 +547,7 @@ class UnifiedAgent(BaseAgent):
             language=language,
         )
 
-        response = await self.llm.ainvoke(prompt)
+        response = await self.llm.ainvoke(prompt, config={"run_name": "RecipeQA"})
         yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
 
     _VAGUE_EDIT_WORDS = frozenset([
@@ -591,7 +591,7 @@ class UnifiedAgent(BaseAgent):
         )
 
         llm_with_output = self.llm.with_structured_output(EditSuggestionsSchema)
-        result: EditSuggestionsSchema = await llm_with_output.ainvoke(prompt)
+        result: EditSuggestionsSchema = await llm_with_output.ainvoke(prompt, config={"run_name": "EditSuggestions"})
 
         message_id = f"edit-{session_id}-{uuid.uuid4().hex[:8]}"
         yield UnifiedEvent(type="selector", data={
@@ -636,7 +636,7 @@ class UnifiedAgent(BaseAgent):
             language=language,
         )
 
-        response = await self.llm.ainvoke(prompt)
+        response = await self.llm.ainvoke(prompt, config={"run_name": "GeneralChat"})
         yield UnifiedEvent(type="text", data={"content": response.content, "message_id": message_id})
 
     async def run_streaming(

@@ -3,7 +3,7 @@ import type { MessageContent } from '@/types/chat-message-types';
 import MessageRenderer from './message-types/MessageRenderer';
 
 export interface ChatMessageProps {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: MessageContent;
   timestamp?: Date;
   isLastMessage?: boolean;
@@ -13,7 +13,7 @@ export interface ChatMessageProps {
 
 /**
  * Stateless component for displaying a single chat message bubble.
- * Renders different styles for user vs assistant messages.
+ * Renders different styles for user, assistant, and system messages.
  * Supports both simple text and structured message types.
  */
 export default function ChatMessage({
@@ -25,18 +25,21 @@ export default function ChatMessage({
   onMessageAction,
 }: ChatMessageProps) {
   const isUser = role === 'user';
+  const isSystem = role === 'system';
 
   return (
     <div
       className={classNames('flex w-full mb-4', {
         'justify-end': isUser,
-        'justify-start': !isUser,
+        'justify-start': role === 'assistant',
+        'justify-center': isSystem,
       })}
     >
       <div
-        className={classNames('max-w-[80%] rounded-2xl px-4 py-3', {
-          'bg-primary text-white': isUser,
-          'bg-surface text-text': !isUser,
+        className={classNames('rounded-2xl px-4 py-3', {
+          'max-w-[80%] bg-primary text-white': isUser,
+          'max-w-[80%] bg-surface text-text': role === 'assistant',
+          'max-w-[90%] bg-red-100 text-red-800 text-center': isSystem,
         })}
       >
         <MessageRenderer
@@ -46,7 +49,7 @@ export default function ChatMessage({
           onFocusInput={onFocusInput}
           onMessageAction={onMessageAction}
         />
-        {timestamp && (
+        {timestamp && !isSystem && (
           <p
             className={classNames('text-xs mt-2', {
               'text-white/70': isUser,

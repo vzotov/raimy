@@ -7,7 +7,7 @@
 import type { MessageContent } from '@/types/chat-message-types';
 
 export interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: MessageContent;
   timestamp: Date;
   id: string;

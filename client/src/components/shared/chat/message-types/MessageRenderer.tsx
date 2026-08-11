@@ -1,5 +1,8 @@
 import ReactMarkdown from 'react-markdown';
-import type { MessageContent, ShoppingListItem } from '@/types/chat-message-types';
+import type {
+  MessageContent,
+  ShoppingListItem,
+} from '@/types/chat-message-types';
 import MessageConfirmationButtons from './MessageConfirmationButtons';
 import MessageSelectorButtons from './MessageSelectorButtons';
 
@@ -40,7 +43,12 @@ export default function MessageRenderer({
         <div>
           {content.image_url && (
             <div className="mb-3 rounded-xl overflow-hidden">
-              <img src={content.image_url} alt="" className="w-full h-auto object-cover" loading="lazy" />
+              <img
+                src={content.image_url}
+                alt=""
+                className="w-full h-auto object-cover"
+                loading="lazy"
+              />
             </div>
           )}
           <div className="prose prose-sm sm:prose-base prose-neutral max-w-none break-words">
@@ -70,6 +78,9 @@ export default function MessageRenderer({
           )}
         </div>
       );
+
+    case 'error':
+      return <p className="text-sm">{content.message}</p>;
 
     case 'shopping_list':
       return (

@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [docs/deployment.md](docs/deployment.md) — ops guide (GCP, Docker, release process)
 - [docs/setup.md](docs/setup.md) — first-time deployment checklist
 
-**Keep docs up to date:** When making changes that affect file structure, data flows, agent events, schemas, or infrastructure, update the relevant file in `docs/` in the same task — not as a separate follow-up.
+**Keep docs up to date:** Every task that touches code must end with a check of whether `docs/architecture.md` (file map, data flows) and the other `docs/` files still match reality — new files, moved files, new message/event types, new services, changed infra. Update them in the same task, in the same commit. Do not defer this to a follow-up.
 
 ## Code Generation Principles
 

@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import openai
 import uvicorn
 
 from app.services import database_service
@@ -37,6 +38,28 @@ logger = logging.getLogger(__name__)
 
 # Get Redis client for recipe creator events
 redis_client = get_redis_client()
+
+
+def _user_facing_error_message(
+    e: Exception, fallback: str = "An error occurred processing your message"
+) -> str:
+    """Map known, safe-to-show LLM provider failures to a friendly message.
+
+    Anything not recognized falls back to a generic message — raw exception text
+    is never sent to the client, since it can leak internals (stack traces,
+    connection details, etc). Full detail always goes to logger.error separately.
+    """
+    if isinstance(e, openai.RateLimitError):
+        return "The AI provider is rate-limiting us right now. Please try again in a moment."
+    if isinstance(e, openai.APITimeoutError):
+        return "The AI took too long to respond. Please try again."
+    if isinstance(e, openai.APIConnectionError):
+        return "Couldn't reach the AI provider. Please try again in a moment."
+    if isinstance(e, openai.InternalServerError):
+        return "The AI provider is having issues right now. Please try again shortly."
+    if isinstance(e, openai.BadRequestError):
+        return "That message couldn't be processed by the AI provider."
+    return fallback
 
 # FastAPI app
 app = FastAPI(
@@ -190,6 +213,11 @@ async def _generate_step_images(session_id: str, recipe_data: dict):
         logger.info(f"Generated {count} step images for session {session_id}")
     except Exception as e:
         logger.error(f"Step image generation failed: {e}", exc_info=True)
+        await redis_client.send_system_message(
+            session_id,
+            "error",
+            _user_facing_error_message(e, "Couldn't generate step images for this recipe."),
+        )
     finally:
         await redis_client.send_system_message(session_id, "thinking", None)
 
@@ -489,7 +517,7 @@ async def agent_chat(request: ChatRequest):
                     "type": "system",
                     "content": {
                         "type": "error",
-                        "message": "An error occurred processing your message",
+                        "message": _user_facing_error_message(e),
                     },
                 },
             )

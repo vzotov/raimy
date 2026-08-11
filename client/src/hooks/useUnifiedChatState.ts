@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { ChatMessage } from '@/hooks/useChatMessages';
-import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
-import { chatReducer } from '@/lib/messageHandlers/chatReducer';
 import { useMealPlannerRecipe } from '@/hooks/useMealPlannerRecipe';
 import { updateSessionNameInCache } from '@/hooks/useSessions';
+import type { ChatMessage as WebSocketMessage } from '@/hooks/useWebSocket';
+import { chatReducer } from '@/lib/messageHandlers/chatReducer';
 import type { SessionMessage } from '@/types/chat-session';
 import type { Recipe } from '@/types/recipe';
 
@@ -27,7 +27,11 @@ function convertInitialMessages(messages: SessionMessage[]): ChatMessage[] {
   });
 }
 
-function buildMessage(content: WebSocketMessage['content'], messageId: string, role: 'user' | 'assistant'): ChatMessage {
+function buildMessage(
+  content: WebSocketMessage['content'],
+  messageId: string,
+  role: 'user' | 'assistant' | 'system',
+): ChatMessage {
   return {
     id: messageId,
     role,
@@ -53,11 +57,18 @@ export function useUnifiedChatState({
   const [sessionName, setSessionName] = useState('');
   const [cookingComplete, setCookingComplete] = useState(initialFinished);
 
-  const { recipe, isRecipeChanged, applyRecipeUpdate, setRecipe, resetChangedFlag } =
-    useMealPlannerRecipe(initialRecipe, initialIsChanged);
+  const {
+    recipe,
+    isRecipeChanged,
+    applyRecipeUpdate,
+    setRecipe,
+    resetChangedFlag,
+  } = useMealPlannerRecipe(initialRecipe, initialIsChanged);
 
   const recipeRef = useRef(recipe);
-  useEffect(() => { recipeRef.current = recipe; }, [recipe]);
+  useEffect(() => {
+    recipeRef.current = recipe;
+  }, [recipe]);
 
   const handleMessage = useCallback(
     (wsMessage: WebSocketMessage) => {
@@ -75,7 +86,10 @@ export function useUnifiedChatState({
             return;
 
           case 'kitchen-step':
-            dispatch({ type: 'ADD_OR_UPDATE_MESSAGE', payload: buildMessage(content, messageId, 'assistant') });
+            dispatch({
+              type: 'ADD_OR_UPDATE_MESSAGE',
+              payload: buildMessage(content, messageId, 'assistant'),
+            });
             setAgentStatus(null);
             return;
 
@@ -94,13 +108,19 @@ export function useUnifiedChatState({
           case 'text':
           case 'selector':
           case 'shopping_list':
-            dispatch({ type: 'ADD_OR_UPDATE_MESSAGE', payload: buildMessage(content, messageId, 'assistant') });
+            dispatch({
+              type: 'ADD_OR_UPDATE_MESSAGE',
+              payload: buildMessage(content, messageId, 'assistant'),
+            });
             setAgentStatus(null);
             return;
 
           default:
             // ingredients, timer, etc. — add to messages if unknown
-            dispatch({ type: 'ADD_OR_UPDATE_MESSAGE', payload: buildMessage(content, messageId, 'assistant') });
+            dispatch({
+              type: 'ADD_OR_UPDATE_MESSAGE',
+              payload: buildMessage(content, messageId, 'assistant'),
+            });
             setAgentStatus(null);
         }
       }
@@ -108,7 +128,14 @@ export function useUnifiedChatState({
       if (wsMessage.type === 'system' && wsMessage.content) {
         const sys = wsMessage.content;
         if (sys.type === 'thinking') setAgentStatus(sys.message ?? null);
-        else if (sys.type === 'connected' || sys.type === 'error') setAgentStatus(null);
+        else if (sys.type === 'connected') setAgentStatus(null);
+        else if (sys.type === 'error') {
+          dispatch({
+            type: 'ADD_OR_UPDATE_MESSAGE',
+            payload: buildMessage(sys, `system-${Date.now()}`, 'system'),
+          });
+          setAgentStatus(null);
+        }
       }
     },
     [sessionId, applyRecipeUpdate, setRecipe, resetChangedFlag],

@@ -634,7 +634,9 @@ async def websocket_chat_endpoint(
                         }
                     })
 
-                    # Forward message to agent service
+                    # Forward message to agent service. On a non-200 response, agent-service
+                    # has already published its own system/error message to Redis (see
+                    # /agent/chat's exception handler) — no need to send a second one here.
                     async with httpx.AsyncClient(timeout=120.0) as client:
                         response = await client.post(
                             f"{agent_url}/agent/chat",
@@ -646,13 +648,6 @@ async def websocket_chat_endpoint(
 
                         if response.status_code != 200:
                             logger.error(f"Agent service error: {response.status_code}")
-                            await connection_manager.send_message(session_id, {
-                                "type": "system",
-                                "content": {
-                                    "type": "error",
-                                    "message": "Failed to get response from agent"
-                                }
-                            })
 
                 except httpx.RequestError as e:
                     logger.error(f"Failed to connect to agent service: {e}")

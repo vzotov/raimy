@@ -227,7 +227,6 @@ See [agents.md](agents.md) for full agent system documentation.
 | `serverAuth.ts` | Server-side JWT verification for Next.js route handlers |
 | `messageHandlers/chatReducer.ts` | Reducer handling all incoming WS message types |
 | `messageHandlers/textHandler.ts` | Handles `text` message type |
-| `messageHandlers/systemHandler.ts` | Handles system/status messages |
 | `messageHandlers/sessionNameHandler.ts` | Handles `session_name` updates |
 
 ---

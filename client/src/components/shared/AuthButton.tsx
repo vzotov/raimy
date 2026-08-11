@@ -1,9 +1,10 @@
 'use client';
 import classNames from 'classnames';
 import { useAuth } from '@/hooks/useAuth';
+import AuthForm from '@/components/shared/AuthForm';
 
 export default function AuthButton() {
-  const { user, loading, isAuthenticated, login, logout } = useAuth();
+  const { user, loading, isAuthenticated, logout } = useAuth();
 
   if (loading) {
     return <div className="px-4 py-2 rounded text-text/60">Loading...</div>;
@@ -26,15 +27,5 @@ export default function AuthButton() {
     );
   }
 
-  return (
-    <button
-      className={classNames(
-        'px-4 py-2 rounded text-white transition',
-        'bg-primary hover:bg-primary-hover',
-      )}
-      onClick={() => login()}
-    >
-      Sign in with Google
-    </button>
-  );
+  return <AuthForm />;
 }

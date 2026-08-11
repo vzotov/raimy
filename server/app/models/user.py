@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, JSON, Text
+from sqlalchemy import Column, String, DateTime, JSON, Text, Boolean
 from sqlalchemy.orm import relationship
 from .base import Base, TimestampMixin
 
@@ -10,6 +10,8 @@ class User(Base, TimestampMixin):
     picture = Column(Text)
     locale = Column(String(10))
     last_login = Column(DateTime(timezone=True))
+    password_hash = Column(String(255), nullable=True)
+    email_verified = Column(Boolean, nullable=False, default=False)
 
     # Additional user data stored as JSON
     user_metadata = Column(JSON, default=dict)

@@ -1,4 +1,6 @@
 import datetime
+import json
+import secrets
 
 import jwt
 import logging
@@ -9,6 +11,15 @@ import os
 from typing import Optional
 import httpx
 import sys
+
+from passwords import hash_password, verify_password, MIN_PASSWORD_LENGTH
+from user_repo import get_user_by_email, set_password_and_verify, update_password
+from email_service import (
+    send_verification_email,
+    send_password_reset_email,
+    send_account_exists_email,
+    send_google_only_account_email,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -354,6 +365,223 @@ async def get_me(request: Request):
     except Exception as e:
         logger.error(f"Error in /me endpoint: {str(e)}")
         return {"authenticated": False, "error": str(e)}
+
+
+@router.post("/signup", status_code=202)
+async def signup(request: Request):
+    """Register a new email/password account (or attach a password to an existing
+    Google-only account). Always returns a generic response to avoid user enumeration."""
+    try:
+        body = await request.json()
+        email = (body.get("email") or "").strip().lower()
+        password = body.get("password") or ""
+        name = body.get("name")
+
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password are required")
+        if len(password) < MIN_PASSWORD_LENGTH:
+            raise HTTPException(status_code=400, detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
+
+        generic_response = {"message": "If this email can be registered, a verification link has been sent."}
+
+        existing = await get_user_by_email(email)
+        if existing and existing.password_hash:
+            await send_account_exists_email(email)
+            logger.info("Signup attempted for an email that already has a password account")
+            return generic_response
+
+        password_hash = hash_password(password)
+        token = secrets.token_urlsafe(32)
+        redis = request.app.state.redis
+
+        old_token = await redis.get(f"email_verify_pending:{email}")
+        if old_token:
+            await redis.delete(f"email_verify:{old_token}")
+
+        payload = json.dumps({"email": email, "password_hash": password_hash, "name": name})
+        await redis.setex(f"email_verify:{token}", 86400, payload)
+        await redis.setex(f"email_verify_pending:{email}", 86400, token)
+
+        await send_verification_email(email, token)
+        logger.info("Verification email sent for new signup")
+
+        return generic_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Signup failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Signup failed")
+
+
+@router.get("/verify-email")
+async def verify_email(request: Request):
+    """Verify an email/password signup token and activate the account."""
+    try:
+        token = request.query_params.get("token")
+        if not token:
+            raise HTTPException(status_code=400, detail="Missing token")
+
+        redis = request.app.state.redis
+        payload_raw = await redis.get(f"email_verify:{token}")
+        if not payload_raw:
+            raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+
+        payload = json.loads(payload_raw)
+        email = payload["email"]
+        password_hash = payload["password_hash"]
+        name = payload.get("name")
+
+        await set_password_and_verify(email, password_hash, name)
+        await redis.delete(f"email_verify:{token}")
+        await redis.delete(f"email_verify_pending:{email}")
+
+        updated = await get_user_by_email(email)
+        user_data = {"email": email, "name": updated.name if updated else name, "picture": None}
+        jwt_token = create_jwt_token(user_data)
+        logger.info("Email verified and account activated")
+
+        return {"token": jwt_token, "user": user_data}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Email verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Verification failed")
+
+
+@router.post("/resend-verification", status_code=202)
+async def resend_verification(request: Request):
+    """Resend a pending signup's verification email, throttled to once per minute."""
+    try:
+        body = await request.json()
+        email = (body.get("email") or "").strip().lower()
+        generic_response = {"message": "If this email has a pending signup, a verification link has been sent."}
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+
+        redis = request.app.state.redis
+        lock_key = f"email_verify_resend_lock:{email}"
+        if await redis.get(lock_key):
+            return generic_response
+        await redis.setex(lock_key, 60, "1")
+
+        old_token = await redis.get(f"email_verify_pending:{email}")
+        if old_token:
+            payload_raw = await redis.get(f"email_verify:{old_token}")
+            if payload_raw:
+                new_token = secrets.token_urlsafe(32)
+                await redis.setex(f"email_verify:{new_token}", 86400, payload_raw)
+                await redis.setex(f"email_verify_pending:{email}", 86400, new_token)
+                await redis.delete(f"email_verify:{old_token}")
+                await send_verification_email(email, new_token)
+                logger.info("Verification email resent")
+
+        return generic_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Resend verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Resend failed")
+
+
+@router.post("/login")
+async def password_login(request: Request):
+    """Email/password login. Coexists with the GET /auth/login Google OAuth redirect."""
+    try:
+        body = await request.json()
+        email = (body.get("email") or "").strip().lower()
+        password = body.get("password") or ""
+
+        invalid_credentials = HTTPException(status_code=401, detail="Invalid email or password")
+
+        if not email or not password:
+            raise invalid_credentials
+
+        user = await get_user_by_email(email)
+        if not user or not user.password_hash or not verify_password(password, user.password_hash):
+            raise invalid_credentials
+
+        if not user.email_verified:
+            raise HTTPException(status_code=403, detail="Please verify your email before signing in")
+
+        user_data = {"email": user.email, "name": user.name, "picture": None}
+        jwt_token = create_jwt_token(user_data)
+        logger.info("Password login successful")
+
+        return {"token": jwt_token, "user": user_data}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password login failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Login failed")
+
+
+@router.post("/forgot-password", status_code=202)
+async def forgot_password(request: Request):
+    """Request a password reset link. Always responds generically to avoid enumeration."""
+    try:
+        body = await request.json()
+        email = (body.get("email") or "").strip().lower()
+        generic_response = {"message": "If an account exists, a reset link has been sent."}
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+
+        user = await get_user_by_email(email)
+        if user and user.password_hash:
+            redis = request.app.state.redis
+            token = secrets.token_urlsafe(32)
+            await redis.setex(f"pw_reset:{token}", 3600, json.dumps({"email": email}))
+            await send_password_reset_email(email, token)
+            logger.info("Password reset email sent")
+        elif user:
+            await send_google_only_account_email(email)
+            logger.info("Password reset requested for a Google-only account")
+
+        return generic_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Forgot password failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Request failed")
+
+
+@router.post("/reset-password")
+async def reset_password(request: Request):
+    """Complete a password reset using the token from /auth/forgot-password's email."""
+    try:
+        body = await request.json()
+        token = body.get("token")
+        password = body.get("password") or ""
+
+        if not token:
+            raise HTTPException(status_code=400, detail="Missing token")
+        if len(password) < MIN_PASSWORD_LENGTH:
+            raise HTTPException(status_code=400, detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
+
+        redis = request.app.state.redis
+        payload_raw = await redis.get(f"pw_reset:{token}")
+        if not payload_raw:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+        email = json.loads(payload_raw)["email"]
+        password_hash = hash_password(password)
+        await update_password(email, password_hash)
+        await redis.delete(f"pw_reset:{token}")
+        logger.info("Password reset completed")
+
+        return {"message": "Password updated"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reset password failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Reset failed")
 
 
 @router.post("/service-auth")

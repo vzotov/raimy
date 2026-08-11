@@ -119,3 +119,33 @@ async def logout_get(request: Request):
 async def get_me(request: Request):
     """Proxy get current user to auth service"""
     return await auth_proxy.proxy_request(request, "/me")
+
+@router.post("/signup")
+async def signup(request: Request):
+    """Proxy email/password signup to auth service"""
+    return await auth_proxy.proxy_request(request, "/signup")
+
+@router.post("/login")
+async def password_login(request: Request):
+    """Proxy email/password login to auth service"""
+    return await auth_proxy.proxy_request(request, "/login")
+
+@router.get("/verify-email")
+async def verify_email(request: Request):
+    """Proxy email verification to auth service"""
+    return await auth_proxy.proxy_request(request, "/verify-email")
+
+@router.post("/resend-verification")
+async def resend_verification(request: Request):
+    """Proxy resend-verification to auth service"""
+    return await auth_proxy.proxy_request(request, "/resend-verification")
+
+@router.post("/forgot-password")
+async def forgot_password(request: Request):
+    """Proxy forgot-password to auth service"""
+    return await auth_proxy.proxy_request(request, "/forgot-password")
+
+@router.post("/reset-password")
+async def reset_password(request: Request):
+    """Proxy reset-password to auth service"""
+    return await auth_proxy.proxy_request(request, "/reset-password")

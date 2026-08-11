@@ -30,6 +30,10 @@ services:
       - AUTH_DEBUG=${AUTH_DEBUG:-false}
       - SERVICE_API_KEY=${SERVICE_API_KEY}
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raimy_user}:${POSTGRES_PASSWORD:-raimy_password}@postgres:5432/${POSTGRES_DB:-raimy}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-Raimy <noreply@raimy.app>}
+      - FRONTEND_URL=${FRONTEND_URL}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]

@@ -297,7 +297,8 @@ class DatabaseService:
                         picture=user_data.get("picture"),
                         locale=user_data.get("locale"),
                         last_login=datetime.utcnow(),
-                        user_metadata=user_data.get("metadata", {})
+                        user_metadata=user_data.get("metadata", {}),
+                        email_verified=True
                     )
                     db.add(new_user)
 

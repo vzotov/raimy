@@ -63,11 +63,14 @@ gcloud compute ssh "${INSTANCE_NAME}" \
 
         # Clone or pull repository
         if [ -d ~/raimy-github ]; then
-            echo 'Repository exists, pulling latest changes...'
+            echo 'Repository exists, syncing to latest from GitHub...'
             cd ~/raimy-github
             git fetch origin
             git checkout \"\$BRANCH\"
-            git pull origin \"\$BRANCH\"
+            # Hard reset instead of pull: this clone is a disposable staging
+            # copy rsync'd into the deploy dir below, never a source of truth,
+            # so it should always match origin exactly rather than merge with it.
+            git reset --hard origin/\"\$BRANCH\"
         else
             echo 'Cloning repository...'
             git clone \"\$REPO_URL\" ~/raimy-github

@@ -599,6 +599,28 @@ class DatabaseService:
                 logger.error(f"Error deleting recipe {recipe_id}: {e}", exc_info=True)
                 return False
 
+    async def delete_user(self, user_email: str) -> bool:
+        """Delete a user and all owned data (recipes, sessions, chat sessions, memory)
+        via the User model's cascade relationships."""
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(
+                    select(User).where(User.email == user_email)
+                )
+                user = result.scalar_one_or_none()
+
+                if not user:
+                    return False
+
+                await db.delete(user)
+                await db.commit()
+                return True
+
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error deleting user {user_email}: {e}", exc_info=True)
+                return False
+
     async def set_recipe_share_token(self, recipe_id: str, share_token: Optional[str]) -> bool:
         """Set or clear the share token for a recipe"""
         async with AsyncSessionLocal() as db:

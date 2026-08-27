@@ -51,3 +51,12 @@ async def delete_memory(current_user: dict = Depends(get_current_user_with_stora
     """Wipe the user's accumulated memory document"""
     await database_service.clear_user_memory(current_user["email"])
     return {"ok": True}
+
+
+@router.delete("/account")
+async def delete_account(current_user: dict = Depends(get_current_user_with_storage)):
+    """Permanently delete the user's account and all owned data"""
+    deleted = await database_service.delete_user(current_user["email"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"ok": True}

@@ -1,8 +1,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import ThemeSelector from '@/components/shared/ThemeSelector';
-import SignOutButton from './SignOutButton';
+import DeleteAccountButton from './DeleteAccountButton';
 import LanguageSelector from './LanguageSelector';
+import SignOutButton from './SignOutButton';
 import WipeMemoryButton from './WipeMemoryButton';
 
 interface ProfileData {
@@ -81,8 +82,9 @@ export default async function ProfileContent() {
             </div>
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 flex items-center gap-4">
           <SignOutButton />
+          <DeleteAccountButton />
         </div>
       </div>
 

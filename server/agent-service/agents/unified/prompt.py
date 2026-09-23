@@ -85,8 +85,11 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate hands-on guidance for this step (coo
    - Keep it 2-4 words, natural and specific to THIS step
    - NEVER use generic phrases like "Let's go", "Continue", "Next", "Ready?"
 
-3. Timer: ONLY for passive waiting — boiling, baking, simmering, chilling, infusing, or steeping.
-   NOT for active tasks like mixing, chopping, shaking, or stirring a drink.""" + "\n\n" + LANGUAGE_RULE
+3. Timer: ONLY for passive waiting the user would stand by for — boiling, baking, simmering,
+   steeping, or a short chill. Leave it null for:
+   - active tasks (mixing, chopping, shaking or stirring a drink)
+   - long waits over about 2 hours (marinating, proofing, chilling or infusing overnight) —
+     nobody wants an 8-hour countdown running in the app""" + "\n\n" + LANGUAGE_RULE
 
 # Question answering prompt
 ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking or drinks.

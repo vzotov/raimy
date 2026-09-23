@@ -20,6 +20,7 @@ import StepList from '@/components/shared/StepList';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatSessions } from '@/hooks/useSessions';
 import { recipes } from '@/lib/api';
+import { formatDuration } from '@/lib/duration';
 import { useConfig } from '@/providers/ConfigProvider';
 import type { Recipe } from '@/types/recipe';
 
@@ -147,10 +148,12 @@ export default function RecipeDetail({
 
       {/* Recipe Info */}
       <div className="flex items-center gap-6 text-text/70 mb-6 px-4 sm:px-6 lg:px-8">
-        <span className="flex items-center gap-2">
-          <ClockIcon className="w-5 h-5" />
-          {recipe.total_time_minutes} min
-        </span>
+        {recipe.total_time_minutes && (
+          <span className="flex items-center gap-2">
+            <ClockIcon className="w-5 h-5" />
+            {formatDuration(recipe.total_time_minutes)}
+          </span>
+        )}
         <span className="flex items-center gap-2">
           <UsersIcon className="w-5 h-5" />
           {recipe.servings} servings

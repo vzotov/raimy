@@ -147,6 +147,13 @@ Provide a complete ingredients list with:
 
 For cocktails, include the garnish as an ingredient (e.g. "lime wheel", "orange twist").
 
+BATCHED / MAKE-AHEAD DRINKS (a pitcher or punch for several servings, mixed in advance):
+Shaking or stirring a single drink with ice melts some of that ice into it — roughly 20-25% of
+the finished drink is water. A batch mixed ahead and later poured over ice never gets that, so it
+will taste harsh and overly strong. Include water as an explicit ingredient, about 20% of the
+combined volume of the other liquids, so the batch tastes like the single-serving version.
+Do NOT include ice in the batch itself — ice goes in the serving glass.
+
 Include ALL ingredients needed. Be specific with amounts.
 
 Always generate all text in {language}."""
@@ -199,6 +206,9 @@ FOR COCKTAILS AND DRINKS:
 - Cover straining where it applies (fine strain, double strain)
 - Include rim prep (salt, sugar) as its own step when the drink calls for it
 - End with the garnish and how to add it (express the peel, float, drop in)
+- For a batch made ahead: stir the measured liquids together WITH the water in the vessel, chill it
+  covered, and keep everything per-drink (ice, rim, garnish) in the serving steps at the end.
+  Carbonated mixers are added at serving, never to the batch, so they keep their fizz
 
 ## Equipment
 Also return `equipment`: the tools, vessels, and glassware needed to make this recipe.

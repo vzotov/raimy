@@ -40,6 +40,11 @@ if _IMAGE_GEN_ENABLED:
 
 logger = logging.getLogger(__name__)
 
+# Upper bound for timers the agent offers on its own. Longer waits (overnight
+# chilling, marinating, proofing) still appear in the step text, just without a
+# countdown. Explicit user timer requests are not capped.
+MAX_SUGGESTED_TIMER_MINUTES = 120
+
 
 @dataclass
 class UnifiedEvent(AgentEvent):
@@ -388,13 +393,22 @@ class UnifiedAgent(BaseAgent):
 
         logger.info(f"📋 Step {new_step + 1}/{total_steps} guidance generated")
 
+        # Overnight marinating, proofing or chilling is a real wait, but an in-app
+        # countdown for it is useless. Suggest timers only for waits worth standing by for.
+        timer_minutes = guidance.suggested_timer_minutes
+        timer_label = guidance.timer_label
+        if timer_minutes and timer_minutes > MAX_SUGGESTED_TIMER_MINUTES:
+            logger.info(f"⏲️  Dropping {timer_minutes}min suggested timer (over cap)")
+            timer_minutes = None
+            timer_label = None
+
         yield UnifiedEvent(type="kitchen_step", data={
             "message": guidance.spoken_response,
             "message_id": message_id,
             "next_step_prompt": guidance.next_step_prompt,
             "image_url": step_image_url,
-            "timer_minutes": guidance.suggested_timer_minutes,
-            "timer_label": guidance.timer_label,
+            "timer_minutes": timer_minutes,
+            "timer_label": timer_label,
         })
         yield UnifiedEvent(type="agent_state", data={"current_step": new_step})
 

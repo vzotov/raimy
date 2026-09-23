@@ -69,6 +69,14 @@ The main orchestrator. Receives every user message and routes to the right handl
 - `RecipeReadySchema` — "Start cooking / Explore recipe" offer after recipe creation
 - `UnifiedStepGuidanceSchema` — kitchen step guidance with next_step_prompt
 
+### Timers
+
+Step guidance may suggest a timer for passive waits. `MAX_SUGGESTED_TIMER_MINUTES` (120) in
+`agents/unified/agent.py` caps this: longer waits — overnight chilling, marinating, proofing —
+still appear in the step text but are stripped of the countdown, since an 8-hour in-app timer is
+useless. The prompt says the same thing; the constant is the backstop. Timers the user explicitly
+asks for (`set_timer`) are never capped.
+
 ### Session naming
 
 Recipe sessions are named after the recipe by `RecipeCreatorAgent`. Conversations that never produce
@@ -93,6 +101,12 @@ flows keep naming priority.
 Handles recipe generation via a LangGraph sequential workflow. Used only when unified agent delegates `create_recipe` or `modify_recipe`.
 
 **Domains:** the same agent generates both food dishes and cocktails/drinks. There is no domain flag or separate agent — the prompts cover both, and the LLM adapts units (`oz`/`ml`/`dashes` vs `cups`/`tbsp`), technique vocabulary (shake/stir/strain vs sear/simmer), and serving counts based on what the user asked for. Cocktails are categorized by an LLM-generated `cocktail` tag, not a schema field.
+
+**Batched / make-ahead drinks:** asking for a pitcher or party batch produces a make-ahead recipe —
+mixed in a vessel, chilled, with ice, rim and garnish kept in the serving steps at the end. The
+ingredients prompt adds **water at ~20% of the liquid volume**, because a batch that is stirred once
+and later poured over ice never picks up the dilution that shaking each drink individually would
+provide, and would otherwise taste harsh. Single-serving drinks get no added water.
 
 ### LangGraph Workflow
 

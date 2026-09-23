@@ -8,6 +8,7 @@ import NutritionSection from '@/components/shared/NutritionSection';
 import SectionTitle from '@/components/shared/SectionTitle';
 import StepList from '@/components/shared/StepList';
 import { chatSessions } from '@/lib/api';
+import { formatDuration } from '@/lib/duration';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeDocumentProps {
@@ -121,7 +122,7 @@ export default function RecipeDocument({
             <div className="flex items-center gap-2">
               <span className="text-text/60">Time:</span>
               <span className="text-text font-medium">
-                {recipe.total_time_minutes} min
+                {formatDuration(recipe.total_time_minutes)}
               </span>
             </div>
           )}

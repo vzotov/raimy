@@ -1,5 +1,6 @@
 import ClockIcon from '@/components/icons/ClockIcon';
 import HourglassIcon from '@/components/icons/HourglassIcon';
+import { formatDuration } from '@/lib/duration';
 import type { RecipeStep } from '@/types/recipe';
 
 interface StepListProps {
@@ -42,8 +43,8 @@ function StepItem({
         <p className="text-text/80 leading-relaxed">{step.instruction}</p>
         {step.duration && (
           <p className="text-text/60 text-sm mt-1 flex items-center gap-1">
-            <ClockIcon className="inline-block w-4 h-4" /> {step.duration}{' '}
-            min
+            <ClockIcon className="inline-block w-4 h-4" />{' '}
+            {formatDuration(step.duration)}
           </p>
         )}
         {!step.image_url && onGenerateImage && (

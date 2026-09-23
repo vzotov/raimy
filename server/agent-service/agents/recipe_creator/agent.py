@@ -76,6 +76,7 @@ class RecipeCreatorState(TypedDict):
     tags: Optional[List[str]]
     ingredients: Optional[List[dict]]
     steps: Optional[List[dict]]
+    equipment: Optional[List[str]]
     nutrition: Optional[dict]
 
     # Control flow
@@ -101,6 +102,7 @@ class RecipeEvent(AgentEvent):
     - "metadata": Recipe metadata (name, description, etc.)
     - "ingredients": Recipe ingredients list
     - "steps": Recipe steps list
+    - "equipment": Tools/glassware needed, derived from the steps
     - "nutrition": Nutrition information
     - "selector": Selectable options UI
     - "complete": End of response
@@ -113,6 +115,7 @@ class RecipeEvent(AgentEvent):
         "metadata",
         "ingredients",
         "steps",
+        "equipment",
         "nutrition",
         "selector",
         "complete",
@@ -339,6 +342,7 @@ class RecipeCreatorAgent(BaseAgent):
                 "tags": None,
                 "ingredients": None,
                 "steps": None,
+                "equipment": None,
                 "nutrition": None,
                 "generation_complete": False,
             })
@@ -488,7 +492,9 @@ class RecipeCreatorAgent(BaseAgent):
         if "ingredients" in what_to_modify:
             updates["ingredients"] = None
         if "steps" in what_to_modify:
+            # Equipment is generated together with steps, so it regenerates with them
             updates["steps"] = None
+            updates["equipment"] = None
         if "nutrition" in what_to_modify:
             updates["nutrition"] = None
 
@@ -659,10 +665,11 @@ class RecipeCreatorAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(RecipeSteps)
         result: RecipeSteps = await llm_with_output.ainvoke(prompt, config={"run_name": "StepsGeneration"})
 
-        logger.info(f"📋 Generated {len(result.steps)} steps")
+        logger.info(f"📋 Generated {len(result.steps)} steps, {len(result.equipment)} equipment items")
 
         return {
             "steps": [step.model_dump() for step in result.steps],
+            "equipment": result.equipment,
         }
 
     async def _generate_nutrition(self, state: RecipeCreatorState) -> Dict:
@@ -734,8 +741,14 @@ class RecipeCreatorAgent(BaseAgent):
         llm_with_output = self.llm.with_structured_output(FinalResponse)
         response: FinalResponse = await llm_with_output.ainvoke(prompt, config={"run_name": "RecipeFinalResponse"})
 
+        is_drink = any(t.lower() == "cocktail" for t in tags)
+        start_option = (
+            {"text": "Start Mixing", "description": "Begin step-by-step mixing guidance"}
+            if is_drink
+            else {"text": "Start Cooking", "description": "Begin step-by-step cooking guidance"}
+        )
         fixed_options = [
-            {"text": "Start Cooking", "description": "Begin step-by-step cooking guidance"},
+            start_option,
             {"text": "Save Recipe", "description": "Save to my recipes"},
         ]
         result = {
@@ -824,6 +837,7 @@ class RecipeCreatorAgent(BaseAgent):
             "tags": existing_recipe.get("tags"),
             "ingredients": existing_recipe.get("ingredients"),
             "steps": existing_recipe.get("steps"),
+            "equipment": existing_recipe.get("equipment"),
             "nutrition": existing_recipe.get("nutrition"),
             # Control flow
             "intent": None,
@@ -843,6 +857,7 @@ class RecipeCreatorAgent(BaseAgent):
         yielded_metadata = False
         yielded_ingredients = False
         yielded_steps = False
+        yielded_equipment = False
         yielded_nutrition = False
         yielded_any_recipe_update = False  # Track if any recipe part was updated
 
@@ -917,6 +932,16 @@ class RecipeCreatorAgent(BaseAgent):
                     yield RecipeEvent(
                         type="steps",
                         data=state_update["steps"],
+                    )
+
+                # Emit even when the list is empty so the UI clears stale equipment
+                # from a previous version of the recipe. None means "not regenerated".
+                if not yielded_equipment and state_update.get("equipment") is not None:
+                    yielded_equipment = True
+                    yielded_any_recipe_update = True
+                    yield RecipeEvent(
+                        type="equipment",
+                        data=state_update["equipment"],
                     )
 
                 if not yielded_nutrition and state_update.get("nutrition"):

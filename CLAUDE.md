@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - [docs/architecture.md](docs/architecture.md) — full codebase file map, data flows, infrastructure
 - [docs/agents.md](docs/agents.md) — agent system: LangGraph workflows, event types, schemas
+- [docs/local-testing.md](docs/local-testing.md) — **verify features on localhost**: test account, browser checks, fast agent scripts, cleanup
 - [docs/deployment.md](docs/deployment.md) — ops guide (GCP, Docker, release process)
 - [docs/setup.md](docs/setup.md) — first-time deployment checklist
 

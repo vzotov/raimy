@@ -9,6 +9,7 @@ import HourglassIcon from '@/components/icons/HourglassIcon';
 import TrashIcon from '@/components/icons/TrashIcon';
 import UsersIcon from '@/components/icons/UsersIcon';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import EquipmentList from '@/components/shared/EquipmentList';
 import IngredientList from '@/components/shared/IngredientList';
 import ActionMenu from '@/components/shared/ActionMenu';
 import InstacartButton from '@/components/shared/InstacartButton';
@@ -47,6 +48,8 @@ export default function RecipeDetail({
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(recipe.share_token ?? null);
   const [isCreatingEditSession, setIsCreatingEditSession] = useState(false);
+
+  const isDrink = recipe.tags?.some((t) => t.toLowerCase() === 'cocktail');
 
   useEffect(() => {
     if (mode === 'shared' && recipe.id && user?.email === recipe.user_id) {
@@ -197,6 +200,14 @@ export default function RecipeDetail({
         </div>
       )}
 
+      {/* Equipment */}
+      {recipe.equipment && recipe.equipment.length > 0 && (
+        <div className="mb-8 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-xl font-semibold text-text mb-4">Equipment</h2>
+          <EquipmentList equipment={recipe.equipment} />
+        </div>
+      )}
+
       {/* Ingredients */}
       {recipe.ingredients && recipe.ingredients.length > 0 && (
         <div className="mb-8 px-4 sm:px-6 lg:px-8">
@@ -233,7 +244,7 @@ export default function RecipeDetail({
 
           {mode === 'owner' ? (
             <div className="flex flex-row gap-2 sm:gap-3 items-center sm:justify-center">
-              {/* Start Cooking — always visible */}
+              {/* Start Cooking / Start Mixing — always visible */}
               <button
                 onClick={handleSendToKitchen}
                 disabled={isCreating}
@@ -247,7 +258,7 @@ export default function RecipeDetail({
                 ) : (
                   <>
                     <ChefHatIcon className="w-5 h-5" />
-                    Start Cooking
+                    {isDrink ? 'Start Mixing' : 'Start Cooking'}
                   </>
                 )}
               </button>

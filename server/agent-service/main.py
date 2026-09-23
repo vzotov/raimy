@@ -305,6 +305,11 @@ async def _handle_unified_events(
                     request.session_id, event.data
                 )
 
+            case "equipment":
+                await redis_client.send_recipe_equipment_message(
+                    request.session_id, event.data
+                )
+
             case "nutrition":
                 await redis_client.send_recipe_nutrition_message(
                     request.session_id, event.data
@@ -588,12 +593,12 @@ async def generate_suggestions(request: SuggestionsRequest):
     Uses user memory and recent session names to produce 4 short prompts
     the user can tap to start a new chat session.
     """
-    _SUGGESTIONS_PROMPT = """You are a cooking assistant. Generate exactly 4 short, natural cooking prompt suggestions for a user to tap on the home page.
+    _SUGGESTIONS_PROMPT = """You are a cooking and cocktail assistant. Generate exactly 4 short, natural prompt suggestions for a user to tap on the home page.
 
 ## User Profile
 {user_memory}
 
-## Recent Sessions (what they've cooked before)
+## Recent Sessions (what they've made before)
 {recent_sessions}
 
 ## Time of Day
@@ -602,6 +607,8 @@ async def generate_suggestions(request: SuggestionsRequest):
 ## Instructions
 - Each suggestion should be 3-8 words, natural and conversational
 - Mix: something new to try, a classic comfort food, something quick, something seasonal or time-appropriate
+- Make exactly ONE of the 4 a cocktail or drink idea — this is how users discover that drinks are supported.
+  Pick one that fits the time of day (a brunch drink in the morning, a classic cocktail in the evening)
 - Avoid repeating recent sessions exactly; it's fine to offer variations
 - Do NOT use quotes around the suggestions
 - Return exactly 4 suggestions as a JSON array of strings
@@ -610,7 +617,7 @@ Examples of good suggestions:
 - "Quick weeknight pasta carbonara"
 - "Make a comforting chicken soup"
 - "Something with the avocados I have"
-- "Easy 20-minute stir fry"
+- "Shake a classic margarita"
 
 Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}"""
 
@@ -640,9 +647,9 @@ Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}"""
     except Exception as e:
         logger.warning(f"💡 Suggestions LLM failed, using fallback: {e}")
         fallbacks = {
-            "morning": ["Quick breakfast eggs Benedict", "Make a smoothie bowl", "Easy overnight oats", "Fluffy pancakes from scratch"],
-            "afternoon": ["Light chicken Caesar salad", "Quick avocado toast lunch", "Make a grain bowl", "Easy turkey wrap"],
-            "evening": ["Cozy pasta carbonara tonight", "Quick weeknight stir fry", "Make a hearty soup", "Easy sheet pan dinner"],
+            "morning": ["Quick breakfast eggs Benedict", "Make a smoothie bowl", "Easy overnight oats", "Mix a classic mimosa"],
+            "afternoon": ["Light chicken Caesar salad", "Quick avocado toast lunch", "Make a grain bowl", "Shake an Aperol spritz"],
+            "evening": ["Cozy pasta carbonara tonight", "Quick weeknight stir fry", "Make a hearty soup", "Stir an old fashioned"],
         }
         return SuggestionsResponse(suggestions=fallbacks.get(request.time_of_day, fallbacks["evening"]))
 

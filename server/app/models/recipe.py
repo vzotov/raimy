@@ -27,6 +27,10 @@ class Recipe(Base, TimestampMixin):
     # Example: {"calories": 850, "carbs": 65, "fats": 32, "proteins": 45}
     nutrition = Column(JSON, nullable=True)
 
+    # Equipment needed - JSON list of names
+    # Example: ["Cocktail shaker", "Jigger", "Coupe glass"]
+    equipment = Column(JSON, nullable=True)
+
     # Foreign key to user
     user_id = Column(String(255), ForeignKey("users.email"), nullable=False)
 

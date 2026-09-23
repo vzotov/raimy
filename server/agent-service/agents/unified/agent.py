@@ -53,6 +53,7 @@ class UnifiedEvent(AgentEvent):
     - "metadata": Recipe metadata (from recipe creation)
     - "ingredients": Recipe ingredients (from recipe creation)
     - "steps": Recipe steps (from recipe creation)
+    - "equipment": Tools/glassware needed (from recipe creation)
     - "nutrition": Recipe nutrition (from recipe creation)
     - "recipe_created": Full recipe object for DB persistence
     - "kitchen_step": Step guidance with next_step_prompt and optional timer
@@ -73,6 +74,7 @@ class UnifiedEvent(AgentEvent):
         "metadata",
         "ingredients",
         "steps",
+        "equipment",
         "nutrition",
         "recipe_created",
         "kitchen_step",
@@ -147,6 +149,13 @@ class UnifiedAgent(BaseAgent):
             amount_str = f"{amount} {unit}".strip()
             lines.append(f'- {name} ({amount_str})' if amount_str else f'- {name}')
         return "\n".join(lines)
+
+    def _format_equipment_list(self, recipe: Dict[str, Any]) -> str:
+        """Format equipment list for prompts"""
+        equipment = recipe.get("equipment") or []
+        if not equipment:
+            return "(No special equipment)"
+        return "\n".join(f"- {item}" for item in equipment)
 
     def _format_all_steps(self, recipe: Dict[str, Any]) -> str:
         """Format all steps for prompts"""
@@ -264,6 +273,9 @@ class UnifiedAgent(BaseAgent):
             elif event.type == "steps":
                 accumulated_recipe["steps"] = event.data
                 yield UnifiedEvent(type="steps", data=event.data)
+            elif event.type == "equipment":
+                accumulated_recipe["equipment"] = event.data
+                yield UnifiedEvent(type="equipment", data=event.data)
             elif event.type == "nutrition":
                 accumulated_recipe["nutrition"] = event.data
                 yield UnifiedEvent(type="nutrition", data=event.data)
@@ -362,6 +374,7 @@ class UnifiedAgent(BaseAgent):
             step_instruction=step_instruction,
             step_duration=f"{step_duration} minutes" if step_duration else "No specific duration",
             ingredients_list=self._format_ingredients_list(recipe),
+            equipment_list=self._format_equipment_list(recipe),
             all_steps=self._format_all_steps(recipe),
             message_history=message_history,
             user_message=message,

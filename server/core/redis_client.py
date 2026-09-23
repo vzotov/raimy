@@ -334,6 +334,26 @@ class RedisClient:
             }
         )
 
+    async def send_recipe_equipment_message(self, session_id: str, equipment: list):
+        """
+        Send recipe equipment message to update session.recipe.
+
+        Args:
+            session_id: Session ID
+            equipment: List of equipment names
+        """
+        await self.publish(
+            f"session:{session_id}",
+            {
+                "type": "agent_message",
+                "content": {
+                    "type": "recipe_update",
+                    "action": "set_equipment",
+                    "equipment": equipment
+                }
+            }
+        )
+
     async def send_recipe_ingredients_message(self, session_id: str, ingredients: list):
         """
         Send recipe ingredients message to update session.recipe.

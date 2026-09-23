@@ -28,6 +28,8 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
   const [shareToken, setShareToken] = useState<string | null>(recipe.share_token ?? null);
   const [error, setError] = useState<string | null>(null);
 
+  const isDrink = recipe.tags?.some((t) => t.toLowerCase() === 'cocktail');
+
   const handleSendToKitchen = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -149,7 +151,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
               <button
                 onClick={handleSendToKitchen}
                 disabled={isCreating}
-                title="Start Cooking"
+                title={isDrink ? 'Start Mixing' : 'Start Cooking'}
                 className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
               >
                 {isCreating

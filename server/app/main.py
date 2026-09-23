@@ -465,6 +465,14 @@ async def websocket_chat_endpoint(
                         nutrition=content.get("nutrition", {})
                     )
 
+                case "set_equipment":
+                    # Save to session.recipe immediately
+                    await database_service.save_or_update_recipe(
+                        session_id=session_id,
+                        action="set_equipment",
+                        equipment=content.get("equipment", [])
+                    )
+
                 case "set_step_image":
                     # Update individual step image in session recipe
                     await database_service.update_step_image_url(

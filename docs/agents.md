@@ -51,6 +51,7 @@ The main orchestrator. Receives every user message and routes to the right handl
 | `metadata` | `{name, description, difficulty, total_time_minutes, servings, tags}` | Recipe metadata ready |
 | `ingredients` | `List[{name, amount, unit, eng_name, group}]` | Ingredient list ready |
 | `steps` | `List[{instruction, duration, image_description, image_url, group}]` | Step list ready |
+| `equipment` | `List[str]` | Equipment list ready (emitted with `steps`) |
 | `nutrition` | `{calories, carbs, fats, proteins}` | Nutrition data ready |
 | `session_name` | `str` | Session should be renamed |
 | `recipe_created` | Full recipe dict | Complete recipe assembled |
@@ -75,6 +76,8 @@ The main orchestrator. Receives every user message and routes to the right handl
 **Files:** `agents/recipe_creator/agent.py`, `agents/recipe_creator/schemas.py`, `agents/recipe_creator/prompt.py`
 
 Handles recipe generation via a LangGraph sequential workflow. Used only when unified agent delegates `create_recipe` or `modify_recipe`.
+
+**Domains:** the same agent generates both food dishes and cocktails/drinks. There is no domain flag or separate agent — the prompts cover both, and the LLM adapts units (`oz`/`ml`/`dashes` vs `cups`/`tbsp`), technique vocabulary (shake/stir/strain vs sear/simmer), and serving counts based on what the user asked for. Cocktails are categorized by an LLM-generated `cocktail` tag, not a schema field.
 
 ### LangGraph Workflow
 
@@ -108,7 +111,7 @@ analyze → route ───┤→ generate_images → END
 | `check` | gen_metadata (if incomplete) or final (if complete) | `thinking` |
 | `gen_metadata` | gen_ingredients | `session_name`, `metadata`, `thinking` |
 | `gen_ingredients` | gen_steps | `ingredients`, `thinking` |
-| `gen_steps` | gen_nutrition | `steps`, `thinking` |
+| `gen_steps` | gen_nutrition | `steps`, `equipment`, `thinking` |
 | `gen_nutrition` | check (loops back) | `nutrition`, `thinking` |
 | `final` | END | `selector` (suppressed by unified agent) |
 
@@ -130,6 +133,10 @@ class Step(BaseModel):
     image_description: str      # Always in English — used for image gen + caching
     group: Optional[str]        # Must match ingredient group names exactly
 
+class RecipeSteps(BaseModel):
+    steps: List[Step]
+    equipment: List[str]        # Tools/glassware, derived from the steps in the same LLM call
+
 class RecipeMetadata(BaseModel):
     name: str
     description: str
@@ -144,6 +151,9 @@ class RecipeNutrition(BaseModel):
     fats: int       # grams
     proteins: int   # grams
 ```
+
+### Equipment
+`equipment` is generated inside the `gen_steps` call (it is a field on `RecipeSteps`, not a separate node), so it is always derived from — and consistent with — the steps just written. It is cleared together with `steps` when a modification targets steps, and it is deliberately excluded from `_check_completeness` / `_route_generation` so recipes saved before the field existed do not loop through regeneration. The `equipment` event is emitted even when the list is empty, so the UI clears stale equipment from a previous version of the recipe.
 
 ### Grouping (multi-component recipes)
 The `group` field on `Ingredient` and `Step` enables sectioned display (e.g., "Caramel layer", "Flan layer" for chocoflan). The agent generates matching group names when a recipe has distinct components. The UI groups items under subheadings. Step badges use sequential global numbering; the flat array index is preserved for image generation.

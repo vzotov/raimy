@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import HourglassIcon from '@/components/icons/HourglassIcon';
 import SaveIcon from '@/components/icons/SaveIcon';
+import EquipmentList from '@/components/shared/EquipmentList';
 import IngredientList from '@/components/shared/IngredientList';
 import NutritionSection from '@/components/shared/NutritionSection';
 import SectionTitle from '@/components/shared/SectionTitle';
@@ -154,6 +155,14 @@ export default function RecipeDocument({
               nutrition={recipe.nutrition}
               servings={recipe.servings}
             />
+          </div>
+        )}
+
+        {/* Equipment Section */}
+        {recipe.equipment && recipe.equipment.length > 0 && (
+          <div className="mb-8">
+            <SectionTitle>Equipment</SectionTitle>
+            <EquipmentList equipment={recipe.equipment} />
           </div>
         )}
 

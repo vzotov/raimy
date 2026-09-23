@@ -67,7 +67,7 @@ Disabled (not running): `image-gen-service`, `video-gen-service`, `embedding-ser
 
 | File | Table | Key columns |
 |------|-------|-------------|
-| `models/recipe.py` | `recipes` | id, name, description, ingredients (JSON), steps (JSON), nutrition (JSON), tags (Array), user_id, chat_session_id, instacart_link_url |
+| `models/recipe.py` | `recipes` | id, name, description, ingredients (JSON), steps (JSON), nutrition (JSON), equipment (JSON), tags (Array), user_id, chat_session_id, instacart_link_url, share_token |
 | `models/chat_session.py` | `chat_sessions` | id, type (recipe-creator/kitchen), name, recipe (JSON), recipe_id, agent_state (JSON), user_id |
 | `models/chat_message.py` | `chat_messages` | id, session_id, role, content (JSON), created_at |
 | `models/user.py` | `users` | email (PK), name, picture, language |
@@ -133,6 +133,9 @@ See [agents.md](agents.md) for full agent system documentation.
 | 006 | Enlarged picture URL column on users |
 | 007 | user_memories table |
 | 008 | step_image_cache table with embedding column |
+| 009 | share_token column on recipes (public sharing) |
+| 010 | Password auth columns on users |
+| 011 | equipment JSON column on recipes |
 
 ---
 
@@ -188,6 +191,7 @@ See [agents.md](agents.md) for full agent system documentation.
 | `IngredientList.tsx` | Renders ingredients; supports grouped sections (group field) |
 | `StepList.tsx` | Renders steps with numbered badges; supports grouped sections; passes flat index to onGenerateImage |
 | `NutritionSection.tsx` | Nutrition facts display |
+| `EquipmentList.tsx` | Renders equipment names as chips |
 | `InstacartButton.tsx` | Triggers Instacart shopping link |
 | `TimerList.tsx` | Active cooking timers |
 | `SectionTitle.tsx` | Sticky section header (Ingredients / Instructions / Nutrition) |
@@ -237,7 +241,7 @@ See [agents.md](agents.md) for full agent system documentation.
 Client opens WS to `/ws/{session_id}`. `ConnectionManager` in `main.py` authenticates at connection time and subscribes to a Redis channel keyed by session_id. When the user sends a message, the API POSTs to `agent-service/agent/chat`. The agent service processes the request, publishing events to Redis as they stream. `main.py` reads from Redis and forwards each event over the WebSocket. The frontend `useWebSocket` hook receives events and routes them through `chatReducer` to update UI state.
 
 ### Recipe Creation
-When session type is `recipe-creator`, the `UnifiedAgent` delegates to `RecipeCreatorAgent`. The recipe_creator runs a LangGraph sequential workflow, yielding events: `thinking` → `session_name` → `metadata` → `ingredients` → `steps` → `nutrition` → `selector`. The unified agent intercepts each event, accumulates recipe data, suppresses the final `selector` from recipe_creator, and after `recipe_created` emits its own `selector` offering "Start cooking" or "Explore recipe". The user saves via `POST /api/chat-sessions/{id}/save-recipe`.
+When session type is `recipe-creator`, the `UnifiedAgent` delegates to `RecipeCreatorAgent`. The recipe_creator runs a LangGraph sequential workflow, yielding events: `thinking` → `session_name` → `metadata` → `ingredients` → `steps` → `equipment` → `nutrition` → `selector`. The same flow produces both food dishes and cocktails — see [agents.md](agents.md) for how the domain is inferred. The unified agent intercepts each event, accumulates recipe data, suppresses the final `selector` from recipe_creator, and after `recipe_created` emits its own `selector` offering "Start cooking" or "Explore recipe". The user saves via `POST /api/chat-sessions/{id}/save-recipe`.
 
 ### Kitchen Session
 When session type is `kitchen`, `UnifiedAgent` runs in kitchen mode. It emits `kitchen_step` events containing guidance for the current step along with `next_step_prompt`. `agent_state` events carry `current_step` index, stored in `chat_sessions.agent_state`. When all steps are done it emits `cooking_complete`.

@@ -111,9 +111,17 @@ class Step(BaseModel):
 
 
 class RecipeSteps(BaseModel):
-    """List of cooking steps"""
+    """List of cooking steps and the equipment they require"""
 
     steps: List[Step] = Field(description="Ordered list of cooking steps")
+    equipment: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Tools, vessels, and glassware needed, derived from the steps. "
+            "Short names only (e.g. 'Cocktail shaker', 'Dutch oven'). "
+            "Skip universal basics like bowls, knives, and spoons. Empty list if nothing special is needed."
+        ),
+    )
 
 
 class RecipeNutrition(BaseModel):

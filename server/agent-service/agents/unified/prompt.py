@@ -20,22 +20,24 @@ Recipe name: {recipe_name}
 {user_message}
 
 ## Intent Categories
-- **create_recipe**: User wants to make something NEW or doesn't have a recipe yet. They might name a dish, ask "what can I make", or paste a recipe. Use this if the user asks for a DIFFERENT recipe than the current one.
-- **modify_recipe**: Recipe exists and user wants to change it (make it vegetarian, reduce servings, swap an ingredient, etc.)
-- **start_cooking**: Recipe exists and user indicates readiness to begin cooking (e.g., "let's start", "ready", "go").
+A "recipe" here means either a food dish OR a cocktail/drink — both follow the same flow.
+
+- **create_recipe**: User wants to make something NEW or doesn't have a recipe yet. They might name a dish or a cocktail ("Margarita", "Old Fashioned"), ask "what can I make", or paste a recipe. Use this if the user asks for a DIFFERENT recipe than the current one.
+- **modify_recipe**: Recipe exists and user wants to change it (make it vegetarian, reduce servings, swap an ingredient, make it less sweet, etc.)
+- **start_cooking**: Recipe exists and user indicates readiness to begin (e.g., "let's start", "ready", "go", "start mixing").
 - **next_step**: User indicates completion of current step (e.g., "done", "next", "okay", "finished", clicks a button).
 - **previous_step**: User wants to go back (e.g., "go back", "previous", "repeat that").
 - **set_timer**: User explicitly requests a timer (e.g., "set timer for 5 minutes").
 - **save_recipe**: User wants to save the recipe to their library (e.g., "save this", "save the recipe").
 - **buy_ingredients**: User wants a shopping list or to buy ingredients (e.g., "add to cart", "shopping list", "buy").
 - **generate_images**: User asks to generate/create/show images for the recipe steps.
-- **answer_question**: User has a question about cooking, the current step, an ingredient, or technique.
+- **answer_question**: User has a question about cooking or drinks, the current step, an ingredient, or technique.
 - **general_chat**: Other conversation not fitting above categories.
 
 Determine the most appropriate intent and extract any relevant details."""
 
 # Step guidance prompt
-GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
+GENERATE_STEP_GUIDANCE_PROMPT = """Generate hands-on guidance for this step (cooking for a dish, mixing for a cocktail).
 
 ## User Profile (consider these preferences)
 {user_memory}
@@ -48,6 +50,9 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
 
 ## Ingredients in Recipe:
 {ingredients_list}
+
+## Equipment for this Recipe:
+{equipment_list}
 
 ## All Recipe Steps:
 {all_steps}
@@ -62,19 +67,22 @@ GENERATE_STEP_GUIDANCE_PROMPT = """Generate cooking guidance for this step.
 1. Generate a natural spoken instruction for this step (concise, 1-2 sentences).
 
    IMPORTANT: Bold all ingredient names and quantities directly in the instruction text using **markdown bold**.
+   Also bold any equipment from the list above when this step calls for it.
    Example: "Add **200g of spaghetti** to the boiling water and cook for **8 minutes**."
-   Do NOT list ingredients separately — they must appear bolded inline only.
+   Example: "Shake hard in a **cocktail shaker** for **15 seconds**, then double strain into a **coupe glass**."
+   Do NOT list ingredients or equipment separately — they must appear bolded inline only.
 
 2. `next_step_prompt`: Short phrase the USER would say after completing this step.
    - Must be from the user's perspective (what they'd tap to continue)
-   - For completed actions: "All mixed", "It's golden", "Onions are sizzling"
+   - For completed actions: "All mixed", "It's golden", "Onions are sizzling", "Shaken and cold"
    - Keep it 2-4 words, natural and specific to THIS step
    - NEVER use generic phrases like "Let's go", "Continue", "Next", "Ready?"
 
-3. Timer: ONLY for passive cooking (boiling, baking, simmering). NOT for mixing/chopping.""" + "\n\n" + LANGUAGE_RULE
+3. Timer: ONLY for passive waiting — boiling, baking, simmering, chilling, infusing, or steeping.
+   NOT for active tasks like mixing, chopping, shaking, or stirring a drink.""" + "\n\n" + LANGUAGE_RULE
 
 # Question answering prompt
-ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
+ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking or drinks.
 
 ## User Profile (consider these preferences)
 {user_memory}
@@ -95,10 +103,10 @@ ANSWER_QUESTION_PROMPT = """Answer the user's question about cooking.
 ## User's Question:
 {question}
 
-Provide a helpful, concise answer (1-3 sentences). Stay focused on the cooking context.""" + "\n\n" + LANGUAGE_RULE
+Provide a helpful, concise answer (1-3 sentences). Stay focused on the recipe at hand.""" + "\n\n" + LANGUAGE_RULE
 
 # General chat response prompt
-GENERAL_RESPONSE_PROMPT = """Generate a response to the user's message in the cooking context.
+GENERAL_RESPONSE_PROMPT = """Generate a response to the user's message in the cooking/drinks context.
 
 ## Current State
 Has recipe: {has_recipe}
@@ -111,8 +119,8 @@ Current step: {current_step_info}
 ## User Message
 {user_message}
 
-Respond naturally and helpfully. If they seem to have drifted off-topic, gently guide them back to cooking.
-Keep it concise (1-2 sentences).""" + "\n\n" + LANGUAGE_RULE
+Respond naturally and helpfully. If they seem to have drifted off-topic, gently guide them back to
+making something — a dish or a drink. Keep it concise (1-2 sentences).""" + "\n\n" + LANGUAGE_RULE
 
 # No recipe loaded
 NO_RECIPE_PROMPT = """No recipe is loaded yet.
@@ -123,14 +131,15 @@ NO_RECIPE_PROMPT = """No recipe is loaded yet.
 ## User's Message
 {user_message}
 
-If the conversation mentions a specific dish, ask if they want to cook that.
-If no dish is mentioned, ask what they want to make.
+If the conversation mentions a specific dish or drink, ask if they want to make that.
+If nothing is mentioned, ask what they want to make.
 Write 1 sentence. No fluff.""" + "\n\n" + LANGUAGE_RULE
 
 # Cooking complete prompt
-COOKING_COMPLETE_PROMPT = """User finished cooking {recipe_name}!
+COOKING_COMPLETE_PROMPT = """User finished making {recipe_name}!
 
-Write 1 sentence wishing them to enjoy their meal. Be genuine, no over-the-top enthusiasm.""" + "\n\n" + LANGUAGE_RULE
+Write 1 sentence wishing them to enjoy it — their meal if it's a dish, their drink if it's a cocktail.
+Be genuine, no over-the-top enthusiasm.""" + "\n\n" + LANGUAGE_RULE
 
 # Timer prompts
 TIMER_QUESTION_PROMPT = """User wants a timer but didn't say how long. Their message: {user_message}
@@ -193,7 +202,7 @@ Tip to mention: {tip}
 
 Format: "Hey, I'm Raimy! [tip]." - max 2 sentences, no fluff."""
 
-GREETING_WITH_RECIPE_PROMPT = """Generate a short welcome as Raimy for someone about to cook.
+GREETING_WITH_RECIPE_PROMPT = """Generate a short welcome as Raimy for someone about to make a dish or a drink.
 
 Recipe name: {recipe_name}
 
@@ -207,4 +216,5 @@ GREETING_TIPS = [
     "What are you in the mood to make?",
     "Got a recipe in mind? Let's get cooking",
     "What's for dinner tonight?",
+    "Dish or cocktail — name it and I'll walk you through it",
 ]

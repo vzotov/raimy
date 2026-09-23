@@ -78,6 +78,12 @@ export type RecipeNutritionUpdate = {
   nutrition: RecipeNutrition;
 };
 
+export type RecipeEquipmentUpdate = {
+  type: 'recipe_update';
+  action: 'set_equipment';
+  equipment: string[];
+};
+
 export type RecipeStepImageUpdate = {
   type: 'recipe_update';
   action: 'set_step_image';
@@ -90,6 +96,7 @@ export type RecipeUpdateContent =
   | RecipeIngredientsUpdate
   | RecipeStepsUpdate
   | RecipeNutritionUpdate
+  | RecipeEquipmentUpdate
   | RecipeStepImageUpdate;
 
 export type TimerContent = {

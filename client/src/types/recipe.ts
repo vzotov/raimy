@@ -35,6 +35,7 @@ export interface Recipe {
   servings?: number;
   tags?: string[];
   nutrition?: RecipeNutrition; // Nutrition data for full recipe
+  equipment?: string[]; // Tools/glassware needed, derived from the steps
   user_id?: string; // Populated after save
   chat_session_id?: string;
   share_token?: string; // Set when owner enables public sharing

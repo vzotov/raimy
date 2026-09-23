@@ -44,6 +44,7 @@ class RecipeModel(BaseModel):
     servings: Optional[int] = None
     tags: Optional[List[str]] = None
     nutrition: Optional[Dict[str, int]] = None  # {"calories": 850, "carbs": 65, "fats": 32, "proteins": 45}
+    equipment: Optional[List[str]] = None  # ["Cocktail shaker", "Jigger", "Coupe glass"]
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None
@@ -148,6 +149,7 @@ class DatabaseService:
                         "servings": recipe.servings,
                         "tags": recipe.tags,
                         "nutrition": recipe.nutrition,
+                        "equipment": recipe.equipment,
                         "user_id": recipe.user_id,
                         "created_at": recipe.created_at,
                         "updated_at": recipe.updated_at,
@@ -186,6 +188,7 @@ class DatabaseService:
                         "servings": recipe.servings,
                         "tags": recipe.tags,
                         "nutrition": recipe.nutrition,
+                        "equipment": recipe.equipment,
                         "user_id": recipe.user_id,
                         "created_at": recipe.created_at,
                         "updated_at": recipe.updated_at,
@@ -221,6 +224,7 @@ class DatabaseService:
                     "servings": recipe.servings,
                     "tags": recipe.tags,
                     "nutrition": recipe.nutrition,
+                    "equipment": recipe.equipment,
                     "user_id": recipe.user_id,
                     "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
                     "instacart_link_url": recipe.instacart_link_url,
@@ -665,6 +669,7 @@ class DatabaseService:
                     "servings": recipe.servings,
                     "tags": recipe.tags,
                     "nutrition": recipe.nutrition,
+                    "equipment": recipe.equipment,
                     "user_id": recipe.user_id,
                     "chat_session_id": str(recipe.chat_session_id) if recipe.chat_session_id else None,
                     "share_token": recipe.share_token,
@@ -785,6 +790,10 @@ class DatabaseService:
                     # Set nutrition data
                     recipe["nutrition"] = update_data.get("nutrition", {})
 
+                elif action == "set_equipment":
+                    # Replace entire equipment array
+                    recipe["equipment"] = update_data.get("equipment", [])
+
                 session.recipe = recipe
                 flag_modified(session, "recipe")
                 session.recipe_changed = True
@@ -869,6 +878,7 @@ class DatabaseService:
                     db_recipe.servings = recipe_json.get("servings", 4)
                     db_recipe.tags = recipe_json.get("tags", [])
                     db_recipe.nutrition = recipe_json.get("nutrition")
+                    db_recipe.equipment = recipe_json.get("equipment")
 
                     flag_modified(db_recipe, "ingredients")
                     flag_modified(db_recipe, "steps")
@@ -890,6 +900,7 @@ class DatabaseService:
                         servings=recipe_json.get("servings", 4),
                         tags=recipe_json.get("tags", []),
                         nutrition=recipe_json.get("nutrition"),
+                        equipment=recipe_json.get("equipment"),
                         user_id=owner_email,
                         chat_session_id=session_id
                     )
@@ -926,6 +937,7 @@ class DatabaseService:
                         "servings": db_recipe.servings,
                         "tags": db_recipe.tags or [],
                         "nutrition": db_recipe.nutrition,
+                        "equipment": db_recipe.equipment,
                         "user_id": db_recipe.user_id,
                         "chat_session_id": str(db_recipe.chat_session_id) if db_recipe.chat_session_id else None,
                         "created_at": db_recipe.created_at.isoformat() if db_recipe.created_at else None,

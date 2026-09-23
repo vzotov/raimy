@@ -53,7 +53,7 @@ The main orchestrator. Receives every user message and routes to the right handl
 | `steps` | `List[{instruction, duration, image_description, image_url, group}]` | Step list ready |
 | `equipment` | `List[str]` | Equipment list ready (emitted with `steps`) |
 | `nutrition` | `{calories, carbs, fats, proteins}` | Nutrition data ready |
-| `session_name` | `str` | Session should be renamed |
+| `session_name` | `str` | Session should be renamed (see Session naming below) |
 | `recipe_created` | Full recipe dict | Complete recipe assembled |
 | `selector` | `{message: str, options: [{text, description}], message_id: str}` | Clickable option buttons |
 | `kitchen_step` | `{content: str, step_index: int, total_steps: int, next_step_prompt: str, image_url?: str}` | Step guidance |
@@ -65,9 +65,24 @@ The main orchestrator. Receives every user message and routes to the right handl
 
 ### Key schemas (`agents/unified/schemas.py`)
 
-- `UnifiedIntentSchema` — intent classification result
+- `UnifiedIntentSchema` — intent classification result, plus an optional `session_name` (see below)
 - `RecipeReadySchema` — "Start cooking / Explore recipe" offer after recipe creation
 - `UnifiedStepGuidanceSchema` — kitchen step guidance with next_step_prompt
+
+### Session naming
+
+Recipe sessions are named after the recipe by `RecipeCreatorAgent`. Conversations that never produce
+a recipe are named by the unified agent instead, so they don't sit at "Untitled Session" forever.
+
+`UnifiedIntentSchema` carries an optional `session_name`, filled during the intent-classification
+call that already runs every turn — so naming costs **no extra LLM request**. The model is given the
+current title and only proposes a name once the conversation has a real topic (silent on "hi" or
+"thanks"). Because it re-evaluates each turn, a session that isn't named immediately gets named as
+soon as a topic emerges.
+
+`run_streaming` emits the event only when the title is still `Untitled Session` **and** the intent is
+not `create_recipe`/`modify_recipe` — so a user's manual rename is never overwritten, and recipe
+flows keep naming priority.
 
 ---
 

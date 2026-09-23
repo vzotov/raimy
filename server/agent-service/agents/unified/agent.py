@@ -235,8 +235,10 @@ class UnifiedAgent(BaseAgent):
             has_recipe=has_recipe,
             current_step_info=current_step_info,
             recipe_name=recipe_name,
+            session_title=session_data.get("session_name") or "Untitled Session",
             message_history=message_history,
             user_message=message,
+            language=session_data.get("user_language", "English"),
         )
 
         llm_with_output = self.llm.with_structured_output(UnifiedIntentSchema)
@@ -673,6 +675,17 @@ class UnifiedAgent(BaseAgent):
 
         intent_result = await self._analyze_intent(message, langchain_messages, session_data)
         intent = intent_result.intent
+
+        # Name conversations that never produce a recipe. Recipe flows name the session
+        # after the recipe itself, so leave those to RecipeCreatorAgent.
+        current_title = (session_data.get("session_name") or "").strip()
+        if (
+            intent_result.session_name
+            and current_title in ("", "Untitled Session")
+            and intent not in ("create_recipe", "modify_recipe")
+        ):
+            logger.info(f"📝 Naming untitled session: {intent_result.session_name}")
+            yield UnifiedEvent(type="session_name", data=intent_result.session_name)
 
         if intent == "modify_recipe" and session_data.get("recipe"):
             modification = (intent_result.modification_request or "").strip()

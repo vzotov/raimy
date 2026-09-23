@@ -55,6 +55,16 @@ class UnifiedIntentSchema(BaseModel):
         default=None,
         description="Timer label if intent=set_timer (e.g., 'boil pasta')",
     )
+    session_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "A short 2-5 word title for this conversation, in the user's language. "
+            "Set this ONLY when the current session title is 'Untitled Session' AND the "
+            "conversation now has a clear topic worth naming (e.g. 'Sharpening kitchen knives', "
+            "'Wine pairing for steak'). Leave null for greetings, thanks, or small talk with no "
+            "topic yet, and always leave null when the session already has a real title."
+        ),
+    )
 
 
 class EditSuggestionOption(BaseModel):

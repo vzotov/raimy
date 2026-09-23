@@ -12,6 +12,7 @@ ANALYZE_INTENT_PROMPT = """Analyze the user's message to determine their intent.
 Has recipe: {has_recipe}
 Current cooking step: {current_step_info}
 Recipe name: {recipe_name}
+Session title: {session_title}
 
 ## Message History
 {message_history}
@@ -34,7 +35,13 @@ A "recipe" here means either a food dish OR a cocktail/drink — both follow the
 - **answer_question**: User has a question about cooking or drinks, the current step, an ingredient, or technique.
 - **general_chat**: Other conversation not fitting above categories.
 
-Determine the most appropriate intent and extract any relevant details."""
+Determine the most appropriate intent and extract any relevant details.
+
+## Naming the session
+If the session title above is "Untitled Session" and this conversation now has a clear topic,
+also set `session_name` to a short 2-5 word title for it (in {language}). Wait until there is
+something worth naming — leave it null for "hi", "thanks", or small talk. If the session already
+has a real title, always leave `session_name` null; never rename it."""
 
 # Step guidance prompt
 GENERATE_STEP_GUIDANCE_PROMPT = """Generate hands-on guidance for this step (cooking for a dish, mixing for a cocktail).
